@@ -13,3 +13,4 @@ Decisões tomadas pelo orquestrador com autonomia dada pelo usuário em 2026-11-
 8. **Paralelismo:** a regra "nunca 2 subagents no mesmo pacote" foi relaxada para `apps/web` quando os cards têm pastas disjuntas e as dependências já estão no main.
 9. **Flechas** no catálogo como denominador (L/350 → 350). **Seções** dos perfis com cantos arredondados (raio da linha média = 2t).
 10. **Worktrees** dos agentes em `~/Developer/chalecad-wt/<card>`, criados pelo orquestrador.
+11. **Índice de aço:** o motor conta peça por peça o que modela. O chalé 6,5 x 8,5 da spec, com montantes a 60 cm e cobertura em caibros (sem tesouras nem forro), dá cerca de 16 kg/m²; com 40 cm, cerca de 19 kg/m². A faixa 21,9–24,7 kg/m² da literatura vale para residências com tesouras e forro estruturado. Mantivemos a faixa como alerta (não ajustamos o motor para "caber"). Caibros seguem a modulação dos montantes (estrutura alinhada).
