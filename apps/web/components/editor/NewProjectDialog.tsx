@@ -1,38 +1,122 @@
 'use client';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
-import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, cn } from '@chalecad/ui';
-import { buildModel, type Project, type UF } from '@chalecad/engine';
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, cn } from '@chalecad/ui';
+import { buildModel, type Project, type Site, type UF } from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
-import { aFramePitchDeg, degToPct, round } from '@/lib/project/geometry';
+import { aFramePitchDeg, degToPct, pctToDeg, round } from '@/lib/project/geometry';
 import { fmt } from '@/lib/project/format';
-import { createProject, DEFAULT_PARAMS, TEMPLATE_LABELS, type TemplateKind, type TemplateParams } from '@/lib/project/templates';
-import { Field, SelectField, SliderField, SwitchField } from './properties/fields';
+import { makeSlopedSite } from '@/lib/project/terrain';
+import { createProject, DEFAULT_PARAMS, TEMPLATE_LABELS, TYPOLOGY_DESCRIPTIONS, type TemplateKind, type TemplateParams } from '@/lib/project/templates';
+import { DownhillPicker } from './properties/DownhillPicker';
+import { Field, Notice, SelectField, Segmented, SliderField, SwitchField } from './properties/fields';
 import { UF_OPTIONS } from './properties/SystemSections';
-import { AFrameIllustration, CombinedIllustration, FlatRoofIllustration, GableIllustration, GambrelIllustration, ShedIllustration } from './TypologyIllustrations';
+import { LPlanIllustration, TPlanIllustration, TerrainIllustration, TYPOLOGY_ART } from './TypologyIllustrations';
 
-interface KindCard {
-  kind: TemplateKind | 'shed' | 'flat_roof' | 'gambrel' | 'combined';
-  title: string;
-  description: string;
-  art: () => React.ReactNode;
-  soon?: boolean;
-}
+const KINDS = Object.keys(TEMPLATE_LABELS) as TemplateKind[];
 
-const CARDS: KindCard[] = [
-  { kind: 'gable_mezzanine', title: TEMPLATE_LABELS.gable_mezzanine, description: 'Caixa retangular com telhado de duas águas e pavimento superior.', art: GableIllustration },
-  { kind: 'a_frame', title: TEMPLATE_LABELS.a_frame, description: 'Águas até o chão, empena frontal envidraçada e mezanino no fundo.', art: AFrameIllustration },
-  { kind: 'shed', title: 'Meia-água', description: 'Telhado de uma queda só.', art: ShedIllustration, soon: true },
-  { kind: 'flat_roof', title: 'Telhado plano', description: 'Platibanda e telha de baixa inclinação.', art: FlatRoofIllustration, soon: true },
-  { kind: 'gambrel', title: 'Gambrel (celeiro)', description: 'Duas inclinações por água.', art: GambrelIllustration, soon: true },
-  { kind: 'combined', title: 'Módulos em L e T', description: 'Dois volumes combinados.', art: CombinedIllustration, soon: true },
-];
+const STEPS = ['Tipologia', 'Dimensões', 'Terreno', 'Nome e local'] as const;
 
-const STEPS = ['Tipologia', 'Dimensões', 'Nome e local'] as const;
+const NAME_PREFIX: Record<TemplateKind, string> = {
+  gable_mezzanine: 'Chalé',
+  a_frame: 'A-frame',
+  shed: 'Meia-água',
+  flat_roof: 'Casa plana',
+  gambrel: 'Celeiro',
+  combined: 'Chalé em L',
+};
 
 function autoName(kind: TemplateKind, p: TemplateParams) {
   const f = (n: number) => String(round(n, 2)).replace('.', ',');
-  return `${kind === 'a_frame' ? 'A-frame' : 'Chalé'} ${f(p.width)} × ${f(p.depth)}`;
+  const prefix = kind === 'combined' ? `Chalé em ${p.shape}` : NAME_PREFIX[kind];
+  return `${prefix} ${f(p.width)} × ${f(p.depth)}`;
+}
+
+const HIGH_SIDES = [
+  { value: 'front', label: 'Frente' },
+  { value: 'back', label: 'Fundos' },
+  { value: 'left', label: 'Esq.' },
+  { value: 'right', label: 'Dir.' },
+] as const;
+
+/** Campos de dimensões específicos de cada tipologia. */
+function KindFields({ kind, params, patch }: { kind: TemplateKind; params: TemplateParams; patch: (p: Partial<TemplateParams>) => void }) {
+  const wallHeight = <SliderField label="Pé-direito" value={params.wallHeight} min={2.2} max={6} unit="m" onChange={(v) => patch({ wallHeight: v })} />;
+  switch (kind) {
+    case 'gable_mezzanine':
+      return (
+        <>
+          {wallHeight}
+          <SliderField label="Inclinação do telhado" value={params.roofPitchDeg} min={5} max={60} step={1} decimals={0} unit="°" hint={`= ${fmt(degToPct(params.roofPitchDeg), 0)}%`} onChange={(v) => patch({ roofPitchDeg: v })} />
+        </>
+      );
+    case 'a_frame': {
+      const pitch = aFramePitchDeg(params.width, params.ridgeHeight);
+      return (
+        <>
+          <SliderField label="Altura da cumeeira" value={params.ridgeHeight} min={3} max={12} unit="m" onChange={(v) => patch({ ridgeHeight: v })} />
+          <p className="-mt-2 text-[11px] text-stone-500 tabular-nums">
+            Inclinação das águas: {fmt(pitch, 0)}° (= {fmt(degToPct(pitch), 0)}%), definida por largura e cumeeira.
+          </p>
+        </>
+      );
+    }
+    case 'shed': {
+      const run = params.highSide === 'front' || params.highSide === 'back' ? params.depth : params.width;
+      const pitch = (Math.atan2(Math.max(0, params.highHeight - params.lowHeight), run) * 180) / Math.PI;
+      return (
+        <>
+          <Segmented<'front' | 'back' | 'left' | 'right'> label="Lado alto" value={params.highSide} options={[...HIGH_SIDES]} onChange={(v) => patch({ highSide: v })} />
+          <SliderField label="Altura do lado baixo" value={params.lowHeight} min={2.2} max={6} unit="m" onChange={(v) => patch({ lowHeight: v, highHeight: Math.max(params.highHeight, v) })} />
+          <SliderField label="Altura do lado alto" value={params.highHeight} min={2.4} max={9} unit="m" onChange={(v) => patch({ highHeight: v, lowHeight: Math.min(params.lowHeight, v) })} />
+          <p className="-mt-2 text-[11px] text-stone-500 tabular-nums">
+            Inclinação do telhado: {fmt(pitch, 1)}° (= {fmt(degToPct(pitch), 0)}%).
+          </p>
+        </>
+      );
+    }
+    case 'flat_roof':
+      return (
+        <>
+          {wallHeight}
+          <SliderField label="Platibanda" value={params.parapetHeight} min={0} max={1.5} step={0.05} unit="m" hint="0 = sem" onChange={(v) => patch({ parapetHeight: v })} />
+          <SliderField label="Caimento do telhado" value={params.slopePct} min={2} max={15} step={0.5} decimals={1} unit="%" hint={`≈ ${fmt(pctToDeg(params.slopePct), 1)}°`} onChange={(v) => patch({ slopePct: v })} />
+        </>
+      );
+    case 'gambrel':
+      return (
+        <>
+          {wallHeight}
+          <SliderField label="Inclinação inferior" value={params.lowerPitchDeg} min={30} max={80} step={1} decimals={0} unit="°" onChange={(v) => patch({ lowerPitchDeg: v })} />
+          <SliderField label="Inclinação superior" value={params.upperPitchDeg} min={5} max={45} step={1} decimals={0} unit="°" onChange={(v) => patch({ upperPitchDeg: v })} />
+          <SliderField label="Posição da quebra" value={params.breakRatio} min={0.2} max={0.8} step={0.01} scale={100} decimals={0} unit="%" hint="da meia-largura" onChange={(v) => patch({ breakRatio: v })} />
+        </>
+      );
+    case 'combined': {
+      const maxW = Math.max(2, Math.min(20, params.width, params.depth));
+      const ww = Math.min(params.wingWidth, maxW);
+      return (
+        <>
+          <Segmented<'L' | 'T'>
+            label="Forma"
+            value={params.shape}
+            options={[
+              { value: 'L', label: 'Em L' },
+              { value: 'T', label: 'Em T' },
+            ]}
+            onChange={(v) => patch({ shape: v })}
+          />
+          {wallHeight}
+          <SliderField label="Inclinação do telhado" value={params.roofPitchDeg} min={5} max={60} step={1} decimals={0} unit="°" hint={`= ${fmt(degToPct(params.roofPitchDeg), 0)}%`} onChange={(v) => patch({ roofPitchDeg: v })} />
+          <SliderField label="Largura da ala" value={ww} min={2} max={maxW} unit="m" hint="≤ profundidade do corpo" onChange={(v) => patch({ wingWidth: v })} />
+          <SliderField label="Profundidade da ala" value={params.wingDepth} min={2} max={20} unit="m" onChange={(v) => patch({ wingDepth: v })} />
+          {params.shape === 'L' ? (
+            <SliderField label="Posição da ala" value={Math.min(params.wingOffset, Math.max(0, params.width - ww))} min={0} max={Math.max(0.1, params.width - ww)} unit="m" disabled={params.width - ww <= 0} hint="a partir da esquerda" onChange={(v) => patch({ wingOffset: v })} />
+          ) : null}
+        </>
+      );
+    }
+  }
 }
 
 export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = false }: { open: boolean; onOpenChange: (open: boolean) => void; onCreate: (project: Project) => void; firstAccess?: boolean }) {
@@ -60,19 +144,22 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
 
   const pick = (k: TemplateKind) => {
     setKind(k);
-    setParams({ ...DEFAULT_PARAMS[k], name: nameTouched ? params.name : DEFAULT_PARAMS[k].name });
+    setParams({ ...DEFAULT_PARAMS[k], name: nameTouched ? params.name : DEFAULT_PARAMS[k].name, site: params.site });
   };
 
   // Pré-visualização numérica: usa o próprio motor (buildModel), então bate com o projeto criado.
   const preview = useMemo(() => {
-    const pitch = kind === 'gable_mezzanine' ? params.roofPitchDeg : aFramePitchDeg(params.width, params.ridgeHeight);
     try {
       const m = buildModel(createProject(kind, params), getCatalog());
-      return { footprint: m.footprintArea, built: m.builtArea, ridge: m.ridgeHeight, pitch };
+      return { footprint: m.footprintArea, built: m.builtArea, ridge: m.ridgeHeight };
     } catch {
-      return { footprint: params.width * params.depth, built: params.width * params.depth, ridge: 0, pitch };
+      return { footprint: params.width * params.depth, built: params.width * params.depth, ridge: 0 };
     }
   }, [kind, params]);
+
+  const Art = TYPOLOGY_ART[kind];
+  const sloped = params.site?.type === 'sloped' ? params.site : null;
+  const setSite = (site: Site | undefined) => setParams((cur) => ({ ...cur, site }));
 
   const create = () => {
     const name = params.name.trim() || autoName(kind, params);
@@ -112,38 +199,30 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
           </ol>
         </DialogHeader>
 
-        <div className="min-h-[19rem] px-6">
+        <div className="max-h-[62vh] min-h-[19rem] overflow-y-auto px-6 pb-1">
           {step === 0 ? (
             <div role="radiogroup" aria-label="Tipologia" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {CARDS.map((c) => {
-                const selected = !c.soon && c.kind === kind;
+              {KINDS.map((k) => {
+                const Card = TYPOLOGY_ART[k];
+                const selected = k === kind;
                 return (
                   <button
-                    key={c.kind}
+                    key={k}
                     type="button"
                     role="radio"
                     aria-checked={selected}
-                    disabled={c.soon}
-                    onClick={() => !c.soon && pick(c.kind as TemplateKind)}
-                    onDoubleClick={() => !c.soon && setStep(1)}
+                    onClick={() => pick(k)}
+                    onDoubleClick={() => setStep(1)}
                     className={cn(
                       'group relative flex flex-col rounded-xl border bg-white p-3 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
                       selected ? 'border-accent ring-2 ring-accent/30' : 'border-border hover:border-stone-300 hover:shadow-sm',
-                      c.soon && 'cursor-not-allowed opacity-60',
                     )}
                   >
                     <div className="mb-2 aspect-[3/2] rounded-lg bg-surface-sunken p-2 text-stone-700">
-                      <c.art />
+                      <Card />
                     </div>
-                    <span className="flex items-center gap-1.5 text-sm font-semibold text-stone-900">
-                      {c.title}
-                    </span>
-                    <span className="mt-0.5 text-xs leading-snug text-stone-500">{c.description}</span>
-                    {c.soon ? (
-                      <Badge variant="neutral" className="absolute top-2 right-2 bg-white/90 whitespace-nowrap">
-                        em breve
-                      </Badge>
-                    ) : null}
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-stone-900">{TEMPLATE_LABELS[k]}</span>
+                    <span className="mt-0.5 text-xs leading-snug text-stone-500">{TYPOLOGY_DESCRIPTIONS[k]}</span>
                     {selected ? (
                       <span className="absolute top-2 right-2 grid size-5 place-items-center rounded-full bg-accent text-white">
                         <Check className="size-3" />
@@ -158,25 +237,15 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
           {step === 1 ? (
             <div className="grid gap-6 sm:grid-cols-[1fr_14rem]">
               <div className="space-y-4">
-                <SliderField label="Largura" value={params.width} min={2} max={30} unit="m" hint="eixo a eixo" onChange={(v) => patch({ width: v })} />
-                <SliderField label="Profundidade" value={params.depth} min={2} max={40} unit="m" hint="eixo a eixo" onChange={(v) => patch({ depth: v })} />
-                {kind === 'gable_mezzanine' ? (
-                  <>
-                    <SliderField label="Pé-direito" value={params.wallHeight} min={2.2} max={6} unit="m" onChange={(v) => patch({ wallHeight: v })} />
-                    <SliderField label="Inclinação do telhado" value={params.roofPitchDeg} min={5} max={60} step={1} decimals={0} unit="°" hint={`= ${fmt(degToPct(params.roofPitchDeg), 0)}%`} onChange={(v) => patch({ roofPitchDeg: v })} />
-                  </>
-                ) : (
-                  <>
-                    <SliderField label="Altura da cumeeira" value={params.ridgeHeight} min={3} max={12} unit="m" onChange={(v) => patch({ ridgeHeight: v })} />
-                    <p className="-mt-2 text-[11px] text-stone-500 tabular-nums">
-                      Inclinação das águas: {fmt(preview.pitch, 0)}° (= {fmt(degToPct(preview.pitch), 0)}%), definida por largura e cumeeira.
-                    </p>
-                  </>
-                )}
-                <SwitchField label="Mezanino" description="Pavimento superior no fundo, com escada" checked={params.mezzanine} onChange={(v) => patch({ mezzanine: v })} />
+                <SliderField label={kind === 'combined' ? 'Largura do corpo principal' : 'Largura'} value={params.width} min={2} max={30} unit="m" hint="eixo a eixo" onChange={(v) => patch({ width: v })} />
+                <SliderField label={kind === 'combined' ? 'Profundidade do corpo principal' : 'Profundidade'} value={params.depth} min={2} max={40} unit="m" hint="eixo a eixo" onChange={(v) => patch({ depth: v })} />
+                <KindFields kind={kind} params={params} patch={patch} />
+                {kind === 'gable_mezzanine' || kind === 'a_frame' ? (
+                  <SwitchField label="Mezanino" description="Pavimento superior no fundo, com escada" checked={params.mezzanine} onChange={(v) => patch({ mezzanine: v })} />
+                ) : null}
               </div>
               <aside aria-label="Resumo" className="space-y-3 self-start rounded-xl border border-border bg-surface-muted p-4">
-                <div className="aspect-[3/2] text-stone-700">{kind === 'a_frame' ? <AFrameIllustration /> : <GableIllustration />}</div>
+                <div className="aspect-[3/2] text-stone-700">{kind === 'combined' ? (params.shape === 'T' ? <TPlanIllustration /> : <LPlanIllustration />) : <Art />}</div>
                 <dl className="space-y-2 text-sm">
                   <div>
                     <dt className="text-xs text-stone-500">Área de implantação</dt>
@@ -196,6 +265,40 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
           ) : null}
 
           {step === 2 ? (
+            <div className="grid gap-6 sm:grid-cols-[1fr_14rem]">
+              <div className="space-y-4">
+                <Segmented<'flat' | 'sloped'>
+                  label="Terreno"
+                  value={sloped ? 'sloped' : 'flat'}
+                  options={[
+                    { value: 'flat', label: 'Plano' },
+                    { value: 'sloped', label: 'Inclinado' },
+                  ]}
+                  onChange={(v) => setSite(v === 'flat' ? undefined : (sloped ?? makeSlopedSite()))}
+                />
+                {sloped ? (
+                  <>
+                    <SliderField label="Inclinação" value={sloped.slopePct} min={0} max={100} step={1} decimals={0} unit="%" hint={`≈ ${fmt(pctToDeg(sloped.slopePct), 1)}°`} onChange={(v) => setSite({ ...sloped, slopePct: v })} />
+                    <DownhillPicker value={sloped.downhillAzimuthDeg} onChange={(v) => setSite({ ...sloped, downhillAzimuthDeg: v })} />
+                  </>
+                ) : (
+                  <Notice>Passo opcional. Com terreno plano não há corte nem aterro. Você pode mudar isso depois, em “Terreno”.</Notice>
+                )}
+              </div>
+              <aside aria-label="Terreno" className="space-y-3 self-start rounded-xl border border-border bg-surface-muted p-4">
+                <div className="aspect-[3/2] text-stone-700">
+                  <TerrainIllustration sloped={!!sloped} />
+                </div>
+                <p className="text-xs leading-snug text-stone-600">
+                  {sloped
+                    ? `O motor calcula o platô, o corte e o aterro compensados, os taludes e o bota-fora. Margens e taludes começam com valores usuais e podem ser ajustados depois.`
+                    : 'Casa assentada direto no radier, sem movimento de terra.'}
+                </p>
+              </aside>
+            </div>
+          ) : null}
+
+          {step === 3 ? (
             <div className="mx-auto max-w-sm space-y-5 pt-2">
               <Field label="Nome do projeto" htmlFor={nameId}>
                 <input
@@ -212,7 +315,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
               </Field>
               <SelectField label="Estado (UF)" value={params.region} options={UF_OPTIONS} onChange={(uf: UF) => setParams({ ...params, region: uf })} hint="define a base de preços" />
               <p className="rounded-md border border-border bg-surface-muted px-3 py-2 text-xs text-stone-600">
-                {TEMPLATE_LABELS[kind]} · {fmt(params.width, 1)} × {fmt(params.depth, 1)} m · {fmt(preview.built, 1)} m² construídos
+                {TEMPLATE_LABELS[kind]} · {fmt(params.width, 1)} × {fmt(params.depth, 1)} m · {fmt(preview.built, 1)} m² construídos{sloped ? ` · terreno ${fmt(sloped.slopePct, 0)}%` : ''}
               </p>
             </div>
           ) : null}

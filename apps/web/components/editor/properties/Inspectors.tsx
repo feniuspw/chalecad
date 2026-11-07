@@ -1,9 +1,8 @@
 'use client';
-import type { ReactNode } from 'react';
 import { useMemo } from 'react';
-import { ArrowLeft, DoorOpen, MousePointerClick, Plus, Trash2 } from 'lucide-react';
+import { DoorOpen, MousePointerClick, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge, Button, Kbd } from '@chalecad/ui';
+import { Badge, Button } from '@chalecad/ui';
 import type { Project } from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
 import {
@@ -16,61 +15,12 @@ import {
 import { fmt } from '@/lib/project/format';
 import { hostLength, wallLength } from '@/lib/project/geometry';
 import { hostLabel, OPENING_LABELS, openingLabel, STAIR_LABELS } from '@/lib/project/labels';
-import { deleteSelection } from '@/lib/project/selection';
 import { useEditor, useSelectedObject, type SelectedObject } from '@/lib/store/editor';
 import { Notice, SelectField, SliderField, SwitchField, type Option } from './fields';
+import { Body, Header, Row, useDelete } from './inspector-parts';
+import { ExtraInspector } from './ExtraInspector';
 
 type Obj<K extends SelectedObject['kind']> = Extract<SelectedObject, { kind: K }>;
-
-function Header({ title, subtitle, onDelete }: { title: string; subtitle?: string; onDelete?: () => void }) {
-  const select = useEditor((s) => s.select);
-  return (
-    <div className="sticky top-0 z-10 border-b border-border bg-white px-3 py-2.5">
-      <button
-        type="button"
-        onClick={() => select(null)}
-        className="mb-1.5 flex items-center gap-1 rounded text-[11px] font-medium text-stone-500 outline-none hover:text-stone-900 focus-visible:ring-2 focus-visible:ring-accent/50"
-      >
-        <ArrowLeft className="size-3" /> Propriedades do projeto <Kbd className="ml-1">Esc</Kbd>
-      </button>
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold text-stone-900">{title}</h2>
-          {subtitle ? <p className="truncate text-xs text-stone-500">{subtitle}</p> : null}
-        </div>
-        {onDelete ? (
-          <Button variant="outline" size="sm" onClick={onDelete} className="text-fail hover:text-red-700">
-            <Trash2 /> Excluir
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function Body({ children }: { children: ReactNode }) {
-  return <div className="space-y-4 p-4">{children}</div>;
-}
-
-function useDelete() {
-  const select = useEditor((s) => s.select);
-  return () => {
-    const s = useEditor.getState();
-    const r = deleteSelection(s.selection, s.project, s.update);
-    if (!r.ok) return toast.info(r.message);
-    select(null);
-    toast(r.message, { action: { label: 'Desfazer', onClick: () => useEditor.getState().undo() } });
-  };
-}
-
-function Row({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5 text-xs">
-      <dt className="text-stone-600">{label}</dt>
-      <dd className="font-medium text-stone-900 tabular-nums">{value}</dd>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Lista de aberturas de um hospedeiro + botões de criar
@@ -352,6 +302,8 @@ export function ObjectInspector() {
       return <WallInspector obj={obj} project={project} />;
     case 'stair':
       return <StairInspector obj={obj} />;
+    case 'extra':
+      return <ExtraInspector id={obj.id} project={project} />;
     default:
       return <HostInspector obj={obj} project={project} />;
   }

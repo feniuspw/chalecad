@@ -3,6 +3,8 @@ import { ScrollArea } from '@chalecad/ui';
 import { useEditor } from '@/lib/store/editor';
 import { ObjectInspector } from './Inspectors';
 import { MezzanineSection, TypologySection } from './TypologySections';
+import { ExtrasSection } from './ExtrasSection';
+import { TerrainSection } from './TerrainSection';
 import { FoundationSection, RoofSection, SiteSection, SystemSection } from './SystemSections';
 
 /** Painel esquerdo: propriedades do projeto (sem seleção) ou inspetor do objeto selecionado. */
@@ -25,6 +27,8 @@ export function PropertiesPanel() {
           <SystemSection project={project} />
           <RoofSection project={project} />
           <FoundationSection project={project} />
+          <TerrainSection project={project} />
+          <ExtrasSection project={project} />
           <SiteSection project={project} />
         </div>
       )}

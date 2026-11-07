@@ -1,54 +1,128 @@
 /** Projetos iniciais por tipologia. */
-import { Project, type Opening, type ProjectInput, type UF, type UtilityPoint } from '@chalecad/engine';
+import { Project, type Opening, type ProjectInput, type Site, type Typology, type TypologyKind, type UF, type UtilityPoint } from '@chalecad/engine';
 import { clamp, round } from './geometry';
-import { mezzaninePolygon, mezzanineElevation, defaultMezzanineDepth, type EditableTypology } from './edit';
+import { mezzaninePolygon, mezzanineElevation, defaultMezzanineDepth, isEditableTypology } from './edit';
 import { newId, type IdGen } from './ids';
 
-export type TemplateKind = 'gable_mezzanine' | 'a_frame';
+export type TemplateKind = TypologyKind;
 
 export interface TemplateParams {
   name: string;
   region: UF;
   width: number;
   depth: number;
-  /** Duas águas: pé-direito (altura das paredes). */
+  /** Pé-direito (altura das paredes): duas águas, telhado plano, gambrel, L/T. */
   wallHeight: number;
-  /** Duas águas: inclinação do telhado (graus). */
+  /** Duas águas e L/T: inclinação do telhado (graus). */
   roofPitchDeg: number;
   /** A-frame: altura da cumeeira. */
   ridgeHeight: number;
+  /** Meia-água. */
+  lowHeight: number;
+  highHeight: number;
+  highSide: 'front' | 'back' | 'left' | 'right';
+  /** Telhado plano. */
+  parapetHeight: number;
+  slopePct: number;
+  /** Gambrel. */
+  lowerPitchDeg: number;
+  upperPitchDeg: number;
+  breakRatio: number;
+  /** L/T. */
+  shape: 'L' | 'T';
+  wingWidth: number;
+  wingDepth: number;
+  wingOffset: number;
+  /** Só duas águas e A-frame. */
   mezzanine: boolean;
   /** Profundidade do mezanino; omitido = proporção padrão. */
   mezzanineDepth?: number;
+  /** Terreno; omitido = plano. */
+  site?: Site;
 }
 
+const BASE: Omit<TemplateParams, 'name' | 'width' | 'depth' | 'region'> = {
+  wallHeight: 2.8,
+  roofPitchDeg: 35,
+  ridgeHeight: 6,
+  lowHeight: 2.6,
+  highHeight: 3.8,
+  highSide: 'front',
+  parapetHeight: 0.6,
+  slopePct: 5,
+  lowerPitchDeg: 60,
+  upperPitchDeg: 25,
+  breakRatio: 0.4,
+  shape: 'L',
+  wingWidth: 4,
+  wingDepth: 5,
+  wingOffset: 0,
+  mezzanine: false,
+};
+
 export const DEFAULT_PARAMS: Record<TemplateKind, TemplateParams> = {
-  gable_mezzanine: {
-    name: 'Chalé 6,5 × 8,5',
-    region: 'MG',
-    width: 6.5,
-    depth: 8.5,
-    wallHeight: 2.8,
-    roofPitchDeg: 35,
-    ridgeHeight: 6,
-    mezzanine: true,
-  },
-  a_frame: {
-    name: 'A-frame 6 × 7',
-    region: 'SP',
-    width: 6,
-    depth: 7,
-    wallHeight: 2.8,
-    roofPitchDeg: 35,
-    ridgeHeight: 6,
-    mezzanine: true,
-  },
+  gable_mezzanine: { ...BASE, name: 'Chalé 6,5 × 8,5', region: 'MG', width: 6.5, depth: 8.5, mezzanine: true },
+  a_frame: { ...BASE, name: 'A-frame 6 × 7', region: 'SP', width: 6, depth: 7, mezzanine: true },
+  shed: { ...BASE, name: 'Meia-água 6 × 8', region: 'SP', width: 6, depth: 8 },
+  flat_roof: { ...BASE, name: 'Casa de telhado plano 6 × 8', region: 'SP', width: 6, depth: 8 },
+  gambrel: { ...BASE, name: 'Celeiro 7 × 9', region: 'SP', width: 7, depth: 9, wallHeight: 2.6 },
+  combined: { ...BASE, name: 'Chalé em L 8 × 6', region: 'SP', width: 8, depth: 6, roofPitchDeg: 30, wingWidth: 4, wingDepth: 5 },
 };
 
 export const TEMPLATE_LABELS: Record<TemplateKind, string> = {
   gable_mezzanine: 'Duas águas com mezanino',
   a_frame: 'A-frame',
+  shed: 'Meia-água',
+  flat_roof: 'Telhado plano',
+  gambrel: 'Gambrel (celeiro)',
+  combined: 'Módulos em L e T',
 };
+
+export const TYPOLOGY_DESCRIPTIONS: Record<TemplateKind, string> = {
+  gable_mezzanine: 'Caixa retangular com telhado de duas águas e pavimento superior.',
+  a_frame: 'Águas até o chão, empena frontal envidraçada e mezanino no fundo.',
+  shed: 'Telhado de uma queda só, com o lado alto à sua escolha.',
+  flat_roof: 'Platibanda esconde a telha de baixa inclinação.',
+  gambrel: 'Duas inclinações por água: mais volume sob o telhado.',
+  combined: 'Dois volumes de duas águas combinados em L ou T.',
+};
+
+/** Altura útil das paredes externas (a menor), para encaixar janelas. */
+function lowestWall(kind: TemplateKind, p: TemplateParams): number {
+  return kind === 'shed' ? Math.min(p.lowHeight, p.highHeight) : p.wallHeight;
+}
+
+/** Tipologia a partir dos parâmetros do assistente. */
+export function typologyFromParams(kind: TemplateKind, p: TemplateParams): Typology {
+  const { width, depth } = p;
+  switch (kind) {
+    case 'gable_mezzanine':
+      return { kind, width, depth, wallHeight: p.wallHeight, roofPitchDeg: p.roofPitchDeg, eave: 0.6, rake: 0.3 };
+    case 'a_frame':
+      return { kind, width, depth, ridgeHeight: p.ridgeHeight, kneeWallHeight: 0, rake: 0.4, frontGable: 'glazed', backGable: 'closed' };
+    case 'shed':
+      return { kind, width, depth, lowHeight: p.lowHeight, highHeight: Math.max(p.highHeight, p.lowHeight), highSide: p.highSide, eave: 0.5 };
+    case 'flat_roof':
+      return { kind, width, depth, wallHeight: p.wallHeight, parapetHeight: p.parapetHeight, slopePct: p.slopePct };
+    case 'gambrel':
+      return { kind, width, depth, wallHeight: p.wallHeight, lowerPitchDeg: p.lowerPitchDeg, upperPitchDeg: p.upperPitchDeg, breakRatio: p.breakRatio, eave: 0.4, rake: 0.3 };
+    case 'combined': {
+      const ww = clamp(p.wingWidth, 2, Math.max(2, Math.min(20, width, depth)));
+      const offset = p.shape === 'T' ? (width - ww) / 2 : clamp(p.wingOffset, 0, Math.max(0, width - ww));
+      return {
+        kind,
+        shape: p.shape,
+        width,
+        depth,
+        wallHeight: p.wallHeight,
+        roofPitchDeg: p.roofPitchDeg,
+        eave: 0.5,
+        rake: 0.3,
+        wing: { width: round(ww, 2), depth: round(clamp(p.wingDepth, 2, 20), 2), offset: round(offset, 2) },
+      };
+    }
+  }
+}
 
 const win = (ids: IdGen, host: string, offset: number, width: number, height: number, sill: number): Opening => ({
   id: ids('o'),
@@ -65,15 +139,12 @@ export function createProject(kind: TemplateKind, params: Partial<TemplateParams
   const p = { ...DEFAULT_PARAMS[kind], ...params };
   const { width: W, depth: D } = p;
 
-  const typology: EditableTypology =
-    kind === 'gable_mezzanine'
-      ? { kind, width: W, depth: D, wallHeight: p.wallHeight, roofPitchDeg: p.roofPitchDeg, eave: 0.6, rake: 0.3 }
-      : { kind, width: W, depth: D, ridgeHeight: p.ridgeHeight, kneeWallHeight: 0, rake: 0.4, frontGable: 'glazed', backGable: 'closed' };
+  const typology = typologyFromParams(kind, p);
 
   const levels: ProjectInput['levels'] = [{ id: 'L0', name: 'Térreo', elevation: 0, floor: kind === 'a_frame' ? 'polished_concrete' : 'burnished_concrete' }];
   const stairs: NonNullable<ProjectInput['stairs']> = [];
   let mezzDepth = 0;
-  if (p.mezzanine) {
+  if (p.mezzanine && isEditableTypology(typology)) {
     mezzDepth = clamp(p.mezzanineDepth ?? defaultMezzanineDepth(typology), 1.5, Math.max(1.5, D - 1));
     levels.push({
       id: 'L1',
@@ -127,10 +198,38 @@ export function createProject(kind: TemplateKind, params: Partial<TemplateParams
     if (rOff + 1.2 <= sideLimit) openings.push(win(ids, 'ext-right', rOff, 1.2, 1.0, 1.0));
   }
 
+  if (kind === 'shed' || kind === 'flat_roof' || kind === 'gambrel' || kind === 'combined') {
+    const cap = lowestWall(kind, p) - 0.2;
+    const sill = 0.9;
+    const wh = round(Math.min(1.2, cap - sill), 2);
+    const front = (off: number, w: number) => {
+      if (w >= 0.5) openings.push(win(ids, 'ext-front', off, w, wh, sill));
+    };
+    // Janelas dos dois lados da porta.
+    const m = Math.min(0.8, s * 0.3);
+    front(m, Math.min(1.5, s - m - 0.4));
+    const g = Math.min(0.7, s * 0.25);
+    front(doorOff + doorW + g, Math.min(1.5, s - g - 0.4));
+    // Janelas nas laterais (a de trás só se o fundo da lateral estiver livre).
+    const sideW = Math.min(1.2, D * 0.4);
+    const sideOff = round(Math.max(0.4, D * 0.4 - sideW / 2), 1);
+    if (sideOff + sideW <= D - 0.3) {
+      openings.push(win(ids, 'ext-left', sideOff, sideW, wh, sill), win(ids, 'ext-right', sideOff, sideW, wh, sill));
+    }
+    if (typology.kind === 'combined') {
+      // Ala: janela no fundo e uma em cada lateral.
+      const wing = typology.wing;
+      const bw = round(Math.min(1.5, wing.width - 0.8), 2);
+      if (bw >= 0.5) openings.push(win(ids, 'wing-back', (wing.width - bw) / 2, bw, wh, sill));
+      const lw = round(Math.min(1.2, wing.depth - 0.8), 2);
+      if (lw >= 0.5) openings.push(win(ids, 'wing-left', (wing.depth - lw) / 2, lw, wh, sill), win(ids, 'wing-right', (wing.depth - lw) / 2, lw, wh, sill));
+    }
+  }
+
   const input: ProjectInput = {
     schemaVersion: 1,
     meta: { name: p.name, region: p.region, currency: 'BRL' },
-    site: { type: 'flat' },
+    site: p.site ?? { type: 'flat' },
     typology,
     levels,
     walls,

@@ -2,6 +2,7 @@
 import type { BuildingModel, Project } from '@chalecad/engine';
 import type { Selection } from '../store/types';
 import { removeOpening, removeStair, removeWall } from './edit';
+import { extraLabel, removeExtra } from './extras';
 import { hostLabel, openingLabel, STAIR_LABELS } from './labels';
 
 /** Converte o ID do hospedeiro clicado na cena em uma seleção tipada. */
@@ -13,7 +14,7 @@ export function selectionFromHost(id: string, model: BuildingModel, project: Pro
   return { kind: 'host', id };
 }
 
-export type SectionId = 'typology' | 'mezzanine' | 'system' | 'roof' | 'foundation' | 'site';
+export type SectionId = 'typology' | 'mezzanine' | 'system' | 'roof' | 'foundation' | 'site' | 'terrain' | 'extras';
 
 /** Para onde levar o usuário ao clicar num problema de validação (caminho Zod, ex.: `openings.2.width`). */
 export function issueTarget(path: string, project: Project): { selection?: Selection; section?: SectionId } {
@@ -40,6 +41,12 @@ export function issueTarget(path: string, project: Project): { selection?: Selec
       return { section: path.startsWith('system.foundation') ? 'foundation' : 'system' };
     case 'roof':
       return { section: 'roof' };
+    case 'extras': {
+      const e = project.extras[i];
+      return e ? { selection: { kind: 'extra', id: e.id } } : { section: 'extras' };
+    }
+    case 'site':
+      return { section: 'terrain' };
     case 'design':
     case 'meta':
       return { section: 'site' };
@@ -54,7 +61,7 @@ export interface Deletion {
   message: string;
 }
 
-/** Exclui o objeto selecionado, com histórico. Só aberturas, paredes internas e escadas são excluíveis. */
+/** Exclui o objeto selecionado, com histórico. Só aberturas, paredes internas, escadas e extras são excluíveis. */
 export function deleteSelection(
   sel: Selection | null,
   project: Project,
@@ -77,6 +84,11 @@ export function deleteSelection(
       const name = st ? STAIR_LABELS[st.type] : 'Escada';
       update(`Excluir ${name.toLowerCase()}`, (d) => void removeStair(d, sel.id));
       return { ok: true, message: `${name} excluída.` };
+    }
+    case 'extra': {
+      const name = extraLabel(project, sel.id);
+      update(`Excluir ${name.toLowerCase()}`, (d) => void removeExtra(d, sel.id));
+      return { ok: true, message: `${name} excluído.` };
     }
     default:
       return { ok: false, message: 'Este elemento faz parte da tipologia: ajuste-o nas propriedades.' };
