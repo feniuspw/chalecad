@@ -1,0 +1,626 @@
+{
+  "typology": "gable_mezzanine",
+  "footprint": [
+    [
+      0,
+      0
+    ],
+    [
+      6.5,
+      0
+    ],
+    [
+      6.5,
+      8.5
+    ],
+    [
+      0,
+      8.5
+    ]
+  ],
+  "footprintArea": 55.25,
+  "builtArea": 78,
+  "walls": [
+    {
+      "level": "ground",
+      "baseZ": 0,
+      "thickness": 0.14,
+      "assemblyId": "lsf-ext",
+      "exteriorSide": "right",
+      "loadBearing": true,
+      "wet": false,
+      "id": "ext-front",
+      "kind": "gable",
+      "from": [
+        0,
+        0
+      ],
+      "to": [
+        6.5,
+        0
+      ],
+      "length": 6.5,
+      "outline": [
+        [
+          0,
+          0
+        ],
+        [
+          6.5,
+          0
+        ],
+        [
+          6.5,
+          2.8
+        ],
+        [
+          3.25,
+          5.0757
+        ],
+        [
+          0,
+          2.8
+        ]
+      ]
+    },
+    {
+      "level": "ground",
+      "baseZ": 0,
+      "thickness": 0.14,
+      "assemblyId": "lsf-ext",
+      "exteriorSide": "right",
+      "loadBearing": true,
+      "wet": false,
+      "id": "ext-right",
+      "kind": "exterior",
+      "from": [
+        6.5,
+        0
+      ],
+      "to": [
+        6.5,
+        8.5
+      ],
+      "length": 8.5,
+      "outline": [
+        [
+          0,
+          0
+        ],
+        [
+          8.5,
+          0
+        ],
+        [
+          8.5,
+          2.8
+        ],
+        [
+          0,
+          2.8
+        ]
+      ]
+    },
+    {
+      "level": "ground",
+      "baseZ": 0,
+      "thickness": 0.14,
+      "assemblyId": "lsf-ext",
+      "exteriorSide": "right",
+      "loadBearing": true,
+      "wet": false,
+      "id": "ext-back",
+      "kind": "gable",
+      "from": [
+        6.5,
+        8.5
+      ],
+      "to": [
+        0,
+        8.5
+      ],
+      "length": 6.5,
+      "outline": [
+        [
+          0,
+          0
+        ],
+        [
+          6.5,
+          0
+        ],
+        [
+          6.5,
+          2.8
+        ],
+        [
+          3.25,
+          5.0757
+        ],
+        [
+          0,
+          2.8
+        ]
+      ]
+    },
+    {
+      "level": "ground",
+      "baseZ": 0,
+      "thickness": 0.14,
+      "assemblyId": "lsf-ext",
+      "exteriorSide": "right",
+      "loadBearing": true,
+      "wet": false,
+      "id": "ext-left",
+      "kind": "exterior",
+      "from": [
+        0,
+        8.5
+      ],
+      "to": [
+        0,
+        0
+      ],
+      "length": 8.5,
+      "outline": [
+        [
+          0,
+          0
+        ],
+        [
+          8.5,
+          0
+        ],
+        [
+          8.5,
+          2.8
+        ],
+        [
+          0,
+          2.8
+        ]
+      ]
+    }
+  ],
+  "roofPlanes": [
+    {
+      "id": "roof-left",
+      "vertices": [
+        [
+          -0.6,
+          8.8,
+          2.3799
+        ],
+        [
+          -0.6,
+          -0.3,
+          2.3799
+        ],
+        [
+          3.25,
+          -0.3,
+          5.0757
+        ],
+        [
+          3.25,
+          8.8,
+          5.0757
+        ]
+      ],
+      "origin": [
+        -0.6,
+        8.8,
+        2.3799
+      ],
+      "uAxis": [
+        0,
+        -1,
+        0
+      ],
+      "vAxis": [
+        0.8192,
+        0,
+        0.5736
+      ],
+      "slopeDeg": 35,
+      "area": 42.77,
+      "uLength": 9.1,
+      "vLength": 4.7,
+      "isWall": false
+    },
+    {
+      "id": "roof-right",
+      "vertices": [
+        [
+          7.1,
+          -0.3,
+          2.3799
+        ],
+        [
+          7.1,
+          8.8,
+          2.3799
+        ],
+        [
+          3.25,
+          8.8,
+          5.0757
+        ],
+        [
+          3.25,
+          -0.3,
+          5.0757
+        ]
+      ],
+      "origin": [
+        7.1,
+        -0.3,
+        2.3799
+      ],
+      "uAxis": [
+        0,
+        1,
+        0
+      ],
+      "vAxis": [
+        -0.8192,
+        0,
+        0.5736
+      ],
+      "slopeDeg": 35,
+      "area": 42.77,
+      "uLength": 9.1,
+      "vLength": 4.7,
+      "isWall": false
+    }
+  ],
+  "slabs": [
+    {
+      "id": "radier",
+      "kind": "radier",
+      "level": null,
+      "topZ": 0,
+      "thickness": 0.15,
+      "polygon": [
+        [
+          -0.07,
+          -0.07
+        ],
+        [
+          6.57,
+          -0.07
+        ],
+        [
+          6.57,
+          8.57
+        ],
+        [
+          -0.07,
+          8.57
+        ]
+      ],
+      "area": 57.37
+    },
+    {
+      "id": "mezz-1",
+      "kind": "mezzanine",
+      "level": "mezzanine",
+      "topZ": 2.8,
+      "thickness": 0.2,
+      "polygon": [
+        [
+          0,
+          5
+        ],
+        [
+          6.5,
+          5
+        ],
+        [
+          6.5,
+          8.5
+        ],
+        [
+          0,
+          8.5
+        ]
+      ],
+      "area": 22.75
+    }
+  ],
+  "openings": [
+    {
+      "id": "op-win-front-1",
+      "hostId": "ext-front",
+      "hostKind": "wall",
+      "type": "window",
+      "u0": 0.8,
+      "u1": 2,
+      "v0": 0.9,
+      "v1": 2.1,
+      "valid": true
+    },
+    {
+      "id": "op-door-front",
+      "hostId": "ext-front",
+      "hostKind": "wall",
+      "type": "door",
+      "u0": 2.8,
+      "u1": 3.7,
+      "v0": 0,
+      "v1": 2.1,
+      "valid": true
+    },
+    {
+      "id": "op-win-front-2",
+      "hostId": "ext-front",
+      "hostKind": "wall",
+      "type": "window",
+      "u0": 4.5,
+      "u1": 5.7,
+      "v0": 0.9,
+      "v1": 2.1,
+      "valid": true
+    },
+    {
+      "id": "op-win-right",
+      "hostId": "ext-right",
+      "hostKind": "wall",
+      "type": "window",
+      "u0": 3.4,
+      "u1": 4.6,
+      "v0": 0.9,
+      "v1": 2.1,
+      "valid": true
+    },
+    {
+      "id": "op-win-left",
+      "hostId": "ext-left",
+      "hostKind": "wall",
+      "type": "window",
+      "u0": 3.4,
+      "u1": 4.6,
+      "v0": 0.9,
+      "v1": 2.1,
+      "valid": true
+    }
+  ],
+  "stairs": [
+    {
+      "id": "stair-1",
+      "type": "straight",
+      "treads": [
+        {
+          "center": [
+            0.55,
+            0.94,
+            0.15
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            1.22,
+            0.325
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            1.5,
+            0.5
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            1.78,
+            0.675
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            2.06,
+            0.85
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            2.34,
+            1.025
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            2.62,
+            1.2
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            2.9,
+            1.375
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            3.18,
+            1.55
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            3.46,
+            1.725
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            3.74,
+            1.9
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            4.02,
+            2.075
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            4.3,
+            2.25
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            4.58,
+            2.425
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        },
+        {
+          "center": [
+            0.55,
+            4.86,
+            2.6
+          ],
+          "size": [
+            0.9,
+            0.28,
+            0.05
+          ],
+          "rotationZDeg": 0
+        }
+      ],
+      "steps": 16,
+      "riser": 0.175,
+      "going": 0.28,
+      "blondel": 0.63,
+      "footprint": [
+        [
+          0.1,
+          0.8
+        ],
+        [
+          1,
+          0.8
+        ],
+        [
+          1,
+          5
+        ],
+        [
+          0.1,
+          5
+        ]
+      ]
+    }
+  ],
+  "ridgeHeight": 5.0757,
+  "bbox": {
+    "min": [
+      -0.6,
+      -0.3,
+      -0.15
+    ],
+    "max": [
+      7.1,
+      8.8,
+      5.0757
+    ]
+  }
+}
