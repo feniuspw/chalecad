@@ -268,10 +268,6 @@ export function EditorShell() {
                 <TooltipContent side="top">Enquadrar a edificação</TooltipContent>
               </Tooltip>
             </div>
-
-            <div className="pointer-events-none absolute right-3 bottom-3 hidden rounded-md bg-white/70 px-2 py-1 text-[11px] text-stone-500 backdrop-blur sm:block">
-              Arraste para girar · botão direito para mover · roda para zoom · Del exclui · Esc cancela
-            </div>
           </main>
 
           {/* Painel direito redimensionável */}
