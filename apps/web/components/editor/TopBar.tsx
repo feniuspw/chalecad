@@ -1,6 +1,7 @@
 'use client';
+import Link from 'next/link';
 import { useRef, useState } from 'react';
-import { ChevronDown, Download, FileJson, FileText, FolderOpen, Plus, Redo2, Undo2 } from 'lucide-react';
+import { ChevronDown, Download, FileJson, FileText, FolderKanban, FolderOpen, History, Plus, Redo2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
@@ -18,9 +19,11 @@ import { exportProjectJson, openJsonFile, openStoredProject } from '@/lib/projec
 import { getStorage, type ProjectSummary } from '@/lib/storage';
 import { selectCanRedo, selectCanUndo, selectRedoLabel, selectUndoLabel, useEditor } from '@/lib/store/editor';
 import type { ValidationIssue } from '@/lib/store/types';
+import { exportPdf } from '@/lib/pdf';
 import { ImportErrorsDialog } from './ImportErrorsDialog';
 import { ProjectName } from './ProjectName';
 import { ComputeStatus, SaveStatus } from './StatusIndicators';
+import { VersionsDialog } from './VersionsDialog';
 
 const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -34,6 +37,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [recent, setRecent] = useState<ProjectSummary[]>([]);
   const [errors, setErrors] = useState<{ file: string; issues: ValidationIssue[] } | null>(null);
+  const [versionsOpen, setVersionsOpen] = useState(false);
   const mod = isMac() ? '⌘' : 'Ctrl+';
 
   const onFile = async (file: File | undefined) => {
@@ -41,6 +45,19 @@ export function TopBar({ onNew }: { onNew: () => void }) {
     const r = await openJsonFile(file);
     if (r.ok) toast.success(`“${r.name}” aberto.`, { description: 'O projeto anterior foi salvo.' });
     else setErrors({ file: file.name, issues: r.issues });
+  };
+
+  const onPdf = () => {
+    const { project, results } = useEditor.getState();
+    if (!results) {
+      toast.info('Aguarde o cálculo terminar para exportar o PDF.');
+      return;
+    }
+    toast.promise(exportPdf(project, results), {
+      loading: 'Gerando PDF com plantas e lista de materiais…',
+      success: (file) => `Arquivo ${file} baixado.`,
+      error: (e) => (e instanceof Error ? e.message : 'Não foi possível gerar o PDF.'),
+    });
   };
 
   const loadRecent = async (open: boolean) => {
@@ -65,6 +82,14 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         <ComputeStatus />
         <Separator orientation="vertical" className="mx-1 h-5" />
 
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/projetos">
+            <FolderKanban /> Projetos
+          </Link>
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setVersionsOpen(true)}>
+          <History /> Versões
+        </Button>
         <Button variant="outline" size="sm" onClick={onNew}>
           <Plus /> Novo
         </Button>
@@ -128,15 +153,17 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             <DropdownMenuItem onSelect={() => toast.success(`Arquivo ${exportProjectJson()} baixado.`)}>
               <FileJson /> JSON do projeto
             </DropdownMenuItem>
-            {['PDF com plantas e lista', 'CSV por fornecedor'].map((l) => (
-              <DropdownMenuItem key={l} onSelect={() => toast.info('Exportação disponível em breve')}>
-                <FileText /> {l}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuItem onSelect={onPdf}>
+              <FileText /> PDF com plantas e lista
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => toast.info('Exportação disponível em breve')}>
+              <FileText /> CSV por fornecedor
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
+      <VersionsDialog open={versionsOpen} onOpenChange={setVersionsOpen} />
       <ImportErrorsDialog fileName={errors?.file ?? ''} issues={errors?.issues ?? null} onClose={() => setErrors(null)} />
     </header>
   );
