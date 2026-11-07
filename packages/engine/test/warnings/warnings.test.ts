@@ -110,7 +110,8 @@ describe('computeWarnings', () => {
     const ws = warn(p, (c) => {
       c.pieces = c.pieces.filter((x) => !['rafter', 'purlin', 'ridge', 'collar_tie'].includes(x.role));
     });
-    expect(codes(ws)).toEqual(expect.arrayContaining(['typology.partial', 'extras.ignored', 'site.sloped']));
+    expect(codes(ws)).toEqual(expect.arrayContaining(['typology.partial', 'retaining.engineer']));
+    expect(codes(ws)).not.toContain('extras.ignored');
     expect(codes(warn(base))).not.toContain('typology.partial');
   });
 });

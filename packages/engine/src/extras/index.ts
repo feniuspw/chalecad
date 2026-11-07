@@ -11,7 +11,9 @@ import {
   pathSegments,
   segLen,
 } from './geometry';
+import { RETAINING } from './retaining';
 
+export { RETAINING } from './retaining';
 export { buildExtraModels, deckGeometry, EXTRAS, fencePosts, facade } from './geometry';
 
 const rect = (l: number, h: number): [number, number][] => [[0, 0], [l, 0], [l, h], [0, h]];
@@ -102,7 +104,24 @@ export function computeExtras(project: Project, model: BuildingModel, catalog: C
         add(e.id, 'post_steel', em.posts.length);
       }
     }
-    // retaining: só geometria e alerta por enquanto (Fase 4 calcula).
+    else if (e.kind === 'retaining') {
+      const length = pathLength(e.path, false);
+      const h = e.height;
+      if (e.type === 'gabion') {
+        add(e.id, 'gabion', length * h * (RETAINING.gabionBase + RETAINING.gabionBasePerHeight * h));
+      } else if (e.type === 'concrete') {
+        const vol = length * (h * RETAINING.concreteStem + RETAINING.footing.width * RETAINING.footing.depth);
+        add(e.id, 'concrete_fck25', vol, { kg: vol * c.concreteDensity });
+        add(e.id, 'rebar_ca50', vol * RETAINING.steelKgPerM3);
+      } else {
+        // Bloco estruturado com graute em todos os furos (graute dobrado) e sapata corrida.
+        masonry(e.id, length, h, true, 'strip');
+      }
+      if (e.drainage) {
+        add(e.id, 'geotextile', length * (h + RETAINING.geotextileExtraHeight));
+        add(e.id, 'drain_pipe', length);
+      }
+    }
   }
   return out;
 }
