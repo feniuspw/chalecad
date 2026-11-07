@@ -6,6 +6,8 @@ export * from './geometry';
 export * from './framing';
 export * from './quantities';
 export * from './weight';
+export { computeStructure, statusOf, windPressure, structuralCapacity } from './structure';
+export type { StructureContext } from './structure';
 export * from './budget';
 export * from './warnings';
 export * from './compute';

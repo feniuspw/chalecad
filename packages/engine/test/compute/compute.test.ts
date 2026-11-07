@@ -20,11 +20,11 @@ describe('computeAllWith', () => {
   test('roda o pipeline do fixture 6,5 x 8,5', () => {
     expect(res.engineVersion).toBe('0.1.0');
     expect(res.catalogVersion).toBe(testCatalog.version);
-    expect(res.structure).toBeNull();
+    expect(res.structure).not.toBeNull(); // F2-E1: motor estrutural integrado
     expect(res.terrain).toBeNull();
     expect(res.pieces.length).toBeGreaterThan(0);
     expect(res.budget.total).toBeGreaterThan(0);
-    expect(Object.keys(res.timingsMs).sort()).toEqual(['budget', 'framing', 'model', 'quantities', 'total', 'warnings', 'weight']);
+    expect(Object.keys(res.timingsMs).sort()).toEqual(['budget', 'framing', 'model', 'quantities', 'structure', 'total', 'warnings', 'weight']);
   });
 
   test('serializável e determinístico (exceto timingsMs)', () => {

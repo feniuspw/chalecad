@@ -4,6 +4,7 @@ import { computeBudget } from './budget';
 import { loadProject } from './load';
 import { buildModel } from './model';
 import { computeQuantities } from './quantities';
+import { computeStructure } from './structure';
 import type { Project } from './schema/project';
 import { ENGINE_VERSION } from './version';
 import { generatePieces } from './framing';
@@ -48,6 +49,8 @@ export function computeAllWith(
   lap('quantities');
   const weight = computeWeight(model, pieces, quantities, project, catalog);
   lap('weight');
+  const structure = computeStructure({ project, model, pieces, weight, catalog, quantities });
+  lap('structure');
   const budget = computeBudget(quantities, weight, model, project, catalog, today);
   lap('budget');
   const warnings = computeWarnings({ project, model, pieces, quantities, budget, catalog });
@@ -61,7 +64,7 @@ export function computeAllWith(
     pieces,
     quantities,
     weight,
-    structure: null,
+    structure,
     budget,
     terrain: null,
     warnings,
