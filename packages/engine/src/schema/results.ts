@@ -99,6 +99,21 @@ export interface ResolvedStair {
   footprint: Vec2[];
 }
 
+/** Extras fora da edificação (muro, cerca, deck, arrimo), para o 3D e quantitativos. */
+export interface ExtraModel {
+  id: string;
+  kind: 'fence' | 'wall' | 'deck' | 'retaining';
+  /** Segmentos verticais em planta (muro, cerca, arrimo, mureta, guarda-corpo do deck). */
+  segments: { from: Vec2; to: Vec2; height: number; thickness: number; baseZ: number; material: 'block' | 'mesh' | 'board' | 'gabion' | 'concrete' | 'rail' }[];
+  /** Mourões/postes da cerca e pilares do deck coberto. */
+  posts: { position: Vec2; height: number; size: number }[];
+  /** Deck: piso. */
+  polygon?: Vec2[];
+  topZ?: number;
+  /** Deck coberto: água de cobertura. */
+  roof?: RoofPlane;
+}
+
 export interface BuildingModel {
   typology: TypologyKind;
   /** Contorno externo das paredes externas no térreo. */
@@ -111,6 +126,8 @@ export interface BuildingModel {
   slabs: SlabModel[];
   openings: ResolvedOpening[];
   stairs: ResolvedStair[];
+  /** Preenchido pelos extras (vazio até a Fase 2). */
+  extras: ExtraModel[];
   ridgeHeight: number;
   bbox: { min: Vec3; max: Vec3 };
 }

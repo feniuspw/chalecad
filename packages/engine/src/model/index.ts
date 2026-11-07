@@ -299,6 +299,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     slabs,
     openings,
     stairs,
+    extras: [],
     ridgeHeight,
     bbox: bbox3(pts),
   };
