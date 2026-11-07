@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
-import { ChevronDown, Download, FileJson, FileText, FolderKanban, FolderOpen, History, Plus, Redo2, Undo2 } from 'lucide-react';
+import { ChevronDown, Download, FileJson, FileText, FolderKanban, FolderOpen, History, ClipboardList, ShieldCheck, Plus, Redo2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
@@ -22,6 +22,7 @@ import type { ValidationIssue } from '@/lib/store/types';
 import { exportPdf } from '@/lib/pdf';
 import { exportBudgetCsv, exportPurchaseCsv } from '@/lib/export/csv';
 import { downloadText } from '@/lib/export/download';
+import { ReportsDialog, type ReportKind } from '@/components/reports/ReportsDialog';
 import { ImportErrorsDialog } from './ImportErrorsDialog';
 import { ProjectName } from './ProjectName';
 import { ComputeStatus, SaveStatus } from './StatusIndicators';
@@ -40,6 +41,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   const [recent, setRecent] = useState<ProjectSummary[]>([]);
   const [errors, setErrors] = useState<{ file: string; issues: ValidationIssue[] } | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [report, setReport] = useState<ReportKind | null>(null);
   const mod = isMac() ? '⌘' : 'Ctrl+';
 
   const onFile = async (file: File | undefined) => {
@@ -162,6 +164,22 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
+              <ClipboardList /> Relatórios <ChevronDown className="size-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setReport('guide')}>
+              <ClipboardList /> Roteiro de obra
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setReport('engineer')}>
+              <ShieldCheck /> Pacote do engenheiro
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
               <Download /> Exportar <ChevronDown className="size-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
@@ -182,6 +200,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         </DropdownMenu>
       </div>
 
+      <ReportsDialog kind={report} onOpenChange={(o) => !o && setReport(null)} />
       <VersionsDialog open={versionsOpen} onOpenChange={setVersionsOpen} />
       <ImportErrorsDialog fileName={errors?.file ?? ''} issues={errors?.issues ?? null} onClose={() => setErrors(null)} />
     </header>

@@ -1,9 +1,10 @@
 'use client';
 import { useMemo, type ReactNode } from 'react';
-import { ChevronDown, Download, FileJson, FileSpreadsheet, Loader2, TriangleAlert } from 'lucide-react';
+import { ChevronDown, Download, FileJson, FileSpreadsheet, Loader2, Sparkles, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tabs, TabsContent, TabsList, TabsTrigger, cn } from '@chalecad/ui';
 import type { Results, Severity } from '@chalecad/engine';
+import { AnalystPanel } from '@/components/ai/AnalystPanel';
 import { ArtNotice } from '@/components/ArtNotice';
 import { exportBudgetCsv, exportPurchaseCsv } from '@/lib/export/csv';
 import { downloadText } from '@/lib/export/download';
@@ -132,6 +133,9 @@ export function ResultsPanel() {
             <Tab value="structure" count={structureIssues} severity={structure && structure.summary.fail > 0 ? 'error' : 'warn'}>
               Estrutura
             </Tab>
+            <Tab value="analyst">
+              <Sparkles className="size-3.5 text-accent" /> Analista
+            </Tab>
           </TabsList>
           <TabsContent value="summary" className="flex min-h-0 flex-1 flex-col">
             <Scroll>
@@ -158,6 +162,9 @@ export function ResultsPanel() {
             <Scroll>
               <StructureTab report={structure} />
             </Scroll>
+          </TabsContent>
+          <TabsContent value="analyst" className="flex min-h-0 flex-1 flex-col">
+            <AnalystPanel />
           </TabsContent>
         </Tabs>
       ) : (
