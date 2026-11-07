@@ -34,7 +34,9 @@ const twoPlaneFramer: RoofFramer = (model, project, catalog, sink) => {
   const ref = planes[0]!;
   const L = ref.uLength - 2 * rake;
   const ls: number[] = [];
-  for (let k = 0; k * c.roof.rafterSpacing < L - 0.02; k++) ls.push(k * c.roof.rafterSpacing);
+  // Estrutura alinhada (in-line framing): caibros sobre os montantes, nunca mais espaçados que o catálogo permite.
+  const spacing = Math.min(c.roof.rafterSpacing, sys.studSpacing);
+  for (let k = 0; k * spacing < L - 0.02; k++) ls.push(k * spacing);
   ls.push(L);
 
   for (const p of planes) {
