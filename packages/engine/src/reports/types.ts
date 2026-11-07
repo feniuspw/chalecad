@@ -30,7 +30,7 @@ export interface GuideStep {
   weightKg?: number;
   /** Número de painéis de transporte/montagem da parede. */
   panels?: number;
-  /** Duração estimada em homem-hora (índices em `PRODUCTIVITY`). */
+  /** Duração estimada em homem-hora (índices em `catalog.constants.productivity`). */
   manHours: number;
 }
 

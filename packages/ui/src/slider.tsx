@@ -3,7 +3,15 @@ import * as React from 'react';
 import { Slider as SliderPrimitive } from 'radix-ui';
 import { cn } from './cn';
 
-export function Slider({ className, value, defaultValue, ...props }: React.ComponentProps<typeof SliderPrimitive.Root>) {
+/** `aria-label`/`aria-labelledby` vão para o thumb (role=slider), não para a raiz. */
+export function Slider({
+  className,
+  value,
+  defaultValue,
+  'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
+  ...props
+}: React.ComponentProps<typeof SliderPrimitive.Root>) {
   const count = (value ?? defaultValue ?? [0]).length;
   return (
     <SliderPrimitive.Root
@@ -18,6 +26,8 @@ export function Slider({ className, value, defaultValue, ...props }: React.Compo
       {Array.from({ length: count }, (_, i) => (
         <SliderPrimitive.Thumb
           key={i}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           className="block size-4 rounded-full border-2 border-accent bg-white shadow transition-shadow outline-none hover:ring-4 hover:ring-accent/15 focus-visible:ring-4 focus-visible:ring-accent/30"
         />
       ))}

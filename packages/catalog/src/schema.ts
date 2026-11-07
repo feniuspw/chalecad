@@ -207,6 +207,8 @@ export type PriceBook = z.infer<typeof PriceBook>;
 // Constantes técnicas (versionadas; o motor nunca fixa números no código)
 // ---------------------------------------------------------------------------
 
+const LeadTime = z.object({ days: pos, note: z.string() });
+
 export const TechnicalConstants = z.object({
   steelDensity: pos, // kg/m³
   concreteDensity: pos, // kg/m³
@@ -304,6 +306,125 @@ export const TechnicalConstants = z.object({
     rebarKgPerM2: nonneg,
     stripFootingWidth: pos,
     stripFootingDepth: pos,
+  }),
+  /** Parafusos por peça (un). Os parafusos de telha por m² ficam em `roof.screwsPerM2`. */
+  fasteners: z.object({
+    /** Por bloqueador. */
+    blocking: nonneg,
+    /** Por verga. */
+    header: nonneg,
+    /** Por viga de piso, caibro ou tirante. */
+    joistRafterCollar: nonneg,
+    /** Por cruzamento terça x caibro. */
+    purlinPerRafter: nonneg,
+  }),
+  /** Premissas geométricas e de consumo dos extras (muro, cerca, deck). Metros, salvo indicação. */
+  extras: z.object({
+    blockThickness: pos,
+    lsfWallThickness: pos,
+    lsfStudSpacing: pos,
+    retainingThickness: pos,
+    /** Argamassa de assentamento: m³ por m² de alvenaria; densidade em kg/m³. */
+    mortarM3PerM2: nonneg,
+    mortarDensity: pos,
+    /** Aço da sapata corrida / baldrame (kg por m). */
+    footingSteelKgPerM: nonneg,
+    gradeBeam: z.object({ width: pos, depth: pos }),
+    /** Seção do mourão por tipo (m). */
+    postSize: z.object({ concrete: pos, eucalyptus: pos, steel: pos }),
+    /** Fios de arame farpado. */
+    barbedStrands: pos,
+    guardrailHeight: pos,
+    guardrailThickness: pos,
+    /** Cobertura do deck: inclinação desejada (graus), beiral (m), pé-direito desejado (m). */
+    deckCoverPitchDeg: pos,
+    deckCoverBeiral: nonneg,
+    deckCoverClearance: pos,
+    /** Pé-direito livre mínimo sob a borda baixa (m) e inclinação mínima da telha (graus). */
+    deckCoverMinClearance: pos,
+    deckCoverMinPitchDeg: pos,
+    deckPostSpacing: pos,
+    deckPostSize: pos,
+  }),
+  /** Muro de arrimo: parâmetros de quantidade por tipo. */
+  retaining: z.object({
+    /** Gabião: base média = gabionBase + gabionBasePerHeight · H (m). */
+    gabionBase: pos,
+    gabionBasePerHeight: nonneg,
+    /** Concreto armado: fuste (m) e sapata (m). */
+    concreteStem: pos,
+    footing: z.object({ width: pos, depth: pos }),
+    /** Aço do concreto armado (kg por m³ de concreto). */
+    steelKgPerM3: nonneg,
+    /** Geotêxtil: dobra extra sobre a altura do muro (m). */
+    geotextileExtraHeight: nonneg,
+  }),
+  /** Premissas do terreno inclinado (alertas e logística). Passos de algoritmo ficam no motor. */
+  terrainRules: z.object({
+    /** Taludes de corte acima desta altura (m) recebem geotêxtil e dreno no pé. */
+    drainCutHeight: pos,
+    /** Inclinação (%) acima da qual se sugere palafita/estacas. */
+    steepPct: pos,
+    /** Altura de talude de corte (m) que exige contenção. */
+    cutWarnHeight: pos,
+    /** Aterro sob a edificação (m) acima do qual há alerta. */
+    fillUnderBuilding: pos,
+    /** Cada km de bota-fora acrescenta 1/kmPerExtraTrip de viagem por viagem. */
+    kmPerExtraTrip: pos,
+  }),
+  /** Fatores do pré-dimensionamento (NBR 14762 / NBR 8681). */
+  structureFactors: z.object({
+    /** Coeficientes de resistência: flexão/cisalhamento (γa1) e compressão (γa2). */
+    gammaA1: pos,
+    gammaA2: pos,
+    /** Fração da área bruta que trabalha na compressão (flambagem local). */
+    effectiveAreaFactor: pos,
+    /** Tensão de cisalhamento resistente como fração de fy (0,6). */
+    shearYieldFactor: pos,
+    /** ψ0 do vento e das sobrecargas de uso. */
+    psiWind: pos,
+    psiLive: pos,
+  }),
+  /** Limites dos alertas do motor. */
+  warnings: z.object({
+    /** Deslocamento máximo (m) de uma abertura para alinhar à modulação dos montantes. */
+    modulationMax: pos,
+    /** Altura livre mínima (m) sob o telhado no centro do mezanino e sob o mezanino. */
+    mezzRoofMin: pos,
+    mezzUnderMin: pos,
+  }),
+  /** Produtividade do roteiro de obra em homem-hora (Hh), para autoconstrutor sem experiência prévia em LSF. */
+  productivity: z.object({
+    /** Locação: base fixa + por metro de perímetro do radier. */
+    layoutBaseHh: nonneg,
+    layoutPerMeterHh: nonneg,
+    /** Instalações embutidas no radier: base + por ponto. */
+    embeddedBaseHh: nonneg,
+    embeddedPerPointHh: nonneg,
+    /** Radier por m². */
+    radierPerM2Hh: nonneg,
+    /** Painel de parede: por peça, por abertura e por painel de transporte. */
+    wallPerPieceHh: nonneg,
+    wallPerOpeningHh: nonneg,
+    wallPerPanelHh: nonneg,
+    /** Mezanino por m². */
+    mezzaninePerM2Hh: nonneg,
+    /** Cobertura: por peça de estrutura e por m² de telha. */
+    roofPerPieceHh: nonneg,
+    roofCladdingPerM2Hh: nonneg,
+    /** Fechamentos e acabamentos por m² (parede líquida ou construído). */
+    exteriorClosurePerM2Hh: nonneg,
+    servicesPerM2BuiltHh: nonneg,
+    interiorClosurePerM2Hh: nonneg,
+    floorPerM2Hh: nonneg,
+    finishingPerM2BuiltHh: nonneg,
+  }),
+  /** Prazos típicos de entrega (dias corridos) por tipo de material de compra antecipada. */
+  leadTimes: z.object({
+    steelProfile: LeadTime,
+    concrete: LeadTime,
+    hardware: LeadTime,
+    foundationMaterial: LeadTime,
   }),
 });
 export type TechnicalConstants = z.infer<typeof TechnicalConstants>;

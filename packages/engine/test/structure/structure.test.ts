@@ -4,6 +4,7 @@ import { computeAll, computeStructure, DISCLAIMER, statusOf, structuralCapacity 
 import { loadFixture } from '../helpers/load';
 
 const catalog = getCatalog();
+const testCatalog = catalog;
 const fixture = () => loadFixture('gable-6.5x8.5-mezzanine.json');
 
 describe('vento (NBR 6123 simplificada)', () => {
@@ -22,7 +23,7 @@ describe('fórmulas de resistência (conferidas à mão)', () => {
     // Propriedades do catálogo: Wx em cm³, Ix em cm⁴, fy = 230 MPa = 23 kN/cm².
     expect(p.Wx).toBeCloseTo(19.34, 1);
     expect(p.Ix).toBeCloseTo(193.4, 0);
-    const r = cap.simpleBeam({ profile: p, L: 3.5, wUls: 2.5, wServ: 2.5, deflDen: 350, E: 200000 });
+    const r = cap.simpleBeam({ profile: p, L: 3.5, wUls: 2.5, wServ: 2.5, deflDen: 350, E: 200000, factors: testCatalog.constants.structureFactors });
     // M = qL²/8 = 2,5 · 12,25 / 8 = 3,828 kN·m
     expect(r.M).toBeCloseTo(3.828, 3);
     // Mrd = Wx · fy / 1,1 = 19,34 · 23 / 1,1 = 404,4 kN·cm = 4,044 kN·m
@@ -43,7 +44,7 @@ describe('fórmulas de resistência (conferidas à mão)', () => {
 
   test('compressão do montante Ue90x40x0.95, L = 2,8 m', () => {
     const p = getProfile(catalog, 'Ue90x40x0.95');
-    const c = cap.compression(p, 200000, 2.8, 1.4);
+    const c = cap.compression(p, 200000, 2.8, 1.4, testCatalog.constants.structureFactors);
     // Ne,x = π² · 20000 kN/cm² · A / (280 / rx)²; Ne,y com L = 1,4 m (bloqueadores) e ry
     const Nex = (Math.PI ** 2 * 20000 * p.area) / (280 / p.rx) ** 2;
     const Ney = (Math.PI ** 2 * 20000 * p.area) / (140 / p.ry) ** 2;
@@ -62,7 +63,7 @@ describe('fórmulas de resistência (conferidas à mão)', () => {
 
   test('esbeltez alta usa χ = 0,877/λ0²', () => {
     const p = getProfile(catalog, 'Ue90x40x0.95');
-    const c = cap.compression(p, 200000, 6, 6);
+    const c = cap.compression(p, 200000, 6, 6, testCatalog.constants.structureFactors);
     expect(c.lambda0).toBeGreaterThan(1.5);
     expect(c.chi).toBeCloseTo(0.877 / c.lambda0 ** 2, 9);
   });

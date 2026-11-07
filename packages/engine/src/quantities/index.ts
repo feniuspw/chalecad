@@ -20,8 +20,6 @@ export type { Item } from './items';
 
 /** Fator de compra de fita (rolo): perda de 5% sobre o comprimento. */
 const STRAP_FACTOR = 1.05;
-/** Parafusos perfil-perfil por ligação, fora do montante (regra do card F1-E2). */
-const SCREWS = { blocking: 4, header: 8, joistRafterCollar: 4, purlinPerRafter: 2 } as const;
 
 const EPS = 1e-9;
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
@@ -169,10 +167,10 @@ export function computeQuantities(
   const purlins = pieces.filter((p) => p.role === 'purlin');
   const screwsFrame =
     count(['stud', 'king', 'jack', 'cripple', 'stud_corner']) * c.lsf.screwsPerStud +
-    count(['blocking']) * SCREWS.blocking +
-    count(['header']) * SCREWS.header +
-    count(['joist', 'rafter', 'collar_tie']) * SCREWS.joistRafterCollar +
-    sum(purlins.map((p) => SCREWS.purlinPerRafter * (p.length / c.roof.rafterSpacing + 1)));
+    count(['blocking']) * c.fasteners.blocking +
+    count(['header']) * c.fasteners.header +
+    count(['joist', 'rafter', 'collar_tie']) * c.fasteners.joistRafterCollar +
+    sum(purlins.map((p) => c.fasteners.purlinPerRafter * (p.length / c.roof.rafterSpacing + 1)));
   const wallIds = new Map(model.walls.map((w) => [w.id, w]));
   const ground = project.levels.find((l) => l.elevation === 0)!;
 

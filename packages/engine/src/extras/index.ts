@@ -5,16 +5,13 @@ import type { Item } from '../quantities/items';
 import { paginateSheets } from '../quantities/paginate';
 import {
   deckGeometry,
-  EXTRAS,
   fencePosts,
   pathLength,
   pathSegments,
   segLen,
 } from './geometry';
-import { RETAINING } from './retaining';
 
-export { RETAINING } from './retaining';
-export { buildExtraModels, deckGeometry, EXTRAS, fencePosts, facade } from './geometry';
+export { buildExtraModels, deckGeometry, fencePosts, facade } from './geometry';
 
 const rect = (l: number, h: number): [number, number][] => [[0, 0], [l, 0], [l, h], [0, h]];
 
@@ -23,6 +20,8 @@ export function computeExtras(project: Project, model: BuildingModel, catalog: C
   const out: Item[] = [];
   const c = catalog.constants;
   const mas = c.masonry;
+  const X = c.extras;
+  const RETAINING = c.retaining;
 
   const add = (hostId: string, itemId: string, net: number, extra: Partial<Item> = {}): void => {
     if (!(net > 0)) return;
@@ -42,13 +41,13 @@ export function computeExtras(project: Project, model: BuildingModel, catalog: C
     add(hostId, structural ? 'block_structural' : 'block_concrete', area * mas.blocksPerM2);
     add(hostId, 'grout', area * mas.groutM3PerM2 * (structural ? 2 : 1));
     add(hostId, 'rebar_ca50', area * mas.rebarKgPerM2);
-    add(hostId, 'mortar', area * EXTRAS.mortarM3PerM2 * EXTRAS.mortarDensity);
+    add(hostId, 'mortar', area * X.mortarM3PerM2 * X.mortarDensity);
     const section =
       foundation === 'strip'
         ? mas.stripFootingWidth * mas.stripFootingDepth
-        : EXTRAS.gradeBeam.width * EXTRAS.gradeBeam.depth;
+        : X.gradeBeam.width * X.gradeBeam.depth;
     add(hostId, 'concrete_fck25', length * section, { kg: length * section * c.concreteDensity });
-    add(hostId, 'rebar_ca50', length * EXTRAS.footingSteelKgPerM);
+    add(hostId, 'rebar_ca50', length * X.footingSteelKgPerM);
   };
 
   for (const e of project.extras) {
@@ -66,16 +65,16 @@ export function computeExtras(project: Project, model: BuildingModel, catalog: C
         const section =
           e.foundation === 'strip'
             ? mas.stripFootingWidth * mas.stripFootingDepth
-            : EXTRAS.gradeBeam.width * EXTRAS.gradeBeam.depth;
+            : X.gradeBeam.width * X.gradeBeam.depth;
         add(e.id, 'concrete_fck25', length * section, { kg: length * section * c.concreteDensity });
-        add(e.id, 'rebar_ca50', length * EXTRAS.footingSteelKgPerM);
+        add(e.id, 'rebar_ca50', length * X.footingSteelKgPerM);
       } else {
         masonry(e.id, length, e.height, e.system === 'structural_block', e.foundation);
       }
     } else if (e.kind === 'fence') {
       const length = pathLength(e.path, e.closed);
       add(e.id, `post_${e.postType}`, fencePosts(e).length);
-      if (e.mesh === 'barbed') add(e.id, 'barbed_wire', length * EXTRAS.barbedStrands);
+      if (e.mesh === 'barbed') add(e.id, 'barbed_wire', length * X.barbedStrands);
       else add(e.id, e.mesh === 'welded' ? 'fence_welded' : 'fence_chain', length);
       if (e.baseWallHeight > 0) masonry(e.id, length, e.baseWallHeight, false, 'strip');
     } else if (e.kind === 'deck') {

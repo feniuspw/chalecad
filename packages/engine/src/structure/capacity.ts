@@ -1,22 +1,15 @@
-import type { Profile } from '@chalecad/catalog';
+import type { Profile, TechnicalConstants } from '@chalecad/catalog';
 
 /**
  * Fórmulas de resistência simplificadas (NBR 14762, pré-dimensionamento). Unidades de entrada do catálogo:
  * cm, cm², cm³, cm⁴, MPa. Aqui tudo é convertido para kN e cm internamente; saídas em kN, kN·m, cm.
  */
 
-/** Coeficiente de resistência para flexão e cisalhamento (γa1). */
-export const GAMMA_A1 = 1.1;
-/** Coeficiente de resistência para compressão (γa2, NBR 14762). */
-export const GAMMA_A2 = 1.2;
 /**
- * Fator de área efetiva para chapas finas: a flambagem local reduz a área que trabalha na compressão.
- * Simplificação: 0,85 da área bruta (o cálculo exato exige largura efetiva, fora do escopo do pré-dimensionamento).
+ * Fatores de resistência (γa1, γa2), área efetiva (flambagem local de chapas finas, simplificação do
+ * pré-dimensionamento) e ψ0 (NBR 8681) vêm de `catalog.constants.structureFactors`.
  */
-export const EFFECTIVE_AREA_FACTOR = 0.85;
-/** NBR 8681: fator de combinação do vento (ψ0 = 0,6) e das sobrecargas de uso residencial/cobertura (ψ0 = 0,5). */
-export const PSI_WIND = 0.6;
-export const PSI_LIVE = 0.5;
+export type StructureFactors = TechnicalConstants['structureFactors'];
 /** Aceleração da gravidade (m/s²): kg → kN. */
 export const G = 9.81;
 
@@ -41,25 +34,31 @@ export interface Compression {
  * Compressão de montante. Eixo x (rx): L = altura. Eixo y (ry): L = `braceLength` (bloqueadores/placas), no máximo L.
  * λ0 usa a área bruta, como na NBR 14762; a área efetiva só entra em Nc,Rd.
  */
-export function compression(p: Profile, E_MPa: number, L_m: number, braceLength_m: number): Compression {
+export function compression(
+  p: Profile,
+  E_MPa: number,
+  L_m: number,
+  braceLength_m: number,
+  f: StructureFactors,
+): Compression {
   const Nex = eulerLoadKN(E_MPa, p.area, 1, L_m, p.rx);
   const Ney = eulerLoadKN(E_MPa, p.area, 1, Math.min(L_m, braceLength_m), p.ry);
   const Ne = Math.min(Nex, Ney);
   const Ny = p.area * mpaToKNcm2(p.fy);
   const lambda0 = Math.sqrt(Ny / Ne);
   const chi = lambda0 <= 1.5 ? Math.pow(0.658, lambda0 * lambda0) : 0.877 / (lambda0 * lambda0);
-  return { Ne, lambda0, chi, NcRd: (chi * EFFECTIVE_AREA_FACTOR * Ny) / GAMMA_A2 };
+  return { Ne, lambda0, chi, NcRd: (chi * f.effectiveAreaFactor * Ny) / f.gammaA2 };
 }
 
 /** Mrd = Wx · fy / 1,1 (kN·m), com `n` perfis trabalhando juntos (caixa = 2). */
-export function momentResistance(p: Profile, n = 1): number {
-  return (n * p.Wx * mpaToKNcm2(p.fy)) / GAMMA_A1 / 100;
+export function momentResistance(p: Profile, f: StructureFactors, n = 1): number {
+  return (n * p.Wx * mpaToKNcm2(p.fy)) / f.gammaA1 / 100;
 }
 
 /** Vrd = 0,6 · fy · (alma · t) / 1,1 (kN); alma e t em mm no catálogo. */
-export function shearResistance(p: Profile, n = 1): number {
+export function shearResistance(p: Profile, f: StructureFactors, n = 1): number {
   const aw = (p.web / 10) * (p.thickness / 10);
-  return (n * 0.6 * mpaToKNcm2(p.fy) * aw) / GAMMA_A1;
+  return (n * f.shearYieldFactor * mpaToKNcm2(p.fy) * aw) / f.gammaA1;
 }
 
 /** Flecha de viga biapoiada com carga uniforme: 5qL⁴/(384EI) (cm). q em kN/m, L em m. */
@@ -90,14 +89,15 @@ export function simpleBeam(args: {
   wServ: number;
   deflDen: number;
   E: number;
+  factors: StructureFactors;
   n?: number;
 }): BeamResult {
   const n = args.n ?? 1;
   const { profile: p, L } = args;
   const M = (args.wUls * L * L) / 8;
   const V = (args.wUls * L) / 2;
-  const Mrd = momentResistance(p, n);
-  const Vrd = shearResistance(p, n);
+  const Mrd = momentResistance(p, args.factors, n);
+  const Vrd = shearResistance(p, args.factors, n);
   const delta = deflection(args.wServ, L, args.E, p.Ix * n);
   const deltaLim = (L * 100) / args.deflDen;
   const rM = M / Mrd;

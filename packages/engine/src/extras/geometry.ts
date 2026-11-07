@@ -1,37 +1,12 @@
+import type { TechnicalConstants } from '@chalecad/catalog';
 import { add3, cross3, dot3, scale3, signedArea, sub3, type Vec2, type Vec3 } from '../geometry';
 import type { Extra, Project } from '../schema/project';
 import type { ExtraModel, RoofPlane } from '../schema/results';
 
 const DEG = Math.PI / 180;
 
-/**
- * Premissas geométricas e de consumo fixadas pelo card F2-E2 (não existem no catálogo ainda).
- * Constantes técnicas de alvenaria (blocos/m², graute, aço, sapata) vêm de `catalog.constants.masonry`.
- */
-export const EXTRAS = {
-  blockThickness: 0.14,
-  lsfWallThickness: 0.1,
-  lsfStudSpacing: 0.6,
-  retainingThickness: 0.3,
-  /** Argamassa de assentamento (m³ por m² de alvenaria) e densidade (kg/m³). */
-  mortarM3PerM2: 0.02,
-  mortarDensity: 1900,
-  /** Aço da sapata corrida / baldrame (kg por m). */
-  footingSteelKgPerM: 3,
-  gradeBeam: { width: 0.15, depth: 0.3 },
-  postSize: { concrete: 0.12, eucalyptus: 0.12, steel: 0.06 },
-  barbedStrands: 5,
-  guardrailHeight: 1,
-  guardrailThickness: 0.05,
-  deckCoverPitchDeg: 10,
-  deckCoverBeiral: 0.3,
-  deckCoverClearance: 2.4,
-  /** Pé-direito livre mínimo sob a borda baixa e inclinação mínima da telha (graus, ~5%). */
-  deckCoverMinClearance: 2.1,
-  deckCoverMinPitchDeg: 3,
-  deckPostSpacing: 3,
-  deckPostSize: 0.1,
-} as const;
+/** Premissas geométricas e de consumo dos extras: `catalog.constants.extras`. */
+export type ExtrasConstants = TechnicalConstants['extras'];
 
 export type FenceE = Extract<Extra, { kind: 'fence' }>;
 export type WallE = Extract<Extra, { kind: 'wall' }>;
@@ -142,16 +117,16 @@ function deckRoofStart(project: Project, side: DeckE['side']): { zMax: number; q
 }
 
 /** Água de cobertura do deck: meia-água encostada na fachada, caindo para fora, sem invadir o telhado principal. */
-function deckRoof(id: string, e: DeckE, g: DeckGeometry, project: Project): RoofPlane {
-  const proj = e.depth + EXTRAS.deckCoverBeiral;
+function deckRoof(id: string, e: DeckE, g: DeckGeometry, project: Project, x: ExtrasConstants): RoofPlane {
+  const proj = e.depth + x.deckCoverBeiral;
   const start = deckRoofStart(project, e.side);
   const q0 = Math.min(start.q0, proj - 0.2);
   const run = proj - q0;
   // Inclinação padrão; se a fachada for baixa, suaviza (até o mínimo da telha) para manter o pé-direito livre.
-  const desiredHigh = e.elevation + EXTRAS.deckCoverClearance + run * Math.tan(EXTRAS.deckCoverPitchDeg * DEG);
+  const desiredHigh = e.elevation + x.deckCoverClearance + run * Math.tan(x.deckCoverPitchDeg * DEG);
   const zHigh = Math.min(desiredHigh, start.zMax);
-  const fitSlope = Math.atan(Math.max(0, zHigh - (e.elevation + EXTRAS.deckCoverMinClearance)) / run) / DEG;
-  const pitchDeg = Math.max(EXTRAS.deckCoverMinPitchDeg, Math.min(EXTRAS.deckCoverPitchDeg, fitSlope));
+  const fitSlope = Math.atan(Math.max(0, zHigh - (e.elevation + x.deckCoverMinClearance)) / run) / DEG;
+  const pitchDeg = Math.max(x.deckCoverMinPitchDeg, Math.min(x.deckCoverPitchDeg, fitSlope));
   const slope = pitchDeg * DEG;
   const cos = Math.cos(slope);
   const sin = Math.sin(slope);
@@ -184,15 +159,15 @@ function deckRoof(id: string, e: DeckE, g: DeckGeometry, project: Project): Roof
   };
 }
 
-function fenceModel(e: FenceE): ExtraModel {
+function fenceModel(e: FenceE, x: ExtrasConstants): ExtraModel {
   const segments: ExtraModel['segments'] = [];
   for (const [from, to] of pathSegments(e.path, e.closed)) {
     if (e.baseWallHeight > 0) {
-      segments.push({ from, to, height: e.baseWallHeight, thickness: EXTRAS.blockThickness, baseZ: 0, material: 'block' });
+      segments.push({ from, to, height: e.baseWallHeight, thickness: x.blockThickness, baseZ: 0, material: 'block' });
     }
     segments.push({ from, to, height: e.height - e.baseWallHeight, thickness: 0.02, baseZ: e.baseWallHeight, material: 'mesh' });
   }
-  const size = EXTRAS.postSize[e.postType];
+  const size = x.postSize[e.postType];
   return {
     id: e.id,
     kind: 'fence',
@@ -201,7 +176,7 @@ function fenceModel(e: FenceE): ExtraModel {
   };
 }
 
-function wallModel(e: WallE): ExtraModel {
+function wallModel(e: WallE, x: ExtrasConstants): ExtraModel {
   const lsf = e.system === 'lsf_board';
   return {
     id: e.id,
@@ -210,7 +185,7 @@ function wallModel(e: WallE): ExtraModel {
       from,
       to,
       height: e.height,
-      thickness: lsf ? EXTRAS.lsfWallThickness : EXTRAS.blockThickness,
+      thickness: lsf ? x.lsfWallThickness : x.blockThickness,
       baseZ: 0,
       material: lsf ? ('board' as const) : ('block' as const),
     })),
@@ -218,7 +193,7 @@ function wallModel(e: WallE): ExtraModel {
   };
 }
 
-function retainingModel(e: RetE): ExtraModel {
+function retainingModel(e: RetE, x: ExtrasConstants): ExtraModel {
   const material = e.type === 'gabion' ? 'gabion' : e.type === 'concrete' ? 'concrete' : 'block';
   return {
     id: e.id,
@@ -227,7 +202,7 @@ function retainingModel(e: RetE): ExtraModel {
       from,
       to,
       height: e.height,
-      thickness: EXTRAS.retainingThickness,
+      thickness: x.retainingThickness,
       baseZ: 0,
       material,
     })),
@@ -235,7 +210,7 @@ function retainingModel(e: RetE): ExtraModel {
   };
 }
 
-function deckModel(project: Project, e: DeckE): ExtraModel {
+function deckModel(project: Project, e: DeckE, x: ExtrasConstants): ExtraModel {
   const g = deckGeometry(project, e);
   const m: ExtraModel = { id: e.id, kind: 'deck', segments: [], posts: [], polygon: g.polygon, topZ: e.elevation };
   if (g.polygon.length === 0) return m;
@@ -244,8 +219,8 @@ function deckModel(project: Project, e: DeckE): ExtraModel {
       m.segments.push({
         from,
         to,
-        height: EXTRAS.guardrailHeight,
-        thickness: EXTRAS.guardrailThickness,
+        height: x.guardrailHeight,
+        thickness: x.guardrailThickness,
         baseZ: e.elevation,
         material: 'rail',
       });
@@ -253,30 +228,30 @@ function deckModel(project: Project, e: DeckE): ExtraModel {
   }
   if (e.covered) {
     // `roof` presente = deck coberto (ExtraModel não tem flag `covered`).
-    m.roof = deckRoof(e.id, e, g, project);
+    m.roof = deckRoof(e.id, e, g, project, x);
     const lowEdgeZ = Math.min(...m.roof.vertices.map((v) => v[2]));
-    const postHeight = lowEdgeZ + EXTRAS.deckCoverBeiral * Math.tan(m.roof.slopeDeg * DEG) - e.elevation;
-    const n = Math.max(1, Math.ceil(g.length / EXTRAS.deckPostSpacing - 1e-9));
+    const postHeight = lowEdgeZ + x.deckCoverBeiral * Math.tan(m.roof.slopeDeg * DEG) - e.elevation;
+    const n = Math.max(1, Math.ceil(g.length / x.deckPostSpacing - 1e-9));
     for (let i = 0; i <= n; i++) {
       const a = g.a0 + (g.length * i) / n;
-      m.posts.push({ position: g.at(a, e.depth), height: postHeight, size: EXTRAS.deckPostSize });
+      m.posts.push({ position: g.at(a, e.depth), height: postHeight, size: x.deckPostSize });
     }
   }
   return m;
 }
 
 /** Geometria 3D dos extras (muro, cerca, deck, arrimo) na ordem de `project.extras`. */
-export function buildExtraModels(project: Project): ExtraModel[] {
+export function buildExtraModels(project: Project, x: ExtrasConstants): ExtraModel[] {
   return project.extras.map((e) => {
     switch (e.kind) {
       case 'fence':
-        return fenceModel(e);
+        return fenceModel(e, x);
       case 'wall':
-        return wallModel(e);
+        return wallModel(e, x);
       case 'deck':
-        return deckModel(project, e);
+        return deckModel(project, e, x);
       case 'retaining':
-        return retainingModel(e);
+        return retainingModel(e, x);
     }
   });
 }

@@ -69,5 +69,74 @@ export const constants: TechnicalConstants = {
     rebarKgPerM2: 2.5,
     stripFootingWidth: 0.4,
     stripFootingDepth: 0.3,
+  },  fasteners: { blocking: 4, header: 8, joistRafterCollar: 4, purlinPerRafter: 2 },
+  extras: {
+    blockThickness: 0.14,
+    lsfWallThickness: 0.1,
+    lsfStudSpacing: 0.6,
+    retainingThickness: 0.3,
+    mortarM3PerM2: 0.02, // m³ por m² de alvenaria
+    mortarDensity: 1900, // kg/m³
+    footingSteelKgPerM: 3, // kg por m
+    gradeBeam: { width: 0.15, depth: 0.3 }, // m
+    postSize: { concrete: 0.12, eucalyptus: 0.12, steel: 0.06 }, // m
+    barbedStrands: 5,
+    guardrailHeight: 1, // m
+    guardrailThickness: 0.05, // m
+    deckCoverPitchDeg: 10, // graus
+    deckCoverBeiral: 0.3, // m
+    deckCoverClearance: 2.4, // m
+    deckCoverMinClearance: 2.1, // m
+    deckCoverMinPitchDeg: 3, // graus (~5%)
+    deckPostSpacing: 3, // m
+    deckPostSize: 0.1, // m
+  },
+  retaining: {
+    gabionBase: 0.5, // m
+    gabionBasePerHeight: 0.1, // m por m de altura
+    concreteStem: 0.2, // m
+    footing: { width: 0.6, depth: 0.3 }, // m
+    steelKgPerM3: 80, // kg por m³ de concreto
+    geotextileExtraHeight: 0.5, // m
+  },
+  terrainRules: {
+    drainCutHeight: 1.5, // m
+    steepPct: 30, // %
+    cutWarnHeight: 3, // m
+    fillUnderBuilding: 1, // m
+    kmPerExtraTrip: 20, // km
+  },
+  structureFactors: {
+    gammaA1: 1.1,
+    gammaA2: 1.2,
+    effectiveAreaFactor: 0.85,
+    shearYieldFactor: 0.6,
+    psiWind: 0.6,
+    psiLive: 0.5,
+  },
+  warnings: { modulationMax: 0.1, mezzRoofMin: 2.0, mezzUnderMin: 2.2 }, // m
+  productivity: {
+    layoutBaseHh: 6,
+    layoutPerMeterHh: 0.4, // por m de perímetro
+    embeddedBaseHh: 4,
+    embeddedPerPointHh: 3, // por ponto de esgoto/água
+    radierPerM2Hh: 0.9,
+    wallPerPieceHh: 0.1,
+    wallPerOpeningHh: 1.5,
+    wallPerPanelHh: 3,
+    mezzaninePerM2Hh: 1.6,
+    roofPerPieceHh: 0.12,
+    roofCladdingPerM2Hh: 0.35,
+    exteriorClosurePerM2Hh: 0.9,
+    servicesPerM2BuiltHh: 0.8,
+    interiorClosurePerM2Hh: 0.8,
+    floorPerM2Hh: 0.5,
+    finishingPerM2BuiltHh: 1.2,
+  },
+  leadTimes: {
+    steelProfile: { days: 21, note: 'Perfis LSF costumam ser cortados e conformados sob encomenda: 15 a 30 dias.' },
+    concrete: { days: 3, note: 'Concreto usinado: agendar a concretagem com 3 a 5 dias de antecedência.' },
+    hardware: { days: 7, note: 'Parafusos, chumbadores e hold-downs: 5 a 10 dias, conferir estoque do fornecedor.' },
+    foundationMaterial: { days: 3, note: 'Material de fundação em estoque no varejo: 1 a 5 dias.' },
   },
 };

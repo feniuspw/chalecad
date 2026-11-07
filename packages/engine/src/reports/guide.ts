@@ -2,7 +2,6 @@ import { getAssembly, getProfile, type Catalog } from '@chalecad/catalog';
 import { polylineLength } from '../geometry';
 import type { Project } from '../schema/project';
 import { DISCLAIMER, type HostWall, type QuantityLine, type Results } from '../schema/results';
-import { LEAD_TIMES, PRODUCTIVITY as P } from './indices';
 import type { BuyFirstItem, ConstructionGuide, GuideStep } from './types';
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -21,6 +20,8 @@ function orderWalls(walls: HostWall[]): HostWall[] {
 
 export function buildConstructionGuide(project: Project, results: Results, catalog: Catalog): ConstructionGuide {
   const { model, pieces, quantities } = results;
+  const P = catalog.constants.productivity;
+  const LEAD_TIMES = catalog.constants.leadTimes;
   const lines = quantities.lines;
   const steps: GuideStep[] = [];
   const add = (s: Omit<GuideStep, 'order' | 'manHours'> & { manHours: number }): void => {
