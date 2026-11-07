@@ -9,6 +9,7 @@ import type {
   QuantityLine,
   QuantityReport,
 } from '../schema/results';
+import { computeExtras } from '../extras';
 import { cutPlan } from './cutplan';
 import { collectItems, openingsByHost, wallAreas } from './items';
 
@@ -69,11 +70,13 @@ export function computeQuantities(
     l.push(p);
     byProfile.set(p.profileId, l);
   }
+  // Índice de aço só da edificação: peças de extras (muro LSF, cobertura do deck) ficam de fora.
+  const extraIds = new Set(project.extras.map((e) => e.id));
   let steelKg = 0;
   for (const [profileId, ps] of byProfile) {
     const prof = getProfile(catalog, profileId);
     const netLen = sum(ps.map((p) => p.length));
-    steelKg += netLen * prof.massPerM;
+    steelKg += sum(ps.filter((p) => !extraIds.has(p.hostId)).map((p) => p.length)) * prof.massPerM;
     const hostIds = uniq(ps.map((p) => p.hostId));
     const pieceIds = ps.map((p) => p.id);
     if (prof.family === 'Fita') {
@@ -176,7 +179,7 @@ export function computeQuantities(
   for (const p of pieces) {
     if (p.role !== 'track_bottom') continue;
     const w = wallIds.get(p.hostId);
-    if (!w || w.level !== ground.id) continue;
+    if (!w || w.level !== ground.id || w.kind === 'parapet') continue;
     bottoms.set(w.id, (bottoms.get(w.id) ?? 0) + p.length);
   }
   let anchors = 0;
@@ -187,7 +190,7 @@ export function computeQuantities(
   let holdDowns = 0;
   const hdHosts: string[] = [];
   for (const w of model.walls) {
-    if (w.exteriorSide !== null) {
+    if (w.exteriorSide !== null && w.kind !== 'parapet') {
       holdDowns += 2;
       hdHosts.push(w.id);
     }
@@ -210,7 +213,7 @@ export function computeQuantities(
   fix('hold_down', holdDowns, uniq(hdHosts));
 
   // --- Demais itens ----------------------------------------------------------------
-  for (const it of collectItems(model, project, catalog)) {
+  for (const it of [...collectItems(model, project, catalog), ...computeExtras(project, model, catalog)]) {
     const a = touch(it.stage, it.itemId);
     a.net += it.net;
     a.hostIds.add(it.hostId);

@@ -160,12 +160,25 @@ export function collectItems(model: BuildingModel, project: Project, catalog: Ca
       kg: net * clad.massPerUnit,
       inWeight: true,
     });
-    gableEdges += 2 * r.vLength;
-    ridge += r.uLength / 2; // cada cumeeira é compartilhada por duas águas
-    if (!r.isWall) eaves += r.uLength;
+    if (model.typology === 'flat_roof') {
+      // Telhado plano: rufo no topo da platibanda (perímetro, abaixo); calha interna no lado baixo (largura).
+      eaves += r.uLength;
+    } else if (model.typology === 'shed') {
+      gableEdges += 2 * r.vLength; // rufos laterais
+      ridge += r.uLength; // cumeeira/rufo de encontro no lado alto
+      eaves += r.uLength; // calha no lado baixo
+    } else {
+      gableEdges += 2 * r.vLength;
+      ridge += r.uLength / 2; // cada cumeeira é compartilhada por duas águas
+      if (!r.isWall) eaves += r.uLength;
+    }
     for (const o of ops.get(r.id) ?? []) {
       if (o.type === 'skylight') simple(out, catalog, r.id, 'roof', 'skylight', openingArea(o));
     }
+  }
+  if (model.typology === 'flat_roof') {
+    const t = project.typology;
+    gableEdges += 2 * (t.width + t.depth);
   }
   const first = model.roofPlanes[0];
   simple(out, catalog, first?.id ?? 'roof-a', 'roof', 'ridge_cap', ridge);

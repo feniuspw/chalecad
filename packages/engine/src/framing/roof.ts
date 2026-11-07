@@ -2,6 +2,7 @@ import type { Catalog } from '@chalecad/catalog';
 import { add3, cross3, dot3, pointInPolygon, scale3, type Vec2, type Vec3 } from '../geometry';
 import type { Project, TypologyKind } from '../schema/project';
 import type { BuildingModel, RoofPlane } from '../schema/results';
+import { slopedFrame } from '../model/sloped';
 import { PieceSink, profileOf, uVariant } from './util';
 
 export type RoofFramer = (model: BuildingModel, project: Project, catalog: Catalog, sink: PieceSink) => void;
@@ -72,8 +73,76 @@ const twoPlaneFramer: RoofFramer = (model, project, catalog, sink) => {
   }
 };
 
+/**
+ * Meia-água (`shed`): caibros do lado baixo ao alto, alinhados aos montantes, terças e viga de topo.
+ * Telhado plano (`flat_roof`): vigas de cobertura niveladas sobre as paredes no menor vão e cartolas
+ * perpendiculares seguindo a água (a diferença de cota da queda é vencida pelas cartolas/calços, não modelados).
+ */
+const slopedFramer: RoofFramer = (model, project, catalog, sink) => {
+  const c = catalog.constants;
+  const sys = project.system;
+  const t = project.typology;
+  const plane = model.roofPlanes[0];
+  if (!plane || (t.kind !== 'shed' && t.kind !== 'flat_roof')) return;
+  const f = slopedFrame(t.kind === 'shed' ? t.highSide : 'front', t.width, t.depth);
+  const eave = t.kind === 'shed' ? t.eave : 0;
+  const normal = cross3(plane.uAxis, plane.vAxis);
+  const spacing = Math.min(c.roof.rafterSpacing, sys.studSpacing);
+  const sgn = dot3(plane.uAxis, [f.lDir[0], f.lDir[1], 0]) > 0 ? 1 : -1;
+  /** Ponto na água: l ao longo do beiral (0 = canto da parede), v ao longo da água a partir do beiral. */
+  const pointOf = (l: number, v: number): Vec3 => {
+    const u = sgn > 0 ? eave + l : plane.uLength - eave - l;
+    return add3(add3(plane.origin, scale3(plane.uAxis, u)), scale3(plane.vAxis, v));
+  };
+  const steps = (len: number, step: number): number[] => {
+    const out: number[] = [];
+    for (let k = 0; k * step < len - 0.02; k++) out.push(k * step);
+    out.push(len);
+    return out;
+  };
+
+  if (t.kind === 'shed') {
+    const rafter = profileOf(catalog, sys.profiles.rafter);
+    for (const l of steps(f.L, spacing)) {
+      sink.add(plane.id, 'rafter', rafter.id, pointOf(l, 0), pointOf(l, plane.vLength), normal);
+    }
+    for (const v of steps(plane.vLength, c.roof.purlinSpacing)) {
+      const a = add3(plane.origin, scale3(plane.vAxis, v));
+      sink.add(plane.id, 'purlin', sys.profiles.purlin, a, add3(a, scale3(plane.uAxis, plane.uLength)), normal);
+    }
+    const top = add3(plane.origin, scale3(plane.vAxis, plane.vLength));
+    sink.add(plane.id, 'ridge', uVariant(catalog, rafter.id), top, add3(top, scale3(plane.uAxis, plane.uLength)), UP);
+    return;
+  }
+
+  // flat_roof: vigas no menor vão (nível das paredes), cartolas perpendiculares.
+  const joist = sys.profiles.joist;
+  const z = t.wallHeight;
+  const alongX = t.width <= t.depth;
+  const span = alongX ? t.width : t.depth;
+  const run = alongX ? t.depth : t.width;
+  for (const p of steps(run, spacing)) {
+    const a: Vec3 = alongX ? [0, p, z] : [p, 0, z];
+    const b: Vec3 = alongX ? [span, p, z] : [p, span, z];
+    sink.add(plane.id, 'joist', joist, a, b, UP);
+  }
+  if (alongX) {
+    // vigas em x: cartolas descem a água (direção v) a cada purlinSpacing ao longo de x
+    for (const l of steps(f.L, c.roof.purlinSpacing)) {
+      sink.add(plane.id, 'purlin', sys.profiles.purlin, pointOf(l, 0), pointOf(l, plane.vLength), normal);
+    }
+  } else {
+    for (const v of steps(plane.vLength, c.roof.purlinSpacing)) {
+      const a = add3(plane.origin, scale3(plane.vAxis, v));
+      sink.add(plane.id, 'purlin', sys.profiles.purlin, a, add3(a, scale3(plane.uAxis, plane.uLength)), normal);
+    }
+  }
+};
+
 /** Tipologias sem framer não geram peças de cobertura (sem erro). */
 export const framers: Partial<Record<TypologyKind, RoofFramer>> = {
   gable_mezzanine: twoPlaneFramer,
   a_frame: twoPlaneFramer,
+  shed: slopedFramer,
+  flat_roof: slopedFramer,
 };

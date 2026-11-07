@@ -23,7 +23,9 @@ import type {
   RoofPlane,
   SlabModel,
 } from '../schema/results';
+import { buildExtraModels } from '../extras';
 import { buildStair } from './stairs';
+import { slopedGeometry } from './sloped';
 
 const DEG = Math.PI / 180;
 
@@ -56,7 +58,7 @@ const rect = (l: number, h: number): Vec2[] => [[0, 0], [l, 0], [l, h], [0, h]];
 
 export function buildModel(project: Project, catalog: Catalog): BuildingModel {
   const { typology: t, system, levels } = project;
-  if (t.kind !== 'gable_mezzanine' && t.kind !== 'a_frame') {
+  if (t.kind === 'gambrel' || t.kind === 'combined') {
     throw new Error(`Tipologia ainda não suportada: ${t.kind}`);
   }
   const c = catalog.constants;
@@ -70,59 +72,6 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
   const extId = system.assemblies.exterior;
   const extT = thicknessOf(extId);
 
-  const isGable = t.kind === 'gable_mezzanine';
-  const ridgeAxis = isGable ? project.roof.ridgeAxis : 'depth';
-  const S = ridgeAxis === 'depth' ? W : D; // vão (através da cumeeira)
-  const L = ridgeAxis === 'depth' ? D : W; // comprimento ao longo da cumeeira
-
-  // --- Telhado --------------------------------------------------------------
-  const knee = t.kind === 'a_frame' ? t.kneeWallHeight : 0;
-  const eave = t.kind === 'gable_mezzanine' ? t.eave : 0;
-  const rake = t.rake;
-  const zBase = t.kind === 'gable_mezzanine' ? t.wallHeight : knee;
-  const slopeRad = t.kind === 'gable_mezzanine' ? t.roofPitchDeg * DEG : Math.atan2(t.ridgeHeight - knee, S / 2);
-  const ridgeHeight = t.kind === 'gable_mezzanine' ? zBase + (S / 2) * Math.tan(slopeRad) : t.ridgeHeight;
-  const cos = Math.cos(slopeRad);
-  const sin = Math.sin(slopeRad);
-
-  const m = (a: number, l: number, z: number): Vec3 => (ridgeAxis === 'depth' ? [a, l, z] : [l, a, z]);
-  const mv = (v: Vec3): Vec3 => (ridgeAxis === 'depth' ? v : [v[1], v[0], v[2]]);
-
-  const roofPlane = (id: string, side: 'a' | 'b'): RoofPlane => {
-    const a0 = side === 'a' ? -eave : S + eave;
-    const zE = zBase - eave * Math.tan(slopeRad);
-    const vDir = mv(side === 'a' ? [cos, 0, sin] : [-cos, 0, sin]);
-    const nDir = mv(side === 'a' ? [-sin, 0, cos] : [sin, 0, cos]);
-    const uDir = cross3(vDir, nDir);
-    const p0 = m(a0, -rake, zE);
-    const p1 = m(a0, L + rake, zE);
-    const origin = dot3(uDir, sub3(p1, p0)) > 0 ? p0 : p1;
-    const uLength = L + 2 * rake;
-    const vLength = (S / 2 + eave) / cos;
-    const du = scale3(uDir, uLength);
-    const dv = scale3(vDir, vLength);
-    return {
-      id,
-      vertices: [origin, add3(origin, du), add3(add3(origin, du), dv), add3(origin, dv)],
-      slopeDeg: slopeRad / DEG,
-      area: uLength * vLength,
-      origin,
-      uAxis: uDir,
-      vAxis: vDir,
-      uLength,
-      vLength,
-      isWall: !isGable,
-    };
-  };
-  const roofPlanes = [roofPlane('roof-a', 'a'), roofPlane('roof-b', 'b')];
-
-  /** Cota do telhado sobre um ponto da planta. */
-  const roofZ = (x: number, y: number): number => {
-    const a = Math.min(Math.max(ridgeAxis === 'depth' ? x : y, 0), S);
-    return zBase + (S / 2 - Math.abs(a - S / 2)) * Math.tan(slopeRad);
-  };
-
-  // --- Paredes externas -----------------------------------------------------
   const walls: HostWall[] = [];
   const mkWall = (w: Partial<HostWall> & Pick<HostWall, 'id' | 'kind' | 'from' | 'to' | 'outline' | 'assemblyId'>): HostWall => ({
     level: groundLevel.id,
@@ -134,10 +83,6 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     wet: false,
     ...w,
   });
-  const gableOutline = (len: number, h: number, top: number): Vec2[] =>
-    h > 0
-      ? [[0, 0], [len, 0], [len, h], [len / 2, top], [0, h]]
-      : [[0, 0], [len, 0], [len / 2, top]];
 
   const front: Vec2[] = [[0, 0], [W, 0]];
   const right: Vec2[] = [[W, 0], [W, D]];
@@ -148,27 +93,100 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
       mkWall({ id, kind, from: from!, to: to!, outline, assemblyId, exteriorSide: 'right', loadBearing: true }),
     );
 
-  if (t.kind === 'gable_mezzanine') {
-    const H = t.wallHeight;
-    const gOut = (len: number) => gableOutline(len, H, ridgeHeight);
-    if (ridgeAxis === 'depth') {
-      ext('ext-front', front, gOut(W), 'exterior');
-      ext('ext-right', right, rect(D, H), 'exterior');
-      ext('ext-back', back, gOut(W), 'exterior');
-      ext('ext-left', left, rect(D, H), 'exterior');
-    } else {
-      ext('ext-front', front, rect(W, H), 'exterior');
-      ext('ext-right', right, gOut(D), 'exterior');
-      ext('ext-back', back, rect(W, H), 'exterior');
-      ext('ext-left', left, gOut(D), 'exterior');
+  let roofPlanes: RoofPlane[];
+  let ridgeHeight: number;
+  let roofZ: (x: number, y: number) => number;
+  /** Altura das paredes internas do térreo sem nível acima (null = vai até o telhado). */
+  let groundWallHeight: number | null;
+
+  if (t.kind === 'shed' || t.kind === 'flat_roof') {
+    const sg = slopedGeometry(t);
+    roofPlanes = [sg.roofPlane];
+    ridgeHeight = sg.ridgeHeight;
+    roofZ = sg.roofZ;
+    groundWallHeight = sg.groundWallHeight;
+    for (const w of sg.walls) {
+      walls.push(mkWall({ ...w, assemblyId: extId, exteriorSide: 'right', loadBearing: w.kind !== 'parapet' }));
     }
   } else {
-    const gOut = gableOutline(W, knee, ridgeHeight);
-    const gAssembly = (mode: 'closed' | 'glazed' | 'open') => (mode === 'glazed' ? 'gable_glazed' : extId);
-    if (t.frontGable !== 'open') ext('ext-front', front, gOut, 'gable', gAssembly(t.frontGable));
-    if (knee > 0) ext('ext-right', right, rect(D, knee), 'knee');
-    if (t.backGable !== 'open') ext('ext-back', back, gOut, 'gable', gAssembly(t.backGable));
-    if (knee > 0) ext('ext-left', left, rect(D, knee), 'knee');
+    const isGable = t.kind === 'gable_mezzanine';
+    groundWallHeight = t.kind === 'gable_mezzanine' ? t.wallHeight : null;
+    const ridgeAxis = isGable ? project.roof.ridgeAxis : 'depth';
+    const S = ridgeAxis === 'depth' ? W : D; // vão (através da cumeeira)
+    const L = ridgeAxis === 'depth' ? D : W; // comprimento ao longo da cumeeira
+
+    // --- Telhado --------------------------------------------------------------
+    const knee = t.kind === 'a_frame' ? t.kneeWallHeight : 0;
+    const eave = t.kind === 'gable_mezzanine' ? t.eave : 0;
+    const rake = t.rake;
+    const zBase = t.kind === 'gable_mezzanine' ? t.wallHeight : knee;
+    const slopeRad = t.kind === 'gable_mezzanine' ? t.roofPitchDeg * DEG : Math.atan2(t.ridgeHeight - knee, S / 2);
+    ridgeHeight = t.kind === 'gable_mezzanine' ? zBase + (S / 2) * Math.tan(slopeRad) : t.ridgeHeight;
+    const cos = Math.cos(slopeRad);
+    const sin = Math.sin(slopeRad);
+
+    const m = (a: number, l: number, z: number): Vec3 => (ridgeAxis === 'depth' ? [a, l, z] : [l, a, z]);
+    const mv = (v: Vec3): Vec3 => (ridgeAxis === 'depth' ? v : [v[1], v[0], v[2]]);
+
+    const roofPlane = (id: string, side: 'a' | 'b'): RoofPlane => {
+      const a0 = side === 'a' ? -eave : S + eave;
+      const zE = zBase - eave * Math.tan(slopeRad);
+      const vDir = mv(side === 'a' ? [cos, 0, sin] : [-cos, 0, sin]);
+      const nDir = mv(side === 'a' ? [-sin, 0, cos] : [sin, 0, cos]);
+      const uDir = cross3(vDir, nDir);
+      const p0 = m(a0, -rake, zE);
+      const p1 = m(a0, L + rake, zE);
+      const origin = dot3(uDir, sub3(p1, p0)) > 0 ? p0 : p1;
+      const uLength = L + 2 * rake;
+      const vLength = (S / 2 + eave) / cos;
+      const du = scale3(uDir, uLength);
+      const dv = scale3(vDir, vLength);
+      return {
+        id,
+        vertices: [origin, add3(origin, du), add3(add3(origin, du), dv), add3(origin, dv)],
+        slopeDeg: slopeRad / DEG,
+        area: uLength * vLength,
+        origin,
+        uAxis: uDir,
+        vAxis: vDir,
+        uLength,
+        vLength,
+        isWall: !isGable,
+      };
+    };
+    roofPlanes = [roofPlane('roof-a', 'a'), roofPlane('roof-b', 'b')];
+
+    /** Cota do telhado sobre um ponto da planta. */
+    roofZ = (x: number, y: number): number => {
+      const a = Math.min(Math.max(ridgeAxis === 'depth' ? x : y, 0), S);
+      return zBase + (S / 2 - Math.abs(a - S / 2)) * Math.tan(slopeRad);
+    };
+    const gableOutline = (len: number, h: number, top: number): Vec2[] =>
+      h > 0
+        ? [[0, 0], [len, 0], [len, h], [len / 2, top], [0, h]]
+        : [[0, 0], [len, 0], [len / 2, top]];
+    if (t.kind === 'gable_mezzanine') {
+      const H = t.wallHeight;
+      const gOut = (len: number) => gableOutline(len, H, ridgeHeight);
+      if (ridgeAxis === 'depth') {
+        ext('ext-front', front, gOut(W), 'exterior');
+        ext('ext-right', right, rect(D, H), 'exterior');
+        ext('ext-back', back, gOut(W), 'exterior');
+        ext('ext-left', left, rect(D, H), 'exterior');
+      } else {
+        ext('ext-front', front, rect(W, H), 'exterior');
+        ext('ext-right', right, gOut(D), 'exterior');
+        ext('ext-back', back, rect(W, H), 'exterior');
+        ext('ext-left', left, gOut(D), 'exterior');
+      }
+    } else {
+      const gOut = gableOutline(W, knee, ridgeHeight);
+      const gAssembly = (mode: 'closed' | 'glazed' | 'open') => (mode === 'glazed' ? 'gable_glazed' : extId);
+      if (t.frontGable !== 'open') ext('ext-front', front, gOut, 'gable', gAssembly(t.frontGable));
+      if (knee > 0) ext('ext-right', right, rect(D, knee), 'knee');
+      if (t.backGable !== 'open') ext('ext-back', back, gOut, 'gable', gAssembly(t.backGable));
+      if (knee > 0) ext('ext-left', left, rect(D, knee), 'knee');
+    }
   }
 
   // --- Lajes ----------------------------------------------------------------
@@ -219,7 +237,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     let height: number;
     if (w.height !== undefined) height = w.height;
     else if (next !== undefined) height = next - lvl.elevation;
-    else if (isGable && lvl.elevation === 0) height = t.kind === 'gable_mezzanine' ? t.wallHeight : 0;
+    else if (lvl.elevation === 0 && groundWallHeight !== null) height = groundWallHeight;
     else {
       const mid: Vec2 = [(w.from[0] + w.to[0]) / 2, (w.from[1] + w.to[1]) / 2];
       height = Math.max(Math.min(roofZ(mid[0], mid[1]) - lvl.elevation, c.defaultCeilingMax), 0);
@@ -288,6 +306,11 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     }
   }
   for (const p of footprint) pts.push([p[0], p[1], 0]);
+  for (const w of walls) {
+    if (w.kind !== 'parapet') continue;
+    const top = w.baseZ + Math.max(...w.outline.map((o) => o[1]));
+    pts.push([w.from[0], w.from[1], top], [w.to[0], w.to[1], top]);
+  }
 
   const model: BuildingModel = {
     typology: t.kind,
@@ -299,7 +322,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     slabs,
     openings,
     stairs,
-    extras: [],
+    extras: buildExtraModels(project),
     ridgeHeight,
     bbox: bbox3(pts),
   };

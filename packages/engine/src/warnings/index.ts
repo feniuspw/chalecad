@@ -1,4 +1,5 @@
 import type { Catalog } from '@chalecad/catalog';
+import { framers } from '../framing';
 import { pointInPolygon, type Vec2 } from '../geometry';
 import type { Project } from '../schema/project';
 import type {
@@ -23,7 +24,6 @@ export interface WarningContext {
 const EPS = 1e-9;
 const SEV_RANK: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 const ROOF_ROLES = new Set(['rafter', 'purlin', 'ridge', 'collar_tie']);
-const SUPPORTED_ROOF_TYPOLOGIES = new Set(['gable_mezzanine', 'a_frame']);
 const MODULATION_MAX = 0.1;
 const MEZZ_ROOF_MIN = 2.0;
 const MEZZ_UNDER_MIN = 2.2;
@@ -188,7 +188,7 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
 
   // Cobertura, extras e terreno
   const hasRoofPieces = pieces.some((p) => ROOF_ROLES.has(p.role));
-  if (!SUPPORTED_ROOF_TYPOLOGIES.has(model.typology) || !hasRoofPieces) {
+  if (!framers[model.typology] || (!hasRoofPieces && model.roofPlanes.length > 0)) {
     out.push({
       code: 'typology.partial',
       severity: 'info',
@@ -196,12 +196,22 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
       refs: model.roofPlanes.map((r) => r.id),
     });
   }
-  if (project.extras.length > 0 && model.extras.length === 0) {
+  const ignoredExtras = project.extras.filter((e) => !model.extras.some((m) => m.id === e.id) || e.kind === 'retaining');
+  if (ignoredExtras.length > 0) {
     out.push({
       code: 'extras.ignored',
       severity: 'info',
-      message: `${project.extras.length} extra(s) do projeto ainda não são calculados pelo motor.`,
-      refs: project.extras.map((e) => e.id),
+      message: `${ignoredExtras.length} extra(s) do projeto ainda não são calculados pelo motor (muro de arrimo entra com o terreno inclinado).`,
+      refs: ignoredExtras.map((e) => e.id),
+    });
+  }
+  const t = project.typology;
+  if (t.kind === 'flat_roof' && t.parapetHeight < t.depth * (t.slopePct / 100)) {
+    out.push({
+      code: 'roof.parapet',
+      severity: 'warn',
+      message: `A platibanda (${t.parapetHeight.toFixed(2)} m) é mais baixa que a queda do telhado (${(t.depth * t.slopePct / 100).toFixed(2)} m): o telhado aparece acima dela no lado alto.`,
+      refs: model.roofPlanes.map((r) => r.id),
     });
   }
   if (project.site.type === 'sloped') {
