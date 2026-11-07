@@ -17,6 +17,7 @@ import {
   type ReconcileReport,
 } from '@/lib/project/edit';
 import { fmt } from '@/lib/project/format';
+import { addAnnex, annexInfo, annexLimits, patchAnnex, removeAnnex, type AnnexPatch, type AnnexSide } from '@/lib/project/annex';
 import { TEMPLATE_LABELS } from '@/lib/project/templates';
 import { useEditor } from '@/lib/store/editor';
 import { Notice, Section, Segmented, SelectField, SliderField, SwitchField } from './fields';
@@ -114,7 +115,72 @@ function AFrameFields({ t, edit }: { t: TypoOf<'a_frame'>; edit: Edit }) {
       {rakeField(t, edit)}
       <SelectField label="Empena frontal" value={t.frontGable} options={[...GABLE_OPTIONS]} onChange={(v) => edit('Alterar empena frontal', { frontGable: v })} />
       <SelectField label="Empena dos fundos" value={t.backGable} options={[...GABLE_OPTIONS]} onChange={(v) => edit('Alterar empena dos fundos', { backGable: v })} />
+      <AnnexEditor t={t} />
     </>
+  );
+}
+
+const SIDE_LABEL: Record<AnnexSide, string> = { left: 'esquerda', right: 'direita' };
+
+/** Cômodos laterais do A-frame: adicionar/remover por lado e medidas de cada um. */
+function AnnexEditor({ t }: { t: TypoOf<'a_frame'> }) {
+  const update = useEditor((s) => s.update);
+  const updateCoalesced = useEditor((s) => s.updateCoalesced);
+  const add = (side: AnnexSide) => {
+    let ok = false;
+    update(`Adicionar cômodo à ${SIDE_LABEL[side]}`, (d) => {
+      ok = addAnnex(d, side);
+    });
+    if (!ok) toast.warning('O A-frame é baixo demais para um cômodo lateral.', { description: 'Aumente a cumeeira ou reduza a mureta.' });
+  };
+  return (
+    <div className="space-y-3 border-t border-stone-200 pt-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-stone-700">Cômodos nas laterais</span>
+        <div className="flex gap-1">
+          {(['left', 'right'] as const)
+            .filter((side) => !t.annexes.some((a) => a.side === side))
+            .map((side) => (
+              <Button key={side} size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => add(side)}>
+                + {side === 'left' ? 'Esquerda' : 'Direita'}
+              </Button>
+            ))}
+        </div>
+      </div>
+      {t.annexes.length === 0 ? (
+        <p className="text-[11px] text-stone-500">Caixa encostada na lateral, com telhado de uma água entrando no A-frame. Boa para quarto e banheiro.</p>
+      ) : null}
+      {t.annexes.map((a) => {
+        const lim = annexLimits(t, a);
+        const info = annexInfo(t, a);
+        const set = (label: string, patch: AnnexPatch, c: boolean) =>
+          (c ? updateCoalesced : update)(label, (d) => patchAnnex(d, a.side, patch));
+        return (
+          <div key={a.side} className="space-y-3 rounded-lg border border-stone-200 bg-stone-50/60 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-800">Cômodo à {SIDE_LABEL[a.side]}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-[11px] text-stone-500 hover:text-red-600"
+                onClick={() => update(`Remover cômodo à ${SIDE_LABEL[a.side]}`, (d) => removeAnnex(d, a.side))}
+              >
+                Remover
+              </Button>
+            </div>
+            <SliderField label="Largura (para fora)" value={a.width} min={1.5} max={Math.max(1.6, lim.widthMax)} unit="m" onChange={(v, c) => set('Alterar largura do cômodo', { width: v }, c)} />
+            <SliderField label="Comprimento" value={a.length} min={2} max={Math.max(2.1, lim.lengthMax)} unit="m" onChange={(v, c) => set('Alterar comprimento do cômodo', { length: v }, c)} />
+            <SliderField label="Distância da frente" value={a.offset} min={0} max={Math.max(0.1, lim.offsetMax)} unit="m" disabled={lim.offsetMax <= 0} onChange={(v, c) => set('Mover cômodo', { offset: v }, c)} />
+            <SliderField label="Altura junto ao A-frame" value={a.height} min={Math.min(lim.heightMin, 4.4)} max={Math.max(lim.heightMax, lim.heightMin + 0.1)} unit="m" onChange={(v, c) => set('Alterar altura do cômodo', { height: v }, c)} />
+            <SliderField label="Inclinação do telhado" value={a.pitchDeg} min={3} max={Math.max(3.5, lim.pitchMax)} step={0.5} decimals={1} unit="°" hint={`= ${fmt(degToPct(a.pitchDeg), 0)}%`} onChange={(v, c) => set('Alterar inclinação do cômodo', { pitchDeg: v }, c)} />
+            <SliderField label="Beiral" value={a.eave} min={0} max={1.2} step={0.05} unit="m" onChange={(v, c) => set('Alterar beiral do cômodo', { eave: v }, c)} />
+            <p className="text-[11px] leading-relaxed text-stone-500 tabular-nums">
+              {fmt(info.area, 1)} m² · lado baixo com {fmt(info.lowHeight, 2)} m · o telhado entra {fmt(info.reach, 2)} m no A-frame e encontra a água a {fmt(info.meetZ, 2)} m.
+            </p>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

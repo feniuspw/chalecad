@@ -90,6 +90,21 @@ const DIM_LABELS: Record<string, string> = {
   'wing.offset': 'Deslocamento da ala',
 };
 
+const ANNEX_LABELS: Record<string, string> = {
+  width: 'largura',
+  length: 'comprimento',
+  offset: 'distância da frente',
+  height: 'altura junto ao A-frame',
+  pitchDeg: 'inclinação',
+  eave: 'beiral',
+};
+
+function dimLabel(key: string): string {
+  const m = /^annexes\.(left|right)\.(\w+)$/.exec(key);
+  if (m) return `Cômodo à ${m[1] === 'left' ? 'esquerda' : 'direita'}: ${ANNEX_LABELS[m[2]!] ?? m[2]}`;
+  return DIM_LABELS[key] ?? key;
+}
+
 function dimValue(key: string, v: number): string {
   if (key.endsWith('Deg')) return `${num(v, 0)}°`;
   if (key === 'slopePct') return `${num(v, 1)}%`;
@@ -156,7 +171,7 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
 
   const dimensions = Object.entries(pkg.summary.dimensions)
     .filter(([, v]) => typeof v === 'number')
-    .map(([k, v]) => ({ label: DIM_LABELS[k] ?? k, value: dimValue(k, v as number) }));
+    .map(([k, v]) => ({ label: dimLabel(k), value: dimValue(k, v as number) }));
 
   // --- Materiais por etapa -------------------------------------------------------
   const budgetByLine = new Map<string, BudgetLine>(budget.lines.map((l) => [l.lineId, l]));

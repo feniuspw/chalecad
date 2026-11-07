@@ -31,7 +31,11 @@ export function buildEngineerPackage(project: Project, results: Results, _catalo
   const dimensions: Record<string, number | string> = {};
   for (const [k, v] of Object.entries(dims)) {
     if (typeof v === 'number' || typeof v === 'string') dimensions[k] = v;
-    else if (v && typeof v === 'object') {
+    else if (k === 'annexes' && Array.isArray(v)) {
+      for (const a of v as { side: string }[]) {
+        for (const [k2, v2] of Object.entries(a)) if (typeof v2 === 'number') dimensions[`annexes.${a.side}.${k2}`] = v2;
+      }
+    } else if (v && typeof v === 'object') {
       for (const [k2, v2] of Object.entries(v)) if (typeof v2 === 'number') dimensions[`${k}.${k2}`] = v2;
     }
   }

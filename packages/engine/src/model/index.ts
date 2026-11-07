@@ -28,6 +28,7 @@ import { buildStair } from './stairs';
 import { slopedGeometry } from './sloped';
 import { gambrelGeometry } from './gambrel';
 import { combinedGeometry, type CombinedGeometry } from './combined';
+import { annexGeometry, type AnnexGeometry } from './annex';
 
 const DEG = Math.PI / 180;
 
@@ -98,6 +99,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
   /** Altura das paredes internas do térreo sem nível acima (null = vai até o telhado). */
   let groundWallHeight: number | null;
   let combined: CombinedGeometry | undefined;
+  let annexes: AnnexGeometry[] = [];
 
   if (t.kind === 'shed' || t.kind === 'flat_roof') {
     const sg = slopedGeometry(t);
@@ -169,11 +171,30 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
       };
     };
     roofPlanes = [roofPlane('roof-a', 'a'), roofPlane('roof-b', 'b')];
+    if (t.kind === 'a_frame') annexes = annexGeometry(t);
+    for (const g of annexes) {
+      // recorta a água do A-frame sob a água do anexo (da base até o encontro das águas)
+      const i = roofPlanes.findIndex((p) => p.id === g.hostPlaneId);
+      const p = roofPlanes[i]!;
+      const uOf = (y: number) => dot3(p.uAxis, sub3([0, y, 0], [0, p.origin[1], 0]));
+      const [ua, ub] = [uOf(g.y0), uOf(g.y1)].sort((x, y) => x - y) as [number, number];
+      const vn = g.reach / cos;
+      const outline: Vec2[] = [[0, 0], [ua, 0], [ua, vn], [ub, vn], [ub, 0], [p.uLength, 0], [p.uLength, p.vLength], [0, p.vLength]];
+      const at = ([u, v]: Vec2): Vec3 => add3(add3(p.origin, scale3(p.uAxis, u)), scale3(p.vAxis, v));
+      roofPlanes[i] = { ...p, vertices: outline.map(at), outline, area: p.area - (ub - ua) * vn };
+      roofPlanes.push(g.roofPlane);
+    }
 
     /** Cota do telhado sobre um ponto da planta. */
     roofZ = (x: number, y: number): number => {
       const a = Math.min(Math.max(ridgeAxis === 'depth' ? x : y, 0), S);
-      return zBase + (S / 2 - Math.abs(a - S / 2)) * Math.tan(slopeRad);
+      const z = zBase + (S / 2 - Math.abs(a - S / 2)) * Math.tan(slopeRad);
+      for (const g of annexes) {
+        if (y < g.y0 || y > g.y1) continue;
+        const inward = g.side === 'left' ? x : S - x;
+        if (inward <= g.reach) return Math.max(z, g.roofZ(x));
+      }
+      return z;
     };
     const gableOutline = (len: number, h: number, top: number): Vec2[] =>
       h > 0
@@ -196,10 +217,27 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     } else {
       const gOut = gableOutline(W, knee, ridgeHeight);
       const gAssembly = (mode: 'closed' | 'glazed' | 'open') => (mode === 'glazed' ? 'gable_glazed' : extId);
+      // Mureta: interrompida onde há anexo (o trecho depois do anexo vira `<id>-2`).
+      const knees = (id: string, [from, to]: Vec2[], gap: AnnexGeometry | undefined) => {
+        if (!gap) return ext(id, [from!, to!], rect(D, knee), 'knee');
+        const dir = Math.sign(to![1] - from![1]);
+        const cuts = dir > 0 ? [g0(gap), g1(gap)] : [g1(gap), g0(gap)];
+        const segs: [number, number][] = [[from![1], cuts[0]!], [cuts[1]!, to![1]]];
+        let name = id;
+        for (const [a, b] of segs) {
+          if (Math.abs(b - a) < 0.05) continue;
+          ext(name, [[from![0], a], [from![0], b]], rect(Math.abs(b - a), knee), 'knee');
+          name = `${id}-2`;
+        }
+      };
+      const g0 = (g: AnnexGeometry) => g.y0;
+      const g1 = (g: AnnexGeometry) => g.y1;
+      const annexOn = (side: 'left' | 'right') => annexes.find((g) => g.side === side);
       if (t.frontGable !== 'open') ext('ext-front', front, gOut, 'gable', gAssembly(t.frontGable));
-      if (knee > 0) ext('ext-right', right, rect(D, knee), 'knee');
+      if (knee > 0) knees('ext-right', right, annexOn('right'));
       if (t.backGable !== 'open') ext('ext-back', back, gOut, 'gable', gAssembly(t.backGable));
-      if (knee > 0) ext('ext-left', left, rect(D, knee), 'knee');
+      if (knee > 0) knees('ext-left', left, annexOn('left'));
+      for (const g of annexes) for (const w of g.walls) ext(w.id, [w.from, w.to], w.outline, w.kind);
     }
   }
 
@@ -207,7 +245,9 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
   const h = extT / 2;
   const footprint: Vec2[] = combined
     ? offsetPolygon(combined.axisPolygon, h)
-    : [[-h, -h], [W + h, -h], [W + h, D + h], [-h, D + h]];
+    : annexes.length > 0
+      ? offsetPolygon(annexAxisPolygon(W, D, annexes), h)
+      : [[-h, -h], [W + h, -h], [W + h, D + h], [-h, D + h]];
   const radierPoly = offsetPolygon(footprint, system.foundation.border);
   const slabs: SlabModel[] = [
     {
@@ -278,7 +318,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
   // --- Aberturas ------------------------------------------------------------
   const hostOutline = new Map<string, { kind: 'wall' | 'roof'; outline: Vec2[] }>();
   for (const w of walls) hostOutline.set(w.id, { kind: 'wall', outline: w.outline });
-  for (const r of roofPlanes) hostOutline.set(r.id, { kind: 'roof', outline: rect(r.uLength, r.vLength) });
+  for (const r of roofPlanes) hostOutline.set(r.id, { kind: 'roof', outline: r.outline ?? rect(r.uLength, r.vLength) });
 
   const openings: ResolvedOpening[] = project.openings.map((o) => {
     const host = hostOutline.get(o.host);
@@ -332,7 +372,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     typology: t.kind,
     footprint,
     footprintArea: polygonArea(footprint),
-    builtArea: (combined ? polygonArea(combined.axisPolygon) : W * D) + mezzArea,
+    builtArea: (combined ? polygonArea(combined.axisPolygon) : W * D + annexes.reduce((s, g) => s + g.width * (g.y1 - g.y0), 0)) + mezzArea,
     walls,
     roofPlanes,
     slabs,
@@ -345,5 +385,26 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
   return normalizeZero(model);
 }
 
+/** Contorno (eixo das paredes, anti-horário) do A-frame com anexos laterais. */
+function annexAxisPolygon(W: number, D: number, annexes: AnnexGeometry[]): Vec2[] {
+  const r = annexes.find((g) => g.side === 'right');
+  const l = annexes.find((g) => g.side === 'left');
+  const poly: Vec2[] = [[0, 0], [W, 0]];
+  if (r) poly.push([W, r.y0], [r.rect.x1, r.y0], [r.rect.x1, r.y1], [W, r.y1]);
+  poly.push([W, D], [0, D]);
+  if (l) poly.push([0, l.y1], [l.rect.x0, l.y1], [l.rect.x0, l.y0], [0, l.y0]);
+  // remove vértices repetidos e colineares (anexo encostado na frente ou no fundo)
+  const dedup = poly.filter((p, i) => {
+    const q = poly[(i + 1) % poly.length]!;
+    return Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-9;
+  });
+  return dedup.filter((p, i) => {
+    const a = dedup[(i + dedup.length - 1) % dedup.length]!;
+    const b = dedup[(i + 1) % dedup.length]!;
+    return Math.abs((p[0] - a[0]) * (b[1] - a[1]) - (p[1] - a[1]) * (b[0] - a[0])) > 1e-9;
+  });
+}
+
 export { combinedGeometry, type CombinedGeometry, type Valley } from './combined';
+export { annexGeometry, type AnnexGeometry } from './annex';
 export { gambrelGeometry, type GambrelGeometry } from './gambrel';

@@ -9,6 +9,8 @@ const ENCOUNTER_TOL = 0.05;
 const X_BRACE_MIN = 1.2;
 const GLAZED_STUD_SPACING = 1.2;
 const EPS = 1e-9;
+/** Montante mais curto que vale a pena gerar (ponta do triângulo entre águas). */
+const MIN_STUD = 0.05;
 
 /** Altura do contorno (v máximo) na coordenada local u. */
 export function topAt(outline: Vec2[], u: number): number {
@@ -23,6 +25,24 @@ export function topAt(outline: Vec2[], u: number): number {
     best = Math.max(best, a[1] + t * (b[1] - a[1]));
   }
   return best;
+}
+
+/**
+ * Base do contorno (v mínimo) na coordenada u. Quase sempre 0; paredes de ponta dos anexos do A-frame têm um
+ * trecho apoiado sobre a água (base inclinada).
+ */
+export function bottomAt(outline: Vec2[], u: number): number {
+  let best = Infinity;
+  for (let i = 0; i < outline.length; i++) {
+    const a = outline[i]!;
+    const b = outline[(i + 1) % outline.length]!;
+    const du = b[0] - a[0];
+    if (du <= EPS) continue; // arestas de base andam em +u (anti-horário)
+    const t = (u - a[0]) / du;
+    if (t < -1e-9 || t > 1 + 1e-9) continue;
+    best = Math.min(best, a[1] + t * (b[1] - a[1]));
+  }
+  return Number.isFinite(best) ? best : 0;
 }
 
 function outlineArea(outline: Vec2[]): number {
@@ -76,9 +96,32 @@ export function generateWalls(
     const doorGaps: [number, number][] = openings
       .filter((o) => (o.type === 'door' || o.type === 'sliding_door') && o.v0 <= 1e-6)
       .map((o) => [o.u0, o.u1]);
-    for (const [pa, pb] of panels) {
-      for (const [a, b] of subtractIntervals(pa, pb, doorGaps)) {
-        sink.add(w.id, 'track_bottom', trackId, P(a, 0), P(b, 0), normal);
+    const flatBase = w.outline.every((a, i) => {
+      const b = w.outline[(i + 1) % w.outline.length]!;
+      return b[0] - a[0] <= EPS || (Math.abs(a[1]) <= EPS && Math.abs(b[1]) <= EPS);
+    });
+    if (flatBase) {
+      for (const [pa, pb] of panels) {
+        for (const [a, b] of subtractIntervals(pa, pb, doorGaps)) {
+          sink.add(w.id, 'track_bottom', trackId, P(a, 0), P(b, 0), normal);
+        }
+      }
+    } else {
+      // base em mais de um trecho (parte apoiada na água): uma guia por aresta de base, por painel
+      for (let i = 0; i < w.outline.length; i++) {
+        const a = w.outline[i]!;
+        const b = w.outline[(i + 1) % w.outline.length]!;
+        if (b[0] - a[0] <= EPS) continue;
+        const vAt = (u: number) => a[1] + ((u - a[0]) / (b[0] - a[0])) * (b[1] - a[1]);
+        for (const [pa, pb] of panels) {
+          const lo = Math.max(a[0], pa);
+          const hi = Math.min(b[0], pb);
+          if (hi - lo <= EPS) continue;
+          const flat = Math.abs(a[1]) <= EPS && Math.abs(b[1]) <= EPS;
+          for (const [x, y] of flat ? subtractIntervals(lo, hi, doorGaps) : [[lo, hi] as [number, number]]) {
+            sink.add(w.id, 'track_bottom', trackId, P(x, vAt(x)), P(y, vAt(y)), normal);
+          }
+        }
       }
     }
 
@@ -138,12 +181,18 @@ export function generateWalls(
     const members: number[] = []; // u de todo elemento vertical (para os bloqueadores)
     for (const u of [...pos, ...doubles]) {
       if (inOpening(u)) continue;
-      vertical('stud', u, 0, topAt(w.outline, u));
+      const v0 = bottomAt(w.outline, u);
+      const v1 = topAt(w.outline, u);
+      if (v1 - v0 < MIN_STUD) continue;
+      vertical('stud', u, v0, v1);
       members.push(u);
     }
     if (exterior && !glazed) {
       for (const u of [fl, len - fl]) {
-        vertical('stud_corner', u, 0, topAt(w.outline, u));
+        const v0 = bottomAt(w.outline, u);
+        const v1 = topAt(w.outline, u);
+        if (v1 - v0 < MIN_STUD) continue;
+        vertical('stud_corner', u, v0, v1);
         members.push(u);
       }
     }
@@ -193,7 +242,7 @@ export function generateWalls(
         const a = sorted[i]!;
         const b = sorted[i + 1]!;
         const mid = (a + b) / 2;
-        if (b - a < 0.1 || blocked(mid, v) || v > topAt(w.outline, mid) - 0.05) continue;
+        if (b - a < 0.1 || blocked(mid, v) || v > topAt(w.outline, mid) - 0.05 || v < bottomAt(w.outline, mid) + 0.05) continue;
         sink.add(w.id, 'blocking', trackId, P(a, v), P(b, v), normal);
       }
     }
@@ -205,7 +254,7 @@ export function generateWalls(
       .map((o) => [o.u0, o.u1]);
     for (const [pa, pb] of panels) {
       for (const [a, b] of subtractIntervals(pa, pb, hCuts)) {
-        if (vMid <= Math.min(topAt(w.outline, a), topAt(w.outline, b)) + EPS) {
+        if (vMid <= Math.min(topAt(w.outline, a), topAt(w.outline, b)) + EPS && vMid >= Math.max(bottomAt(w.outline, a), bottomAt(w.outline, b)) - EPS) {
           sink.add(w.id, 'strap', STRAP, P(a, vMid), P(b, vMid), normal);
         }
       }
@@ -217,9 +266,10 @@ export function generateWalls(
         if (pb - pa < X_BRACE_MIN) continue;
         if (openings.some((o) => o.u0 < pb && o.u1 > pa)) continue;
         const h = Math.min(topAt(w.outline, pa + fl), topAt(w.outline, pb - fl));
-        if (h < 0.5) continue;
-        sink.add(w.id, 'strap', STRAP, P(pa + fl, 0), P(pb - fl, h), normal);
-        sink.add(w.id, 'strap', STRAP, P(pb - fl, 0), P(pa + fl, h), normal);
+        const b0 = Math.max(bottomAt(w.outline, pa + fl), bottomAt(w.outline, pb - fl));
+        if (h - b0 < 0.5) continue;
+        sink.add(w.id, 'strap', STRAP, P(pa + fl, b0), P(pb - fl, h), normal);
+        sink.add(w.id, 'strap', STRAP, P(pb - fl, b0), P(pa + fl, h), normal);
       }
     }
   }

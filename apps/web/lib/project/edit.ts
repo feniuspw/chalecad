@@ -8,6 +8,7 @@ import { getCatalog } from '@chalecad/catalog';
 import { buildModel, type Level, type Opening, type Project, type Stair, type Typology, type TypologyKind, type Vec2 } from '@chalecad/engine';
 import { clamp, hostLength, planBounds, round } from './geometry';
 import { newId, type IdGen } from './ids';
+import { annexInfo, fitAnnexes } from './annex';
 
 type T<K extends TypologyKind> = Extract<Typology, { kind: K }>;
 type GableT = T<'gable_mezzanine'>;
@@ -145,8 +146,8 @@ export function removeUpperLevels(draft: Project): void {
 // Coerência geral
 // ---------------------------------------------------------------------------
 
-function clampPoint(p: Vec2, b: { x1: number; y1: number }): Vec2 {
-  return [round(clamp(p[0], 0, b.x1), 3), round(clamp(p[1], 0, b.y1), 3)];
+function clampPoint(p: Vec2, b: { x0: number; y0: number; x1: number; y1: number }): Vec2 {
+  return [round(clamp(p[0], b.x0, b.x1), 3), round(clamp(p[1], b.y0, b.y1), 3)];
 }
 
 /** Altura máxima segura das paredes externas (para limitar aberturas). null = sem limite conhecido. */
@@ -173,7 +174,11 @@ export function fitOpening(project: Project, o: Opening): Opening | null {
   let { offset, width, height, sill } = o;
   width = clamp(width, 0.3, Math.min(6, len));
   offset = clamp(offset, 0, Math.max(0, len - width));
-  const wallH = o.host.startsWith('ext-') || o.host.startsWith('wing-') ? exteriorWallHeight(project.typology) : null;
+  const t = project.typology;
+  const annex = t.kind === 'a_frame' && o.host.startsWith('annex-') ? t.annexes.find((a) => o.host.startsWith(`annex-${a.side}-`)) : undefined;
+  const wallH = annex && t.kind === 'a_frame'
+    ? annexInfo(t, annex).lowHeight
+    : o.host.startsWith('ext-') || o.host.startsWith('wing-') ? exteriorWallHeight(t) : null;
   if (wallH !== null) {
     const maxTop = wallH - 0.1;
     sill = clamp(sill, 0, Math.max(0, maxTop - 0.3));
@@ -214,8 +219,16 @@ export function generatedHosts(p: Project): { walls: Set<string>; roofs: Set<str
   const t = p.typology;
   const std = ['ext-front', 'ext-back', 'ext-left', 'ext-right'];
   switch (t.kind) {
-    case 'a_frame':
-      return { walls: new Set(['ext-front', 'ext-back']), roofs: new Set(['roof-a', 'roof-b']) };
+    case 'a_frame': {
+      const walls = new Set(['ext-front', 'ext-back']);
+      if (t.kneeWallHeight > 0) for (const id of ['ext-left', 'ext-right', 'ext-left-2', 'ext-right-2']) walls.add(id);
+      const roofs = new Set(['roof-a', 'roof-b']);
+      for (const a of t.annexes) {
+        for (const s of ['front', 'side', 'back']) walls.add(`annex-${a.side}-${s}`);
+        roofs.add(`annex-${a.side}-roof`);
+      }
+      return { walls, roofs };
+    }
     case 'gambrel':
       return { walls: new Set(std), roofs: new Set(['roof-a', 'roof-b', 'roof-a2', 'roof-b2']) };
     case 'shed':
@@ -239,6 +252,7 @@ export function reconcileProject(draft: Project): ReconcileReport {
   const t = draft.typology;
   let removedWalls = 0;
   if (t.kind === 'combined') fitWing(t);
+  if (t.kind === 'a_frame') fitAnnexes(t);
   if (isEditableTypology(t)) {
     if (getMezzanine(draft)) setMezzanine(draft, {});
   } else {
@@ -264,8 +278,10 @@ export function reconcileProject(draft: Project): ReconcileReport {
   const hosts = generatedHosts(draft);
   const roofOpenings = t.kind === 'a_frame' || t.kind === 'gambrel';
   draft.openings = draft.openings.filter((o) => {
-    if (o.host.startsWith('roof-') || o.host.startsWith('wing-roof-')) return hosts.roofs.has(o.host) && (o.type === 'skylight' || roofOpenings);
-    if (o.host.startsWith('ext-') || o.host.startsWith('wing-')) return hosts.walls.has(o.host);
+    if (o.host.startsWith('roof-') || o.host.startsWith('wing-roof-') || /^annex-.*-roof$/.test(o.host)) {
+      return hosts.roofs.has(o.host) && (o.type === 'skylight' || (roofOpenings && o.host.startsWith('roof-')));
+    }
+    if (o.host.startsWith('ext-') || o.host.startsWith('wing-') || o.host.startsWith('annex-')) return hosts.walls.has(o.host);
     return true;
   });
   const f = fitOpenings(draft);
@@ -295,7 +311,7 @@ export function defaultTypology(kind: TypologyKind, prev: Pick<Typology, 'width'
     case 'gable_mezzanine':
       return { kind, width, depth, wallHeight: wall, roofPitchDeg: pitch, eave: 0.6, rake: 0.3 };
     case 'a_frame':
-      return { kind, width, depth, ridgeHeight: 6, kneeWallHeight: 0, rake: 0.4, frontGable: 'glazed', backGable: 'closed' };
+      return { kind, width, depth, ridgeHeight: 6, kneeWallHeight: 0, rake: 0.4, frontGable: 'glazed', backGable: 'closed', annexes: [] };
     case 'shed':
       return { kind, width, depth, lowHeight: Math.min(wall, 3), highHeight: round(Math.min(9, Math.min(wall, 3) + 1.2), 2), highSide: 'front', eave: 0.5 };
     case 'flat_roof':

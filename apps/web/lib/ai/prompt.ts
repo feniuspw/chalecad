@@ -11,7 +11,7 @@ REGRAS
 
 RESUMO DO SCHEMA DO PROJETO (JSON; caminhos de patch partem da raiz)
 - meta: { name, region (UF) }; site: { type: 'flat' } ou { type: 'sloped', slopePct, ... }.
-- typology: { kind: gable_mezzanine | a_frame | shed | flat_roof | gambrel | combined, width, depth (eixo a eixo, m), wallHeight, roofPitchDeg, eave, rake, ... } (A-frame usa ridgeHeight e kneeWallHeight; shed usa lowHeight, highHeight, highSide).
+- typology: { kind: gable_mezzanine | a_frame | shed | flat_roof | gambrel | combined, width, depth (eixo a eixo, m), wallHeight, roofPitchDeg, eave, rake, ... } (A-frame usa ridgeHeight, kneeWallHeight e annexes: [{ side: left|right, width, length, offset (da frente), height (lado alto junto ao A-frame), pitchDeg, eave }] para cômodos laterais com telhado de uma água; shed usa lowHeight, highHeight, highSide).
 - system: { studSpacing: 0.4 | 0.6, bracing: 'osb' | 'strap', profiles: { wallStud, wallTrack, joist, rafter, purlin } (IDs de perfil do catálogo, ex. Ue90x40x0.95), assemblies: { exterior, interior, wet } (IDs de assembly, ex. ext_cement_osb_wool_drywall), foundation: { thickness, border, edgeBeamDepth } }.
 - levels: lista de { id, elevation, polygon? (mezanino, [x,y] em planta), deck, guardrail }. O térreo tem elevation 0. Para aumentar o mezanino, altere pontos de levels/<i>/polygon.
 - walls: paredes internas desenhadas { id, level, from [x,y], to [x,y], assembly?, wet?, height? }. As paredes externas são geradas pela tipologia (ids ext-front, ext-back, ext-left, ext-right, wing-*).

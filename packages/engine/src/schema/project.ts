@@ -32,9 +32,14 @@ export const HOST_IDS = {
   roofB: 'roof-b',
   /** Módulo combinado (L/T): paredes e águas da ala recebem prefixo `wing-`. */
   wingPrefix: 'wing-',
+  /**
+   * Anexos laterais do A-frame: `annex-<lado>-front|side|back` (paredes) e `annex-<lado>-roof` (água).
+   * Com mureta, o trecho dela depois do anexo vira `ext-left-2` / `ext-right-2`.
+   */
+  annexPrefix: 'annex-',
 } as const;
 
-export const isGeneratedHost = (id: string) => /^(ext-|roof-|wing-)/.test(id);
+export const isGeneratedHost = (id: string) => /^(ext-|roof-|wing-|annex-)/.test(id);
 
 // ---------------------------------------------------------------------------
 // Meta e terreno
@@ -98,6 +103,25 @@ export const GableTypology = z.object({
   rake: len(0, 1.5).default(0.3),
 });
 
+/**
+ * Anexo lateral do A-frame: caixa com telhado de uma água caindo para fora. A água do anexo entra na água do
+ * A-frame até encontrá-la (a água do A-frame é recortada ali e o vão fica aberto para o interior).
+ */
+export const AFrameAnnex = z.object({
+  side: z.enum(['left', 'right']),
+  /** Quanto o anexo sai para fora da linha da base do A-frame (eixo a eixo). */
+  width: len(1.5, 5).default(3),
+  /** Comprimento ao longo da profundidade. */
+  length: len(2, 30).default(5),
+  /** Distância da frente (y = 0) ao início do anexo. */
+  offset: len(0, 30).default(2.5),
+  /** Altura do lado alto, na linha da base do A-frame. */
+  height: len(2.2, 4.5).default(2.8),
+  pitchDeg: len(3, 25).default(10),
+  eave: len(0, 1.2).default(0.5),
+});
+export type AFrameAnnex = z.output<typeof AFrameAnnex>;
+
 /** Fase 1. A-frame: as águas do telhado descem até o radier (ou até uma mureta baixa). */
 export const AFrameTypology = z.object({
   kind: z.literal('a_frame'),
@@ -108,6 +132,8 @@ export const AFrameTypology = z.object({
   rake: len(0, 1.5).default(0.4),
   frontGable: z.enum(['closed', 'glazed', 'open']).default('glazed'),
   backGable: z.enum(['closed', 'glazed', 'open']).default('closed'),
+  /** Cômodos encostados nas laterais (no máximo um por lado). */
+  annexes: z.array(AFrameAnnex).max(2).default([]),
 });
 
 /** Fase 2. Meia-água. */
@@ -476,6 +502,17 @@ export const Project = ProjectBase.superRefine((p, ctx) => {
       }
     }
   });
+  if (p.typology.kind === 'a_frame') {
+    const t = p.typology;
+    const sides = new Set<string>();
+    t.annexes.forEach((a, i) => {
+      if (sides.has(a.side)) ctx.addIssue({ code: 'custom', path: ['typology', 'annexes', i, 'side'], message: 'Só um anexo por lado.' });
+      sides.add(a.side);
+      if (a.offset + a.length > t.depth + 1e-6) {
+        ctx.addIssue({ code: 'custom', path: ['typology', 'annexes', i, 'length'], message: 'O anexo passa do fundo do chalé (início + comprimento > profundidade).' });
+      }
+    });
+  }
   p.stairs.forEach((s, i) => {
     if (!levelIds.has(s.from)) ctx.addIssue({ code: 'custom', path: ['stairs', i, 'from'], message: `Nível inexistente: ${s.from}` });
     if (!levelIds.has(s.to)) ctx.addIssue({ code: 'custom', path: ['stairs', i, 'to'], message: `Nível inexistente: ${s.to}` });

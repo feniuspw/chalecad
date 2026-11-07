@@ -3,6 +3,7 @@ import { Project, type Opening, type ProjectInput, type Site, type Typology, typ
 import { clamp, round } from './geometry';
 import { mezzaninePolygon, mezzanineElevation, defaultMezzanineDepth, isEditableTypology } from './edit';
 import { newId, type IdGen } from './ids';
+import { ANNEX_DEFAULT, annexInfo, fitAnnex, type AnnexSide } from './annex';
 
 export type TemplateKind = TypologyKind;
 
@@ -17,6 +18,10 @@ export interface TemplateParams {
   roofPitchDeg: number;
   /** A-frame: altura da cumeeira. */
   ridgeHeight: number;
+  /** A-frame: mureta na base das águas (0 = águas até o chão). */
+  kneeWallHeight: number;
+  /** A-frame: cômodos encostados nas laterais. */
+  annexSides: AnnexSide[];
   /** Meia-água. */
   lowHeight: number;
   highHeight: number;
@@ -45,6 +50,8 @@ const BASE: Omit<TemplateParams, 'name' | 'width' | 'depth' | 'region'> = {
   wallHeight: 2.8,
   roofPitchDeg: 35,
   ridgeHeight: 6,
+  kneeWallHeight: 0,
+  annexSides: [],
   lowHeight: 2.6,
   highHeight: 3.8,
   highSide: 'front',
@@ -98,8 +105,15 @@ export function typologyFromParams(kind: TemplateKind, p: TemplateParams): Typol
   switch (kind) {
     case 'gable_mezzanine':
       return { kind, width, depth, wallHeight: p.wallHeight, roofPitchDeg: p.roofPitchDeg, eave: 0.6, rake: 0.3 };
-    case 'a_frame':
-      return { kind, width, depth, ridgeHeight: p.ridgeHeight, kneeWallHeight: 0, rake: 0.4, frontGable: 'glazed', backGable: 'closed' };
+    case 'a_frame': {
+      const t: Typology = { kind, width, depth, ridgeHeight: p.ridgeHeight, kneeWallHeight: p.kneeWallHeight, rake: 0.4, frontGable: 'glazed', backGable: 'closed', annexes: [] };
+      const length = Math.min(5, depth);
+      for (const side of p.annexSides) {
+        const a = fitAnnex(t, { side, ...ANNEX_DEFAULT, length, offset: round(Math.max(0, (depth - length) / 2), 2) });
+        if (a) t.annexes.push(a);
+      }
+      return t;
+    }
     case 'shed':
       return { kind, width, depth, lowHeight: p.lowHeight, highHeight: Math.max(p.highHeight, p.lowHeight), highSide: p.highSide, eave: 0.5 };
     case 'flat_roof':
@@ -170,6 +184,16 @@ export function createProject(kind: TemplateKind, params: Partial<TemplateParams
   const openings: Opening[] = [{ id: ids('o'), host: 'ext-front', type: 'door', offset: doorOff, width: doorW, height: 2.1, sill: 0 }];
   const walls: NonNullable<ProjectInput['walls']> = [];
   const utilities: UtilityPoint[] = [];
+
+  // Anexos do A-frame: uma janela centrada na parede de fora de cada um.
+  if (typology.kind === 'a_frame') {
+    for (const a of typology.annexes) {
+      const ww = Math.min(1.2, a.length - 0.6);
+      const sill = 1.0;
+      const h = round(Math.min(1.0, annexInfo(typology, a).lowHeight - 0.2 - sill), 2);
+      if (ww >= 0.5 && h >= 0.4) openings.push(win(ids, `annex-${a.side}-side`, (a.length - ww) / 2, ww, h, sill));
+    }
+  }
 
   if (kind === 'gable_mezzanine') {
     const m = Math.min(0.8, s * 0.3);

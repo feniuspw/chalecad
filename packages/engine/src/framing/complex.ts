@@ -29,7 +29,7 @@ interface PlaneOpts {
 }
 
 /** Caibros e terças de uma água retangular em coordenadas (l ao longo da cumeeira, v subindo). */
-function framePlane(p: RoofPlane, o: PlaneOpts, catalog: Catalog, spacing: number, purlinId: string, rafterId: string, sink: PieceSink) {
+export function framePlane(p: RoofPlane, o: PlaneOpts, catalog: Catalog, spacing: number, purlinId: string, rafterId: string, sink: PieceSink) {
   const c = catalog.constants;
   const sgn = dot3(p.uAxis, o.ridgeDir) > 0 ? 1 : -1;
   const L = p.uLength - 2 * o.rake;

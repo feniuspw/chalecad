@@ -3,7 +3,8 @@ import { add3, cross3, dot3, pointInPolygon, scale3, type Vec2, type Vec3 } from
 import type { Project, TypologyKind } from '../schema/project';
 import type { BuildingModel, RoofPlane } from '../schema/results';
 import { slopedFrame } from '../model/sloped';
-import { complexFramers } from './complex';
+import { annexGeometry } from '../model/annex';
+import { complexFramers, framePlane } from './complex';
 import { PieceSink, profileOf, uVariant } from './util';
 
 export type RoofFramer = (model: BuildingModel, project: Project, catalog: Catalog, sink: PieceSink) => void;
@@ -41,27 +42,73 @@ const twoPlaneFramer: RoofFramer = (model, project, catalog, sink) => {
   for (let k = 0; k * spacing < L - 0.02; k++) ls.push(k * spacing);
   ls.push(L);
 
+  // Anexos do A-frame: recorte na água (de l0 a l1, da base até vn) com caibros de borda inteiros.
+  const annexes = t.kind === 'a_frame' ? annexGeometry(t) : [];
+  const cut = new Map<string, { l0: number; l1: number; vn: number }>();
+  for (const g of annexes) {
+    const p = planes.find((x) => x.id === g.hostPlaneId);
+    if (!p) continue;
+    cut.set(p.id, { l0: g.y0, l1: g.y1, vn: g.reach / Math.cos((p.slopeDeg * Math.PI) / 180) });
+  }
+
   for (const p of planes) {
+    if (p.id.startsWith('annex-')) continue;
     const normal = cross3(p.uAxis, p.vAxis);
-    for (const l of ls) {
-      sink.add(p.id, 'rafter', rafter.id, pointOf(p, l, 0), pointOf(p, l, p.vLength), normal);
+    const n = cut.get(p.id);
+    const pls = n ? [...new Set([...ls, n.l0, n.l1])].sort((a, b) => a - b) : ls;
+    for (const l of pls) {
+      const v0 = n && l > n.l0 + 0.01 && l < n.l1 - 0.01 ? n.vn : 0;
+      sink.add(p.id, 'rafter', rafter.id, pointOf(p, l, v0), pointOf(p, l, p.vLength), normal);
     }
     const vs: number[] = [];
     for (let k = 0; k * c.roof.purlinSpacing < p.vLength - 0.02; k++) vs.push(k * c.roof.purlinSpacing);
     vs.push(p.vLength);
-    for (const v of vs) {
+    if (n) vs.push(n.vn);
+    for (const v of [...new Set(vs)].sort((a, b) => a - b)) {
+      if (n && v < n.vn - 1e-6) {
+        // terça interrompida no recorte
+        for (const [l0, l1] of [[-rake, n.l0], [n.l1, L + rake]] as const) {
+          if (l1 - l0 > 0.02) sink.add(p.id, 'purlin', sys.profiles.purlin, pointOf(p, l0, v), pointOf(p, l1, v), normal);
+        }
+        continue;
+      }
       const a = add3(p.origin, scale3(p.vAxis, v));
       sink.add(p.id, 'purlin', sys.profiles.purlin, a, add3(a, scale3(p.uAxis, p.uLength)), normal);
     }
+    // travessa (verga) no topo do recorte, onde chegam os caibros do anexo
+    if (n) sink.add(p.id, 'header', ridgeId, pointOf(p, n.l0, n.vn), pointOf(p, n.l1, n.vn), normal);
   }
 
+  for (const g of annexes) {
+    const p = planes.find((x) => x.id === g.roofPlane.id);
+    if (!p) continue;
+    const e = t.kind === 'a_frame' ? (t.annexes.find((a) => a.side === g.side)?.eave ?? 0) : 0;
+    const len = g.y1 - g.y0;
+    const cos = Math.cos((p.slopeDeg * Math.PI) / 180);
+    const outside = g.width + e; // trecho horizontal da água fora da base do A-frame
+    framePlane(
+      p,
+      {
+        ridgeDir: [0, 1, 0],
+        rake: e,
+        purlinCuts: (v) => (v * cos > outside + 1e-6 ? [[-e, 0], [len, len + e]] : []),
+      },
+      catalog,
+      spacing,
+      sys.profiles.purlin,
+      rafter.id,
+      sink,
+    );
+  }
+  const mainPlanes = planes.filter((p) => !p.id.startsWith('annex-'));
+
   // cumeeira
-  const first = planes[0]!;
+  const first = mainPlanes[0]!;
   const r0 = add3(first.origin, scale3(first.vAxis, first.vLength));
   sink.add(first.id, 'ridge', ridgeId, r0, add3(r0, scale3(first.uAxis, first.uLength)), UP);
 
   // travessas (par de caibros)
-  const second = planes[1];
+  const second = mainPlanes[1];
   if (second) {
     ls.forEach((l, k) => {
       if (k % COLLAR_EVERY !== 0) return;

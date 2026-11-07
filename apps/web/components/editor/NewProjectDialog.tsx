@@ -51,13 +51,28 @@ function KindFields({ kind, params, patch }: { kind: TemplateKind; params: Templ
         </>
       );
     case 'a_frame': {
-      const pitch = aFramePitchDeg(params.width, params.ridgeHeight);
+      const pitch = aFramePitchDeg(params.width, params.ridgeHeight, params.kneeWallHeight);
+      const sides = params.annexSides;
+      const annexValue = sides.length === 2 ? 'both' : sides[0] ?? 'none';
       return (
         <>
           <SliderField label="Altura da cumeeira" value={params.ridgeHeight} min={3} max={12} unit="m" onChange={(v) => patch({ ridgeHeight: v })} />
+          <SliderField label="Mureta na base das águas" value={params.kneeWallHeight} min={0} max={1.5} step={0.05} unit="m" hint="0 = águas até o chão" onChange={(v) => patch({ kneeWallHeight: v })} />
           <p className="-mt-2 text-[11px] text-stone-500 tabular-nums">
-            Inclinação das águas: {fmt(pitch, 0)}° (= {fmt(degToPct(pitch), 0)}%), definida por largura e cumeeira.
+            Inclinação das águas: {fmt(pitch, 0)}° (= {fmt(degToPct(pitch), 0)}%), definida por largura, cumeeira e mureta.
           </p>
+          <Segmented<'none' | 'left' | 'right' | 'both'>
+            label="Cômodos nas laterais"
+            value={annexValue}
+            options={[
+              { value: 'none', label: 'Nenhum' },
+              { value: 'left', label: 'Esquerda' },
+              { value: 'right', label: 'Direita' },
+              { value: 'both', label: 'Os dois' },
+            ]}
+            hint="anexo 3 × 5 m com telhado de uma água; ajuste depois"
+            onChange={(v) => patch({ annexSides: v === 'none' ? [] : v === 'both' ? ['left', 'right'] : [v] })}
+          />
         </>
       );
     }

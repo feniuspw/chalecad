@@ -135,7 +135,7 @@ export function collectItems(model: BuildingModel, project: Project, catalog: Ca
     if (!r.isWall) continue;
     const ro = ops.get(r.id) ?? [];
     const net = Math.max(0, r.area - ro.reduce((s, o) => s + openingArea(o), 0));
-    layerItems(out, catalog, r.id, innerLayers, rect(r.uLength, r.vLength), ro, net, true);
+    layerItems(out, catalog, r.id, innerLayers, r.outline ?? rect(r.uLength, r.vLength), ro, net, true);
   }
 
   // --- Cobertura -------------------------------------------------------------
@@ -181,6 +181,10 @@ export function collectItems(model: BuildingModel, project: Project, catalog: Ca
       gableEdges += r.id.startsWith('wing-') ? r.vLength : 2 * r.vLength;
       ridge += r.uLength / 2;
       eaves += combinedGeo.eaveLengths[r.id] ?? r.uLength;
+    } else if (r.id.startsWith('annex-')) {
+      // anexo do A-frame: rufos laterais, calha no beiral e rufo de encontro com a água do A-frame
+      gableEdges += 2 * r.vLength + r.uLength;
+      eaves += r.uLength;
     } else {
       gableEdges += 2 * r.vLength;
       ridge += r.uLength / 2; // cada cumeeira é compartilhada por duas águas

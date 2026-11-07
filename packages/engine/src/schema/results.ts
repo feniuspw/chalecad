@@ -58,6 +58,8 @@ export interface RoofPlane {
   vLength: number;
   /** Água do A-frame/gambrel inferior que também é parede (recebe fechamento interno). */
   isWall: boolean;
+  /** Contorno real em (u, v) quando a água não é o retângulo u × v (ex.: recorte de anexo no A-frame). */
+  outline?: Vec2[];
 }
 
 export interface SlabModel {

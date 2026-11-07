@@ -1,4 +1,4 @@
-import type { Project, Vec2 } from '@chalecad/engine';
+import { annexGeometry, type Project, type Vec2 } from '@chalecad/engine';
 
 export const round = (n: number, d = 2) => {
   const f = 10 ** d;
@@ -20,6 +20,11 @@ export function aFramePitchDeg(width: number, ridgeHeight: number, kneeWallHeigh
 
 /** Retângulo que contém a planta (inclui a ala de L/T). */
 export function planBounds(t: Project['typology']): { x0: number; y0: number; x1: number; y1: number } {
+  if (t.kind === 'a_frame') {
+    const left = t.annexes.find((a) => a.side === 'left');
+    const right = t.annexes.find((a) => a.side === 'right');
+    return { x0: left ? -left.width : 0, y0: 0, x1: t.width + (right?.width ?? 0), y1: t.depth };
+  }
   return { x0: 0, y0: 0, x1: t.width, y1: t.kind === 'combined' ? t.depth + t.wing.depth : t.depth };
 }
 
@@ -52,6 +57,30 @@ export function hostLength(project: Project, hostId: string): number | null {
       case 'wing-right':
         return t.wing.depth;
     }
+  }
+  if (t.kind === 'a_frame' && (hostId.startsWith('annex-') || /^ext-(left|right)/.test(hostId))) {
+    // anexos e trechos da mureta interrompida: mesma geometria do motor
+    let geo: ReturnType<typeof annexGeometry>;
+    try {
+      geo = annexGeometry(t);
+    } catch {
+      return null;
+    }
+    const g = geo.find((x) => x.walls.some((w) => w.id === hostId));
+    if (g) {
+      const w = g.walls.find((x) => x.id === hostId)!;
+      return Math.hypot(w.to[0] - w.from[0], w.to[1] - w.from[1]);
+    }
+    if (hostId.startsWith('annex-')) return null;
+    const side = hostId.startsWith('ext-left') ? 'left' : 'right';
+    const a = geo.find((x) => x.side === side);
+    if (!a) return hostId.endsWith('-2') ? null : t.depth;
+    // ext-left corre do fundo para a frente; ext-right da frente para o fundo
+    const first = side === 'left' ? t.depth - a.y1 : a.y0;
+    const second = side === 'left' ? a.y0 : t.depth - a.y1;
+    const segs = [first, second].filter((x) => x >= 0.05);
+    const len = hostId.endsWith('-2') ? (segs.length === 2 ? segs[1] : undefined) : segs[0];
+    return len ?? null;
   }
   switch (hostId) {
     case 'ext-front':
