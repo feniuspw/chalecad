@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BrickWall, Box, DoorOpen, Footprints, Layers, Loader2, LocateFixed, MousePointer2, Ruler, RulerDimensionLine } from 'lucide-react';
+import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, Loader2, LocateFixed, MousePointer2, Ruler, RulerDimensionLine, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { IconButton, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@chalecad/ui';
 import { ArtNotice } from '@/components/ArtNotice';
@@ -13,7 +13,7 @@ import { startNewProject } from '@/lib/project/actions';
 import { fmt } from '@/lib/project/format';
 import { selectionFromHost } from '@/lib/project/selection';
 import { selectionHostId, useEditor } from '@/lib/store/editor';
-import type { CameraView, Tool } from '@/lib/store/types';
+import type { CameraView, Tool, ViewMode } from '@/lib/store/types';
 import { NewProjectDialog } from './NewProjectDialog';
 import { PropertiesPanel } from './properties/PropertiesPanel';
 // Painel de resultados (F1-W2).
@@ -34,9 +34,16 @@ const TOOLS: { id: Tool; label: string; shortcut: string; icon: typeof MousePoin
 
 const VIEWS: { id: ViewPreset; camera: CameraView; label: string }[] = [
   { id: '3d', camera: '3d', label: '3D' },
-  { id: 'top', camera: 'plan', label: 'Topo' },
+  { id: 'top', camera: 'plan', label: 'Planta' },
   { id: 'front', camera: 'front', label: 'Frente' },
   { id: 'side', camera: 'left', label: 'Lateral' },
+];
+
+const MODES: { id: ViewMode; label: string; hint: string; icon: typeof Home }[] = [
+  { id: 'finished', label: 'Acabado', hint: 'Edificação com fechamentos e telhado', icon: Home },
+  { id: 'skeleton', label: 'Estrutura', hint: 'Só os perfis de aço (esqueleto)', icon: Wrench },
+  { id: 'exploded', label: 'Explodido', hint: 'Camadas separadas: radier, estrutura, fechamento e cobertura', icon: Layers3 },
+  { id: 'heatmap', label: 'Mapa de calor', hint: 'Estrutura colorida pela taxa de uso (pré-dimensionamento)', icon: Flame },
 ];
 
 export function EditorShell() {
@@ -74,8 +81,24 @@ export function EditorShell() {
   const setHover = useEditor((s) => s.setHover);
   const setCameraView = useEditor((s) => s.setCameraView);
 
+  const viewMode = useEditor((s) => s.viewMode);
+  const setViewMode = useEditor((s) => s.setViewMode);
+  const levels = useEditor((s) => s.project.levels);
+  const activeLevelId = useEditor((s) => s.activeLevelId);
+  const setActiveLevel = useEditor((s) => s.setActiveLevel);
+  const hasStructure = useEditor((s) => Boolean(s.results?.structure));
+
   const toolPicked = useCallback((t: Tool) => {
-    if (t !== 'select') toast.info(`${TOOLS.find((x) => x.id === t)?.label}: edição direta no 3D chega em breve. Use o painel de propriedades.`, { id: 'tool-soon' });
+    const hints: Partial<Record<Tool, string>> = {
+      wall: 'Clique para começar a parede, clique de novo para terminar. Shift trava ortogonal, Alt desliga o snap, Esc encerra.',
+      opening: 'Passe o mouse sobre uma parede e clique para inserir. Tipo e tamanho ficam no painel à esquerda.',
+      stair: 'Clique no térreo para posicionar. R gira 90°.',
+      mezzanine: 'Arraste vértices e arestas do mezanino. Na planta fica mais fácil.',
+      measure: 'Clique em dois pontos para medir. Esc limpa.',
+      dimension: 'As cotas aparecem automaticamente na planta.',
+    };
+    const h = hints[t];
+    if (h) toast.message(TOOLS.find((x) => x.id === t)?.label ?? '', { description: h, id: 'tool-hint', duration: 3500 });
   }, []);
   useShortcuts(toolPicked);
 
@@ -198,7 +221,44 @@ export function EditorShell() {
               </div>
             </div>
 
-            <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
+            <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-1.5">
+              <div role="group" aria-label="Modo de visualização" className="flex items-center rounded-lg border border-border bg-white/90 p-0.5 shadow-float backdrop-blur">
+                {MODES.map(({ id, label, hint, icon: Icon }) => {
+                  const disabled = id === 'heatmap' && !hasStructure;
+                  return (
+                    <Tooltip key={id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => setViewMode(id)}
+                          aria-pressed={viewMode === id}
+                          className="flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-stone-600 transition-colors outline-none hover:text-stone-900 focus-visible:ring-2 focus-visible:ring-accent/50 disabled:opacity-40 aria-pressed:bg-accent-soft aria-pressed:text-accent-hover"
+                        >
+                          <Icon className="size-3.5" />
+                          <span className="hidden lg:inline">{label}</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">{hint}</TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+              {levels.length > 1 ? (
+                <div role="group" aria-label="Nível ativo" className="flex items-center rounded-lg border border-border bg-white/90 p-0.5 shadow-float backdrop-blur">
+                  {[...levels].sort((a, b) => a.elevation - b.elevation).map((l) => (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => setActiveLevel(l.id)}
+                      aria-pressed={activeLevelId === l.id}
+                      className="flex h-7 items-center rounded-md px-2.5 text-xs font-medium text-stone-600 transition-colors outline-none hover:text-stone-900 focus-visible:ring-2 focus-visible:ring-accent/50 aria-pressed:bg-accent-soft aria-pressed:text-accent-hover"
+                    >
+                      {l.name ?? (l.elevation === 0 ? 'Térreo' : `Nível ${fmt(l.elevation, 1)} m`)}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="outline" size="sm" className="shadow-float" onClick={() => viewport.current?.center()}>
@@ -210,7 +270,7 @@ export function EditorShell() {
             </div>
 
             <div className="pointer-events-none absolute right-3 bottom-3 hidden rounded-md bg-white/70 px-2 py-1 text-[11px] text-stone-500 backdrop-blur sm:block">
-              Arraste para girar · botão direito para mover · roda para zoom · Del exclui · Esc limpa a seleção
+              Arraste para girar · botão direito para mover · roda para zoom · Del exclui · Esc cancela
             </div>
           </main>
 
