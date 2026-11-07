@@ -1,11 +1,13 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
+import { useEditor } from '@/lib/store/editor';
 
-/** Nome do projeto editável inline: clique para editar, Enter confirma, Esc cancela. */
-export function ProjectName({ initial }: { initial: string }) {
-  const [name, setName] = useState(initial);
-  const [draft, setDraft] = useState(initial);
+/** Nome do projeto editável inline: clique para editar, Enter confirma, Esc cancela. Grava no store (com desfazer). */
+export function ProjectName() {
+  const name = useEditor((s) => s.project.meta.name);
+  const update = useEditor((s) => s.update);
+  const [draft, setDraft] = useState(name);
   const [editing, setEditing] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
@@ -15,8 +17,7 @@ export function ProjectName({ initial }: { initial: string }) {
 
   const commit = () => {
     const v = draft.trim();
-    if (v) setName(v);
-    else setDraft(name);
+    if (v && v !== name) update('Renomear projeto', (d) => void (d.meta.name = v));
     setEditing(false);
   };
 
@@ -25,18 +26,15 @@ export function ProjectName({ initial }: { initial: string }) {
       <input
         ref={input}
         value={draft}
-        maxLength={60}
+        maxLength={120}
         aria-label="Nome do projeto"
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') commit();
-          if (e.key === 'Escape') {
-            setDraft(name);
-            setEditing(false);
-          }
+          if (e.key === 'Escape') setEditing(false);
         }}
-        style={{ width: `${Math.max(12, draft.length + 2)}ch` }}
+        style={{ width: `${Math.min(48, Math.max(12, draft.length + 2))}ch` }}
         className="h-8 rounded-md border border-accent bg-white px-2 text-sm font-medium text-stone-900 outline-none ring-2 ring-accent/20"
       />
     );
@@ -49,10 +47,10 @@ export function ProjectName({ initial }: { initial: string }) {
         setEditing(true);
       }}
       title="Renomear projeto"
-      className="group flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-stone-900 outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-accent/50"
+      className="group flex h-8 max-w-[22rem] items-center gap-1.5 rounded-md px-2 text-sm font-medium text-stone-900 outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-accent/50"
     >
-      {name}
-      <Pencil className="size-3 text-stone-400 opacity-0 transition-opacity group-hover:opacity-100" />
+      <span className="truncate">{name}</span>
+      <Pencil className="size-3 shrink-0 text-stone-400 opacity-0 transition-opacity group-hover:opacity-100" />
     </button>
   );
 }
