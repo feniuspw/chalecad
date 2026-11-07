@@ -111,17 +111,47 @@ export function deckGeometry(project: Project, e: DeckE): DeckGeometry {
   return { polygon, length, rails, at, a0, a1, n: f.n };
 }
 
-/** Água de cobertura do deck: meia-água encostada na fachada, caindo para fora. */
-function deckRoof(id: string, e: DeckE, g: DeckGeometry): RoofPlane {
+/**
+ * Onde a cobertura do deck pode encostar na fachada sem atravessar o telhado principal:
+ * `zMax` = cota máxima no encontro e `q0` = distância da fachada onde a água do deck começa
+ * (nas fachadas de beiral, a água começa logo após o beiral principal, um pouco abaixo dele).
+ */
+function deckRoofStart(project: Project, side: DeckE['side']): { zMax: number; q0: number } {
+  const t = project.typology;
+  const margin = 0.1;
+  switch (t.kind) {
+    case 'gable_mezzanine':
+    case 'gambrel':
+    case 'combined': {
+      const pitch = (t.kind === 'gambrel' ? t.lowerPitchDeg : t.roofPitchDeg) * DEG;
+      const ridgeAlongY = t.kind === 'combined' ? false : project.roof.ridgeAxis === 'depth';
+      const gableSide = ridgeAlongY ? side === 'front' || side === 'back' : side === 'left' || side === 'right';
+      if (gableSide) return { zMax: t.wallHeight - margin, q0: 0 };
+      return { zMax: t.wallHeight - t.eave * Math.tan(pitch) - 0.05, q0: t.eave };
+    }
+    case 'shed':
+      return { zMax: t.lowHeight - margin, q0: 0 };
+    case 'flat_roof':
+      return { zMax: t.wallHeight - margin, q0: 0 };
+    case 'a_frame':
+      return { zMax: Math.max(2.4, Math.min(t.ridgeHeight * 0.45, 3)), q0: 0 };
+  }
+}
+
+/** Água de cobertura do deck: meia-água encostada na fachada, caindo para fora, sem invadir o telhado principal. */
+function deckRoof(id: string, e: DeckE, g: DeckGeometry, project: Project): RoofPlane {
   const slope = EXTRAS.deckCoverPitchDeg * DEG;
   const cos = Math.cos(slope);
   const sin = Math.sin(slope);
+  const tan = Math.tan(slope);
   const proj = e.depth + EXTRAS.deckCoverBeiral;
-  const zLow = e.elevation + EXTRAS.deckCoverClearance;
-  const zHigh = zLow + proj * Math.tan(slope);
+  const start = deckRoofStart(project, e.side);
+  const q0 = Math.min(start.q0, proj - 0.2);
+  const desiredHigh = e.elevation + EXTRAS.deckCoverClearance + (proj - q0) * tan;
+  const zHigh = Math.min(desiredHigh, start.zMax);
   const pt = (a: number, q: number): Vec3 => {
     const p = g.at(a, q);
-    return [p[0], p[1], zHigh - q * Math.tan(slope)];
+    return [p[0], p[1], zHigh - (q - q0) * tan];
   };
   const vDir: Vec3 = [-g.n[0] * cos, -g.n[1] * cos, sin];
   const nDir: Vec3 = [g.n[0] * sin, g.n[1] * sin, cos];
@@ -130,7 +160,7 @@ function deckRoof(id: string, e: DeckE, g: DeckGeometry): RoofPlane {
   const p1 = pt(g.a1, proj);
   const origin = dot3(uDir, sub3(p1, p0)) > 0 ? p0 : p1;
   const uLength = g.length;
-  const vLength = proj / cos;
+  const vLength = (proj - q0) / cos;
   const du = scale3(uDir, uLength);
   const dv = scale3(vDir, vLength);
   return {
@@ -216,11 +246,13 @@ function deckModel(project: Project, e: DeckE): ExtraModel {
   }
   if (e.covered) {
     // `roof` presente = deck coberto (ExtraModel não tem flag `covered`).
-    m.roof = deckRoof(e.id, e, g);
+    m.roof = deckRoof(e.id, e, g, project);
+    const lowEdgeZ = Math.min(...m.roof.vertices.map((v) => v[2]));
+    const postHeight = lowEdgeZ + EXTRAS.deckCoverBeiral * Math.tan(EXTRAS.deckCoverPitchDeg * DEG) - e.elevation;
     const n = Math.max(1, Math.ceil(g.length / EXTRAS.deckPostSpacing - 1e-9));
     for (let i = 0; i <= n; i++) {
       const a = g.a0 + (g.length * i) / n;
-      m.posts.push({ position: g.at(a, e.depth), height: EXTRAS.deckCoverClearance, size: EXTRAS.deckPostSize });
+      m.posts.push({ position: g.at(a, e.depth), height: postHeight, size: EXTRAS.deckPostSize });
     }
   }
   return m;
