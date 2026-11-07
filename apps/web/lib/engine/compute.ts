@@ -1,31 +1,18 @@
 /**
- * Cálculo do projeto. Chama `computeAll` do motor quando existir; enquanto o motor completo não é
- * integrado, devolve um `Results` parcial só com o modelo 3D (demais campos vazios, tipados).
+ * Cálculo do projeto: `computeAll` do motor. `computePartial` (só o modelo 3D) fica como reserva
+ * para quando o pipeline completo falhar, para o usuário não perder a vista 3D.
  */
-import * as engine from '@chalecad/engine';
-import { ENGINE_VERSION, buildModel, type Project, type Results } from '@chalecad/engine';
+import { ENGINE_VERSION, buildModel, computeAll, type Project, type Results } from '@chalecad/engine';
 import type { Catalog } from '@chalecad/catalog';
 
 export interface ComputeOptions {
   today?: string;
 }
 
-type ComputeAll = (project: Project, catalog: Catalog, opts?: ComputeOptions) => Results;
-
-/** Chave em variável: o bundler não tenta resolver `computeAll` estaticamente (ainda pode não existir). */
-const COMPUTE_ALL_KEY = 'computeAll';
-
 export const PARTIAL_WARNING_CODE = 'engine.partial';
 
-function findComputeAll(): ComputeAll | null {
-  const fn = (engine as unknown as Record<string, unknown>)[COMPUTE_ALL_KEY];
-  return typeof fn === 'function' ? (fn as ComputeAll) : null;
-}
-
 export function computeProject(project: Project, catalog: Catalog, opts?: ComputeOptions): Results {
-  const full = findComputeAll();
-  if (full) return full(project, catalog, opts);
-  return computePartial(project, catalog);
+  return computeAll(project, catalog, opts);
 }
 
 /** Resultado parcial: só `model`. Os demais campos têm o formato correto, porém zerados. */
