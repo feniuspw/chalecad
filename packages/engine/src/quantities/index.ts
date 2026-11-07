@@ -11,7 +11,7 @@ import type {
 } from '../schema/results';
 import { computeExtras } from '../extras';
 import { cutPlan } from './cutplan';
-import { collectItems, openingsByHost, wallAreas } from './items';
+import { collectItems, openingsByHost, wallAreas, type Item } from './items';
 
 export { cutPlan } from './cutplan';
 export { paginateSheets } from './paginate';
@@ -58,6 +58,7 @@ export function computeQuantities(
   pieces: Piece[],
   project: Project,
   catalog: Catalog,
+  terrainItems: Item[] = [],
 ): QuantityReport {
   const c = catalog.constants;
   const lines: QuantityLine[] = [];
@@ -213,7 +214,7 @@ export function computeQuantities(
   fix('hold_down', holdDowns, uniq(hdHosts));
 
   // --- Demais itens ----------------------------------------------------------------
-  for (const it of [...collectItems(model, project, catalog), ...computeExtras(project, model, catalog)]) {
+  for (const it of [...collectItems(model, project, catalog), ...computeExtras(project, model, catalog), ...terrainItems]) {
     const a = touch(it.stage, it.itemId);
     a.net += it.net;
     a.hostIds.add(it.hostId);

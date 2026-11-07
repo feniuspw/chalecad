@@ -19,6 +19,8 @@ export interface WarningContext {
   quantities: QuantityReport;
   budget: BudgetReport;
   catalog: Catalog;
+  /** Alertas do terreno inclinado (de `computeTerrain`). */
+  terrainWarnings?: EngineWarning[];
 }
 
 const EPS = 1e-9;
@@ -196,12 +198,12 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
       refs: model.roofPlanes.map((r) => r.id),
     });
   }
-  const ignoredExtras = project.extras.filter((e) => !model.extras.some((m) => m.id === e.id) || e.kind === 'retaining');
+  const ignoredExtras = project.extras.filter((e) => e.kind !== 'retaining' && !model.extras.some((m) => m.id === e.id));
   if (ignoredExtras.length > 0) {
     out.push({
       code: 'extras.ignored',
       severity: 'info',
-      message: `${ignoredExtras.length} extra(s) do projeto ainda não são calculados pelo motor (muro de arrimo entra com o terreno inclinado).`,
+      message: `${ignoredExtras.length} extra(s) do projeto ainda não são calculados pelo motor.`,
       refs: ignoredExtras.map((e) => e.id),
     });
   }
@@ -214,13 +216,16 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
       refs: model.roofPlanes.map((r) => r.id),
     });
   }
-  if (project.site.type === 'sloped') {
+  const retaining = project.extras.filter((e) => e.kind === 'retaining');
+  if (retaining.length > 0) {
     out.push({
-      code: 'site.sloped',
-      severity: 'info',
-      message: 'Terreno inclinado: terraplenagem e fundação em desnível ainda não são calculadas pelo motor.',
+      code: 'retaining.engineer',
+      severity: 'warn',
+      message: 'Muro de arrimo exige projeto de engenharia (estabilidade, drenagem e fundação); as quantidades são estimativas.',
+      refs: retaining.map((e) => e.id),
     });
   }
+  out.push(...(ctx.terrainWarnings ?? []));
 
   return out
     .map((w, i) => ({ w, i }))

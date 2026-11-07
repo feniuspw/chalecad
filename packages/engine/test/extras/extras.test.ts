@@ -101,10 +101,10 @@ describe('deck', () => {
 });
 
 describe('arrimo e integração', () => {
-  test('arrimo só gera geometria', () => {
+  test('arrimo gera geometria e quantidades (F4-E1)', () => {
     const { quantities: q, model } = withExtras({ id: 'r1', kind: 'retaining', path: [[0, 12], [8, 12]], height: 1.5 });
     expect(model.extras[0]!.kind).toBe('retaining');
-    expect(q.lines.filter((l) => l.stage === 'extras')).toHaveLength(0);
+    expect(q.lines.filter((l) => l.stage === 'extras').length).toBeGreaterThan(0);
   });
 
   test('sem extras: model.extras vazio', () => {

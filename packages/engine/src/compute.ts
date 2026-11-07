@@ -5,6 +5,7 @@ import { loadProject } from './load';
 import { buildModel } from './model';
 import { computeQuantities } from './quantities';
 import { computeStructure } from './structure';
+import { computeTerrain } from './terrain';
 import type { Project } from './schema/project';
 import { ENGINE_VERSION } from './version';
 import { generatePieces } from './framing';
@@ -45,7 +46,9 @@ export function computeAllWith(
   lap('model');
   const pieces = deps.generatePieces(model, project, catalog);
   lap('framing');
-  const quantities = computeQuantities(model, pieces, project, catalog);
+  const terrainResult = computeTerrain(project, model, catalog);
+  if (terrainResult) lap('terrain'); // só em terreno inclinado (flat mantém as mesmas chaves)
+  const quantities = computeQuantities(model, pieces, project, catalog, terrainResult?.items);
   lap('quantities');
   const weight = computeWeight(model, pieces, quantities, project, catalog);
   lap('weight');
@@ -53,7 +56,15 @@ export function computeAllWith(
   lap('structure');
   const budget = computeBudget(quantities, weight, model, project, catalog, today);
   lap('budget');
-  const warnings = computeWarnings({ project, model, pieces, quantities, budget, catalog });
+  const warnings = computeWarnings({
+    project,
+    model,
+    pieces,
+    quantities,
+    budget,
+    catalog,
+    terrainWarnings: terrainResult?.warnings,
+  });
   lap('warnings');
   timingsMs.total = performance.now() - t0;
 
@@ -66,7 +77,7 @@ export function computeAllWith(
     weight,
     structure,
     budget,
-    terrain: null,
+    terrain: terrainResult?.report ?? null,
     warnings,
     timingsMs,
   };
