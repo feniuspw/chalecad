@@ -63,16 +63,14 @@ export function EditorShell() {
     return () => useExtraTools.getState().setDrawPath(null);
   }, []);
 
-  // /editor?new=1 (vindo de /projetos): abre o assistente de novo projeto.
+  // /editor?new=1 (vindo de /projetos): abre o assistente de novo projeto. Lido no primeiro render,
+  // antes de o bootstrap trocar a URL para ?id=.
+  const [wantsNew] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('new') === '1');
   useEffect(() => {
-    if (!ready || typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    if (url.searchParams.get('new') !== '1') return;
-    url.searchParams.delete('new');
-    window.history.replaceState(null, '', url.pathname + url.search);
+    if (!ready || !wantsNew) return;
     setWelcomed(true);
     setNewOpen(true);
-  }, [ready]);
+  }, [ready, wantsNew]);
 
   const viewport = useRef<ViewportHandle>(null);
   const [view, setView] = useState<ViewPreset>('3d');

@@ -115,7 +115,7 @@ test('9. /projetos lista o projeto salvo', async ({ page }) => {
 
 // BUG real (ver relatório): /editor?new=1 perde o parâmetro porque useBootstrap faz replaceState para ?id=...
 // antes de o efeito de EditorShell ler `new=1`; o assistente não abre quando já existe projeto salvo.
-test.fixme('9b. "Novo projeto" em /projetos abre o assistente', async ({ page }) => {
+test('9b. "Novo projeto" em /projetos abre o assistente', async ({ page }) => {
   await openExample(page);
   await page.waitForTimeout(2500);
   await page.goto('/projetos');

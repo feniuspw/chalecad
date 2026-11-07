@@ -1,7 +1,8 @@
+import { homedir } from 'node:os';
 // Cria as tabelas do SQLite (idempotente). Uso: `pnpm db:migrate`. Opcional: CHALECAD_DB_PATH.
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Mantido igual ao de lib/db/ddl.ts (há um teste que compara os dois).
@@ -41,7 +42,9 @@ export function migrate(file) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const file = resolve(process.env.CHALECAD_DB_PATH ?? 'data/chalecad.sqlite');
+  const file = process.env.CHALECAD_DB_PATH
+    ? resolve(process.env.CHALECAD_DB_PATH)
+    : join(homedir(), '.chalecad', 'chalecad.sqlite');
   migrate(file);
   console.log(`Banco pronto em ${file}`);
 }

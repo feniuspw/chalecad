@@ -1,11 +1,13 @@
 /**
  * Acesso ao banco (somente servidor). `DATA_MODE=sqlite` (padrão) usa better-sqlite3 + Drizzle em
- * `./data/chalecad.sqlite` (relativo à raiz do app; `CHALECAD_DB_PATH` sobrescreve). `supabase` ainda não existe aqui.
+ * `~/.chalecad/chalecad.sqlite` (`CHALECAD_DB_PATH` sobrescreve). Fica fora da pasta do app de propósito:
+ * gravar dentro dela faz o `next dev` recarregar a página a cada salvamento. `supabase` ainda não existe aqui.
  */
 import Database from 'better-sqlite3';
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { DDL_STATEMENTS } from './ddl';
 import * as schema from './schema';
 
@@ -19,7 +21,8 @@ export class DbUnavailableError extends Error {
 }
 
 export function dbFilePath(): string {
-  return resolve(/*turbopackIgnore: true*/ process.env.CHALECAD_DB_PATH ?? 'data/chalecad.sqlite');
+  const env = process.env.CHALECAD_DB_PATH;
+  return env ? resolve(/*turbopackIgnore: true*/ env) : join(homedir(), '.chalecad', 'chalecad.sqlite');
 }
 
 /** Abre (e migra) um arquivo SQLite. Use `:memory:` em testes se quiser. */
