@@ -77,9 +77,13 @@ describe('alertas de norma', () => {
   });
 
   test('verga reprovada recebe sugestão de perfil', () => {
-    const h = r.structure!.checks.find((x) => x.kind === 'header' && x.hostIds.includes('ext-front'))!;
+    const checks = r.structure!.checks.filter((x) => x.kind === 'header');
+    // porta na fachada envidraçada fica na caixilharia: sem verga de aço
+    expect(checks.some((x) => x.hostIds.includes('ext-front'))).toBe(false);
+    const h = checks.find((x) => x.hostIds.includes('annex-right-side'))!;
     expect(h.status).toBe('fail');
     expect(h.suggestion?.text).toMatch(/Verga em caixa com \d × Ue/);
+    expect(h.suggestion?.deltaKg).toBeGreaterThan(0);
     expect(h.suggestion?.profileId).toBeUndefined();
   });
 

@@ -385,7 +385,8 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
   for (const o of model.openings) {
     if (!o.valid || o.hostKind !== 'wall' || o.u1 - o.u0 <= 1) continue;
     const host = model.walls.find((w) => w.id === o.hostId);
-    if (!host) continue;
+    // fachada envidraçada: o vão fica na caixilharia, não há verga de aço
+    if (!host || host.assemblyId === 'gable_glazed') continue;
     const width = Math.round((o.u1 - o.u0) * 100) / 100;
     const key = `${o.hostId}|${width}`;
     const gr = groups.get(key) ?? { host, width, ops: [] };
