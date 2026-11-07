@@ -12,3 +12,4 @@ export * from './structure';
 export * from './terrain';
 export * from './warnings';
 export * from './compute';
+export * from './reports';

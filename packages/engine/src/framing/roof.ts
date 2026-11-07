@@ -3,6 +3,7 @@ import { add3, cross3, dot3, pointInPolygon, scale3, type Vec2, type Vec3 } from
 import type { Project, TypologyKind } from '../schema/project';
 import type { BuildingModel, RoofPlane } from '../schema/results';
 import { slopedFrame } from '../model/sloped';
+import { complexFramers } from './complex';
 import { PieceSink, profileOf, uVariant } from './util';
 
 export type RoofFramer = (model: BuildingModel, project: Project, catalog: Catalog, sink: PieceSink) => void;
@@ -145,4 +146,5 @@ export const framers: Partial<Record<TypologyKind, RoofFramer>> = {
   a_frame: twoPlaneFramer,
   shed: slopedFramer,
   flat_roof: slopedFramer,
+  ...complexFramers,
 };

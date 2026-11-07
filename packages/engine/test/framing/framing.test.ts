@@ -156,8 +156,9 @@ describe('generatePieces: variações', () => {
     expect([...roles].every((r) => ['track_bottom', 'track_top', 'stud'].includes(r))).toBe(true);
   });
 
-  test('tipologia sem framer: sem peças de cobertura e sem erro', () => {
-    expect(framers.gambrel).toBeUndefined();
+  test('framer de tipologia incompatível com o projeto: sem peças de cobertura e sem erro', () => {
+    expect(framers.gambrel).toBeDefined();
+    expect(framers.combined).toBeDefined();
     const { project, model } = run(GABLE);
     const fake = { ...model, typology: 'gambrel' as const };
     const out = generatePieces(fake, project, testCatalog);
