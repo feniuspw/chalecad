@@ -26,6 +26,9 @@ export const EXTRAS = {
   deckCoverPitchDeg: 10,
   deckCoverBeiral: 0.3,
   deckCoverClearance: 2.4,
+  /** Pé-direito livre mínimo sob a borda baixa e inclinação mínima da telha (graus, ~5%). */
+  deckCoverMinClearance: 2.1,
+  deckCoverMinPitchDeg: 3,
   deckPostSpacing: 3,
   deckPostSize: 0.1,
 } as const;
@@ -140,15 +143,19 @@ function deckRoofStart(project: Project, side: DeckE['side']): { zMax: number; q
 
 /** Água de cobertura do deck: meia-água encostada na fachada, caindo para fora, sem invadir o telhado principal. */
 function deckRoof(id: string, e: DeckE, g: DeckGeometry, project: Project): RoofPlane {
-  const slope = EXTRAS.deckCoverPitchDeg * DEG;
-  const cos = Math.cos(slope);
-  const sin = Math.sin(slope);
-  const tan = Math.tan(slope);
   const proj = e.depth + EXTRAS.deckCoverBeiral;
   const start = deckRoofStart(project, e.side);
   const q0 = Math.min(start.q0, proj - 0.2);
-  const desiredHigh = e.elevation + EXTRAS.deckCoverClearance + (proj - q0) * tan;
+  const run = proj - q0;
+  // Inclinação padrão; se a fachada for baixa, suaviza (até o mínimo da telha) para manter o pé-direito livre.
+  const desiredHigh = e.elevation + EXTRAS.deckCoverClearance + run * Math.tan(EXTRAS.deckCoverPitchDeg * DEG);
   const zHigh = Math.min(desiredHigh, start.zMax);
+  const fitSlope = Math.atan(Math.max(0, zHigh - (e.elevation + EXTRAS.deckCoverMinClearance)) / run) / DEG;
+  const pitchDeg = Math.max(EXTRAS.deckCoverMinPitchDeg, Math.min(EXTRAS.deckCoverPitchDeg, fitSlope));
+  const slope = pitchDeg * DEG;
+  const cos = Math.cos(slope);
+  const sin = Math.sin(slope);
+  const tan = Math.tan(slope);
   const pt = (a: number, q: number): Vec3 => {
     const p = g.at(a, q);
     return [p[0], p[1], zHigh - (q - q0) * tan];
@@ -166,7 +173,7 @@ function deckRoof(id: string, e: DeckE, g: DeckGeometry, project: Project): Roof
   return {
     id,
     vertices: [origin, add3(origin, du), add3(add3(origin, du), dv), add3(origin, dv)],
-    slopeDeg: EXTRAS.deckCoverPitchDeg,
+    slopeDeg: pitchDeg,
     area: uLength * vLength,
     origin,
     uAxis: uDir,
@@ -248,7 +255,7 @@ function deckModel(project: Project, e: DeckE): ExtraModel {
     // `roof` presente = deck coberto (ExtraModel não tem flag `covered`).
     m.roof = deckRoof(e.id, e, g, project);
     const lowEdgeZ = Math.min(...m.roof.vertices.map((v) => v[2]));
-    const postHeight = lowEdgeZ + EXTRAS.deckCoverBeiral * Math.tan(EXTRAS.deckCoverPitchDeg * DEG) - e.elevation;
+    const postHeight = lowEdgeZ + EXTRAS.deckCoverBeiral * Math.tan(m.roof.slopeDeg * DEG) - e.elevation;
     const n = Math.max(1, Math.ceil(g.length / EXTRAS.deckPostSpacing - 1e-9));
     for (let i = 0; i <= n; i++) {
       const a = g.a0 + (g.length * i) / n;
