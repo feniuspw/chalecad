@@ -1,6 +1,7 @@
 import type { Catalog } from '@chalecad/catalog';
 import type { Project } from '../schema/project';
 import type { BuildingModel, Piece } from '../schema/results';
+import { generateExtras } from './extras';
 import { generateMezzanines } from './mezzanine';
 import { framers } from './roof';
 import { generateStairs } from './stairs';
@@ -17,5 +18,6 @@ export function generatePieces(model: BuildingModel, project: Project, catalog: 
   generateMezzanines(model, project, catalog, sink);
   framers[model.typology]?.(model, project, catalog, sink);
   generateStairs(model, project, catalog, sink);
+  generateExtras(model, project, catalog, sink);
   return sink.pieces;
 }

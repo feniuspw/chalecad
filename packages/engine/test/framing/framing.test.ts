@@ -157,9 +157,9 @@ describe('generatePieces: variações', () => {
   });
 
   test('tipologia sem framer: sem peças de cobertura e sem erro', () => {
-    expect(framers.shed).toBeUndefined();
+    expect(framers.gambrel).toBeUndefined();
     const { project, model } = run(GABLE);
-    const fake = { ...model, typology: 'shed' as const };
+    const fake = { ...model, typology: 'gambrel' as const };
     const out = generatePieces(fake, project, testCatalog);
     expect(out.some((p) => p.role === 'rafter')).toBe(false);
   });

@@ -1,0 +1,243 @@
+import { add3, cross3, dot3, scale3, signedArea, sub3, type Vec2, type Vec3 } from '../geometry';
+import type { Extra, Project } from '../schema/project';
+import type { ExtraModel, RoofPlane } from '../schema/results';
+
+const DEG = Math.PI / 180;
+
+/**
+ * Premissas geométricas e de consumo fixadas pelo card F2-E2 (não existem no catálogo ainda).
+ * Constantes técnicas de alvenaria (blocos/m², graute, aço, sapata) vêm de `catalog.constants.masonry`.
+ */
+export const EXTRAS = {
+  blockThickness: 0.14,
+  lsfWallThickness: 0.1,
+  lsfStudSpacing: 0.6,
+  retainingThickness: 0.3,
+  /** Argamassa de assentamento (m³ por m² de alvenaria) e densidade (kg/m³). */
+  mortarM3PerM2: 0.02,
+  mortarDensity: 1900,
+  /** Aço da sapata corrida / baldrame (kg por m). */
+  footingSteelKgPerM: 3,
+  gradeBeam: { width: 0.15, depth: 0.3 },
+  postSize: { concrete: 0.12, eucalyptus: 0.12, steel: 0.06 },
+  barbedStrands: 5,
+  guardrailHeight: 1,
+  guardrailThickness: 0.05,
+  deckCoverPitchDeg: 10,
+  deckCoverBeiral: 0.3,
+  deckCoverClearance: 2.4,
+  deckPostSpacing: 3,
+  deckPostSize: 0.1,
+} as const;
+
+export type FenceE = Extract<Extra, { kind: 'fence' }>;
+export type WallE = Extract<Extra, { kind: 'wall' }>;
+export type DeckE = Extract<Extra, { kind: 'deck' }>;
+type RetE = Extract<Extra, { kind: 'retaining' }>;
+
+/** Pares de pontos consecutivos do caminho (com fechamento se `closed`). */
+export function pathSegments(path: Vec2[], closed: boolean): [Vec2, Vec2][] {
+  const out: [Vec2, Vec2][] = [];
+  for (let i = 0; i + 1 < path.length; i++) out.push([path[i]!, path[i + 1]!]);
+  if (closed && path.length > 2) out.push([path[path.length - 1]!, path[0]!]);
+  return out;
+}
+
+export const segLen = (a: Vec2, b: Vec2): number => Math.hypot(b[0] - a[0], b[1] - a[1]);
+export const pathLength = (path: Vec2[], closed: boolean): number =>
+  pathSegments(path, closed).reduce((s, [a, b]) => s + segLen(a, b), 0);
+
+/** Mourões: um por vão (arredondado para cima) em cada segmento, mais o ponto final se o caminho for aberto. */
+export function fencePosts(e: FenceE): Vec2[] {
+  const posts: Vec2[] = [];
+  const segs = pathSegments(e.path, e.closed);
+  for (const [a, b] of segs) {
+    const n = Math.max(1, Math.ceil(segLen(a, b) / e.postSpacing - 1e-9));
+    for (let i = 0; i < n; i++) {
+      const t = i / n;
+      posts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+    }
+  }
+  if (!e.closed || segs.length === 0) {
+    const last = e.path[e.path.length - 1];
+    if (last) posts.push([last[0], last[1]]);
+  }
+  return posts;
+}
+
+/** Fachada da edificação (no sentido das paredes: from → to), com direção para fora. */
+export function facade(project: Project, side: DeckE['side']): { origin: Vec2; t: Vec2; n: Vec2; len: number } {
+  const W = project.typology.width;
+  const D = project.typology.depth;
+  switch (side) {
+    case 'front':
+      return { origin: [0, 0], t: [1, 0], n: [0, -1], len: W };
+    case 'right':
+      return { origin: [W, 0], t: [0, 1], n: [1, 0], len: D };
+    case 'back':
+      return { origin: [W, D], t: [-1, 0], n: [0, 1], len: W };
+    case 'left':
+      return { origin: [0, D], t: [0, -1], n: [-1, 0], len: D };
+  }
+}
+
+export interface DeckGeometry {
+  /** Polígono anti-horário (vazio se o deck não cabe na fachada). */
+  polygon: Vec2[];
+  length: number;
+  /** Segmentos livres do guarda-corpo (lado da casa não conta). */
+  rails: [Vec2, Vec2][];
+  /** Ponto da fachada a + deslocamento q para fora. */
+  at: (a: number, q: number) => Vec2;
+  a0: number;
+  a1: number;
+  n: Vec2;
+}
+
+export function deckGeometry(project: Project, e: DeckE): DeckGeometry {
+  const f = facade(project, e.side);
+  const a0 = Math.min(e.offset, f.len);
+  const length = Math.max(0, Math.min(e.length ?? f.len - a0, f.len - a0));
+  const a1 = a0 + length;
+  const at = (a: number, q: number): Vec2 => [f.origin[0] + f.t[0] * a + f.n[0] * q, f.origin[1] + f.t[1] * a + f.n[1] * q];
+  if (length <= 0) return { polygon: [], length: 0, rails: [], at, a0, a1, n: f.n };
+  let polygon: Vec2[] = [at(a0, 0), at(a1, 0), at(a1, e.depth), at(a0, e.depth)];
+  if (signedArea(polygon) < 0) polygon = polygon.reverse();
+  const rails: [Vec2, Vec2][] = [
+    [at(a0, 0), at(a0, e.depth)],
+    [at(a0, e.depth), at(a1, e.depth)],
+    [at(a1, e.depth), at(a1, 0)],
+  ];
+  return { polygon, length, rails, at, a0, a1, n: f.n };
+}
+
+/** Água de cobertura do deck: meia-água encostada na fachada, caindo para fora. */
+function deckRoof(id: string, e: DeckE, g: DeckGeometry): RoofPlane {
+  const slope = EXTRAS.deckCoverPitchDeg * DEG;
+  const cos = Math.cos(slope);
+  const sin = Math.sin(slope);
+  const proj = e.depth + EXTRAS.deckCoverBeiral;
+  const zLow = e.elevation + EXTRAS.deckCoverClearance;
+  const zHigh = zLow + proj * Math.tan(slope);
+  const pt = (a: number, q: number): Vec3 => {
+    const p = g.at(a, q);
+    return [p[0], p[1], zHigh - q * Math.tan(slope)];
+  };
+  const vDir: Vec3 = [-g.n[0] * cos, -g.n[1] * cos, sin];
+  const nDir: Vec3 = [g.n[0] * sin, g.n[1] * sin, cos];
+  const uDir = cross3(vDir, nDir);
+  const p0 = pt(g.a0, proj);
+  const p1 = pt(g.a1, proj);
+  const origin = dot3(uDir, sub3(p1, p0)) > 0 ? p0 : p1;
+  const uLength = g.length;
+  const vLength = proj / cos;
+  const du = scale3(uDir, uLength);
+  const dv = scale3(vDir, vLength);
+  return {
+    id,
+    vertices: [origin, add3(origin, du), add3(add3(origin, du), dv), add3(origin, dv)],
+    slopeDeg: EXTRAS.deckCoverPitchDeg,
+    area: uLength * vLength,
+    origin,
+    uAxis: uDir,
+    vAxis: vDir,
+    uLength,
+    vLength,
+    isWall: false,
+  };
+}
+
+function fenceModel(e: FenceE): ExtraModel {
+  const segments: ExtraModel['segments'] = [];
+  for (const [from, to] of pathSegments(e.path, e.closed)) {
+    if (e.baseWallHeight > 0) {
+      segments.push({ from, to, height: e.baseWallHeight, thickness: EXTRAS.blockThickness, baseZ: 0, material: 'block' });
+    }
+    segments.push({ from, to, height: e.height - e.baseWallHeight, thickness: 0.02, baseZ: e.baseWallHeight, material: 'mesh' });
+  }
+  const size = EXTRAS.postSize[e.postType];
+  return {
+    id: e.id,
+    kind: 'fence',
+    segments,
+    posts: fencePosts(e).map((position) => ({ position, height: e.height, size })),
+  };
+}
+
+function wallModel(e: WallE): ExtraModel {
+  const lsf = e.system === 'lsf_board';
+  return {
+    id: e.id,
+    kind: 'wall',
+    segments: pathSegments(e.path, e.closed).map(([from, to]) => ({
+      from,
+      to,
+      height: e.height,
+      thickness: lsf ? EXTRAS.lsfWallThickness : EXTRAS.blockThickness,
+      baseZ: 0,
+      material: lsf ? ('board' as const) : ('block' as const),
+    })),
+    posts: [],
+  };
+}
+
+function retainingModel(e: RetE): ExtraModel {
+  const material = e.type === 'gabion' ? 'gabion' : e.type === 'concrete' ? 'concrete' : 'block';
+  return {
+    id: e.id,
+    kind: 'retaining',
+    segments: pathSegments(e.path, false).map(([from, to]) => ({
+      from,
+      to,
+      height: e.height,
+      thickness: EXTRAS.retainingThickness,
+      baseZ: 0,
+      material,
+    })),
+    posts: [],
+  };
+}
+
+function deckModel(project: Project, e: DeckE): ExtraModel {
+  const g = deckGeometry(project, e);
+  const m: ExtraModel = { id: e.id, kind: 'deck', segments: [], posts: [], polygon: g.polygon, topZ: e.elevation };
+  if (g.polygon.length === 0) return m;
+  if (e.guardrail) {
+    for (const [from, to] of g.rails) {
+      m.segments.push({
+        from,
+        to,
+        height: EXTRAS.guardrailHeight,
+        thickness: EXTRAS.guardrailThickness,
+        baseZ: e.elevation,
+        material: 'rail',
+      });
+    }
+  }
+  if (e.covered) {
+    // `roof` presente = deck coberto (ExtraModel não tem flag `covered`).
+    m.roof = deckRoof(e.id, e, g);
+    const n = Math.max(1, Math.ceil(g.length / EXTRAS.deckPostSpacing - 1e-9));
+    for (let i = 0; i <= n; i++) {
+      const a = g.a0 + (g.length * i) / n;
+      m.posts.push({ position: g.at(a, e.depth), height: EXTRAS.deckCoverClearance, size: EXTRAS.deckPostSize });
+    }
+  }
+  return m;
+}
+
+/** Geometria 3D dos extras (muro, cerca, deck, arrimo) na ordem de `project.extras`. */
+export function buildExtraModels(project: Project): ExtraModel[] {
+  return project.extras.map((e) => {
+    switch (e.kind) {
+      case 'fence':
+        return fenceModel(e);
+      case 'wall':
+        return wallModel(e);
+      case 'deck':
+        return deckModel(project, e);
+      case 'retaining':
+        return retainingModel(e);
+    }
+  });
+}
