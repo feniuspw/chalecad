@@ -4,8 +4,11 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@chalecad/ui';
 import type { ViewportProps } from './types';
 import type { ControlledViewportProps } from './ViewportCanvas';
+import { SceneOverlays } from './SceneOverlays';
 
 export type { ViewportHandle, ViewportProps, ViewPreset } from './types';
+export { PathDrawer, type PathDrawerProps } from './PathDrawer';
+export { SceneOverlays } from './SceneOverlays';
 
 /** O canvas só existe no cliente (WebGL): carregamento dinâmico sem SSR. */
 const ViewportCanvas = dynamic(() => import('./ViewportCanvas'), {
@@ -23,6 +26,7 @@ export function Viewport({ className, ...props }: ViewportProps & ControlledView
   return (
     <div className={cn('scene-sky relative size-full overflow-hidden', className)}>
       <ViewportCanvas {...props} />
+      {props.showcase ? null : <SceneOverlays />}
     </div>
   );
 }

@@ -5,8 +5,11 @@ import type { ThreeEvent } from '@react-three/fiber';
 import type { BuildingModel, HostWall, ResolvedOpening, ResolvedStair, SlabModel, RoofPlane, Vec3 } from '@chalecad/engine';
 import * as THREE from 'three';
 import { freeSlabEdges, guardrailLayout, openingPlacement, roofZAt, type V2 } from '@/lib/three/convert';
+import { explodeGap as computeGap, type ExplodeLayer } from '@/lib/three/views';
+import type { ViewMode } from '@/lib/store/types';
 import { COLORS } from './materials';
 import { makeRoofGeometry, makeSlabGeometry, makeWallGeometry } from './geometry';
+import { ExplodeGroup } from './ExplodeGroup';
 
 export interface BuildingViewProps {
   model: BuildingModel;
@@ -16,13 +19,33 @@ export interface BuildingViewProps {
   /** Hover controlado de fora (ex.: item de lista): realça o hospedeiro como se o mouse estivesse nele. */
   hoverId?: string | null;
   onHoverHost?: (id: string | null) => void;
+  /** Modo de visualização: esqueleto/mapa de calor escondem fechamentos; explodido separa camadas. */
+  mode?: ViewMode;
+  /** Planos de corte (planta baixa): paredes cortadas na altura do plano. */
+  clip?: THREE.Plane[];
+  /** Há destaque ativo: o que não está em `highlight.hostIds` esmaece. */
+  fadeOthers?: boolean;
+  /** Oculta o telhado (planta). */
+  hideRoof?: boolean;
+  selectedOpeningId?: string | null;
+  onSelectOpening?: (id: string) => void;
 }
+
+interface ViewState {
+  clip?: THREE.Plane[];
+  /** Fantasma (esqueleto/mapa de calor): lajes translúcidas, sem contorno. */
+  ghost: boolean;
+  selectedOpeningId: string | null;
+  onSelectOpening?: (id: string) => void;
+  hoverable: boolean;
+}
+const ViewCtx = createContext<ViewState>({ ghost: false, selectedOpeningId: null, hoverable: true });
 
 // ---------------------------------------------------------------------------
 // Interação por hospedeiro (hover = emissive leve, selecionado = contorno âmbar)
 // ---------------------------------------------------------------------------
 
-const StyleCtx = createContext({ hovered: false, active: false });
+const StyleCtx = createContext({ hovered: false, active: false, faded: false });
 
 interface HostGroupProps {
   id: string;
@@ -30,13 +53,14 @@ interface HostGroupProps {
   active: boolean;
   onSelect?: (id: string) => void;
   externalHover?: boolean;
+  faded?: boolean;
   onHover?: (id: string | null) => void;
   position?: THREE.Vector3;
   quaternion?: THREE.Quaternion;
   children: ReactNode;
 }
 
-function HostGroup({ id, hoverable, active, onSelect, externalHover = false, onHover, children, position, quaternion }: HostGroupProps) {
+function HostGroup({ id, hoverable, active, onSelect, externalHover = false, faded = false, onHover, children, position, quaternion }: HostGroupProps) {
   const [hovered, setHovered] = useState(false);
   useEffect(() => {
     if (!hovered) return;
@@ -47,7 +71,7 @@ function HostGroup({ id, hoverable, active, onSelect, externalHover = false, onH
   }, [hovered]);
 
   const shownHover = hovered || externalHover;
-  const value = useMemo(() => ({ hovered: shownHover, active }), [shownHover, active]);
+  const value = useMemo(() => ({ hovered: shownHover, active, faded }), [shownHover, active, faded]);
   const handlers = hoverable
     ? {
         onPointerOver: (e: ThreeEvent<PointerEvent>) => {
@@ -88,20 +112,33 @@ interface SurfaceProps {
 
 /** Malha opaca que reage ao hover/seleção do HostGroup pai. Aceita geometria pronta ou caixa (size). */
 function Surface({ geometry, size, color, roughness = 0.85, metalness = 0, edges = true, edgeColor = COLORS.edge, castShadow = true, ...rest }: SurfaceProps) {
-  const { hovered, active } = useContext(StyleCtx);
+  const { hovered, active, faded } = useContext(StyleCtx);
+  const { clip, ghost } = useContext(ViewCtx);
+  const opacity = ghost ? 0.22 : faded ? 0.16 : 1;
   const emissive = active ? COLORS.accent : hovered ? COLORS.hover : '#000000';
   const intensity = active ? 0.1 : hovered ? 0.14 : 0;
   return (
-    <mesh geometry={geometry} castShadow={castShadow} receiveShadow {...rest}>
+    <mesh geometry={geometry} castShadow={castShadow && opacity === 1} receiveShadow={opacity === 1} renderOrder={opacity < 1 ? 1 : 0} {...rest}>
       {size ? <boxGeometry args={size} /> : null}
-      <meshStandardMaterial color={color} roughness={roughness} metalness={metalness} emissive={emissive} emissiveIntensity={intensity} />
-      {edges ? (
+      <meshStandardMaterial
+        key={opacity < 1 ? 'translucent' : 'opaque'} // trocar `transparent` exige novo programa de shader
+        color={color}
+        roughness={roughness}
+        metalness={metalness}
+        emissive={emissive}
+        emissiveIntensity={intensity}
+        transparent={opacity < 1}
+        opacity={opacity}
+        depthWrite={opacity === 1}
+        clippingPlanes={clip}
+      />
+      {edges && !ghost ? (
         <Edges
           threshold={25}
           color={active ? COLORS.accent : edgeColor}
           lineWidth={active ? 2.5 : 1}
           transparent
-          opacity={active ? 1 : 0.4}
+          opacity={faded ? 0.15 : active ? 1 : 0.4}
           raycast={() => null}
         />
       ) : null}
@@ -114,19 +151,21 @@ function Surface({ geometry, size, color, roughness = 0.85, metalness = 0, edges
 // ---------------------------------------------------------------------------
 
 function Glass({ size, position }: { size: [number, number]; position: [number, number, number] }) {
+  const { clip } = useContext(ViewCtx);
   return (
     <mesh position={position} renderOrder={2}>
       <boxGeometry args={[size[0], size[1], 0.012]} />
-      <meshStandardMaterial color={COLORS.glass} transparent opacity={0.38} roughness={0.05} metalness={0.15} depthWrite={false} />
+      <meshStandardMaterial color={COLORS.glass} transparent opacity={0.38} roughness={0.05} metalness={0.15} depthWrite={false} clippingPlanes={clip} />
     </mesh>
   );
 }
 
 function Bar({ size, position, color }: { size: [number, number, number]; position: [number, number, number]; color: string }) {
+  const { clip } = useContext(ViewCtx);
   return (
     <mesh position={position} castShadow>
       <boxGeometry args={size} />
-      <meshStandardMaterial color={color} roughness={0.6} />
+      <meshStandardMaterial color={color} roughness={0.6} clippingPlanes={clip} />
     </mesh>
   );
 }
@@ -165,9 +204,37 @@ function DoorLeaf({ w, h, depth }: { w: number; h: number; depth: number }) {
 
 function OpeningMesh({ op, depth }: { op: ResolvedOpening; depth: number }) {
   const { center, size } = openingPlacement(op);
+  const { selectedOpeningId, onSelectOpening, hoverable } = useContext(ViewCtx);
+  const [hot, setHot] = useState(false);
+  useEffect(() => {
+    if (!hot) return;
+    document.body.style.cursor = 'pointer';
+    return () => {
+      document.body.style.cursor = '';
+    };
+  }, [hot]);
+  const selected = selectedOpeningId === op.id;
   const d = depth + 0.02;
   return (
     <group position={[center[0], center[1], 0]}>
+      {hoverable ? (
+        <mesh
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHot(true);
+          }}
+          onPointerOut={() => setHot(false)}
+          onClick={(e) => {
+            if (e.delta > 4) return;
+            e.stopPropagation();
+            onSelectOpening?.(op.id);
+          }}
+        >
+          <boxGeometry args={[size[0] + 0.02, size[1] + 0.02, d + 0.04]} />
+          <meshBasicMaterial color={COLORS.accent} transparent opacity={selected ? 0.22 : hot ? 0.14 : 0} depthWrite={false} />
+          {selected || hot ? <Edges color={COLORS.accent} lineWidth={selected ? 3 : 2} raycast={() => null} /> : null}
+        </mesh>
+      ) : null}
       {op.type === 'door' ? (
         <DoorLeaf w={size[0]} h={size[1]} depth={d} />
       ) : (
@@ -184,6 +251,7 @@ function OpeningMesh({ op, depth }: { op: ResolvedOpening; depth: number }) {
 interface PartCommon {
   hoverable: boolean;
   active: boolean;
+  faded?: boolean;
   onSelect?: (id: string) => void;
   externalHover?: boolean;
   onHover?: (id: string | null) => void;
@@ -227,6 +295,7 @@ const POST = 0.04;
 
 /** Barra entre dois pontos 3D (coordenadas do motor). */
 function Rod({ a, b, t, color }: { a: Vec3; b: Vec3; t: number; color: string }) {
+  const { clip } = useContext(ViewCtx);
   const { position, quaternion, length } = useMemo(() => {
     const va = new THREE.Vector3(...a);
     const vb = new THREE.Vector3(...b);
@@ -240,7 +309,7 @@ function Rod({ a, b, t, color }: { a: Vec3; b: Vec3; t: number; color: string })
   return (
     <mesh position={position} quaternion={quaternion} castShadow>
       <boxGeometry args={[length, t, t]} />
-      <meshStandardMaterial color={color} roughness={0.6} />
+      <meshStandardMaterial color={color} roughness={0.6} clippingPlanes={clip} />
     </mesh>
   );
 }
@@ -317,25 +386,70 @@ function Stair({ stair, ...common }: { stair: ResolvedStair } & PartCommon) {
  * Renderiza o BuildingModel. As coordenadas do motor (z-up) entram direto: o único
  * `<group rotation={[-PI/2,0,0]}>` abaixo leva z-up para y-up (ver lib/three/convert.ts).
  */
-export function BuildingView({ model, highlight, onSelectHost, hoverable = true, hoverId = null, onHoverHost }: BuildingViewProps) {
+export function BuildingView({
+  model,
+  highlight,
+  onSelectHost,
+  hoverable = true,
+  hoverId = null,
+  onHoverHost,
+  mode = 'finished',
+  clip,
+  fadeOthers = false,
+  hideRoof = false,
+  selectedOpeningId = null,
+  onSelectOpening,
+}: BuildingViewProps) {
   const lit = useMemo(() => new Set(highlight?.hostIds ?? []), [highlight]);
-  const common = (id: string): PartCommon => ({ hoverable, active: lit.has(id), onSelect: onSelectHost, externalHover: hoverId === id, onHover: onHoverHost });
+  const common = (id: string): PartCommon => ({
+    hoverable,
+    active: lit.has(id),
+    faded: fadeOthers && !lit.has(id),
+    onSelect: onSelectHost,
+    externalHover: hoverId === id,
+    onHover: onHoverHost,
+  });
+  const structural = mode === 'skeleton' || mode === 'heatmap';
+  const exploded = mode === 'exploded';
+  const gap = computeGap(model.ridgeHeight);
+  const view = useMemo<ViewState>(
+    () => ({ clip, ghost: structural, selectedOpeningId, onSelectOpening, hoverable }),
+    [clip, structural, selectedOpeningId, onSelectOpening, hoverable],
+  );
+  const layer = (l: ExplodeLayer, children: ReactNode) => (
+    <ExplodeGroup layer={l} active={exploded} gap={gap}>
+      {children}
+    </ExplodeGroup>
+  );
 
   return (
-    <group rotation={[-Math.PI / 2, 0, 0]}>
-      {model.walls.map((w) => (
-        <Wall key={w.id} wall={w} openings={model.openings} {...common(w.id)} />
-      ))}
-      {model.roofPlanes.map((p) => (
-        <Roof key={p.id} plane={p} openings={model.openings} {...common(p.id)} />
-      ))}
-      {model.slabs.map((s) => (
-        <Slab key={s.id} slab={s} model={model} {...common(s.id)} />
-      ))}
-      {model.stairs.map((s) => (
-        <Stair key={s.id} stair={s} {...common(s.id)} />
-      ))}
-    </group>
+    <ViewCtx.Provider value={view}>
+      <group rotation={[-Math.PI / 2, 0, 0]}>
+        {structural
+          ? null
+          : layer(
+              'closure',
+              model.walls.map((w) => <Wall key={w.id} wall={w} openings={model.openings} {...common(w.id)} />),
+            )}
+        {structural || hideRoof
+          ? null
+          : layer(
+              'roof',
+              model.roofPlanes.map((p) => <Roof key={p.id} plane={p} openings={model.openings} {...common(p.id)} />),
+            )}
+        {model.slabs.map((s) => (
+          <ExplodeGroup key={s.id} layer={s.kind === 'radier' ? 'radier' : 'structure'} active={exploded} gap={gap}>
+            <Slab slab={s} model={model} {...common(s.id)} />
+          </ExplodeGroup>
+        ))}
+        {structural
+          ? null
+          : layer(
+              'structure',
+              model.stairs.map((s) => <Stair key={s.id} stair={s} {...common(s.id)} />),
+            )}
+      </group>
+    </ViewCtx.Provider>
   );
 }
 
