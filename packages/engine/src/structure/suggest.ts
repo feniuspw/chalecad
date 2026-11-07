@@ -73,6 +73,8 @@ export function suggest(spec: SuggestSpec, project: Project, catalog: Catalog): 
     ? `Trocar ${cur.id} por ${best.profile.id}${spacingChanged ? ' e reduzir o espaçamento para 0,4 m' : ''}`
     : 'Reduzir o espaçamento para 0,4 m';
   let text = `${what} deixa a taxa em ${nf(best.ratio)} (${signed(deltaKg)} kg, ${deltaCost >= 0 ? '+' : '-'}R$ ${nf(Math.abs(deltaCost), 0)})`;
+  // O espaçamento é único no projeto (estrutura alinhada): muda também montantes e caibros.
+  if (spacingChanged) text += '. O espaçamento vale para toda a estrutura, então o custo total sobe mais que isso';
   if (best.ratio >= warn) text += '. Ainda acima da faixa usual: revisar vão e apoios com o engenheiro';
 
   const out: NonNullable<StructuralCheck['suggestion']> = {
