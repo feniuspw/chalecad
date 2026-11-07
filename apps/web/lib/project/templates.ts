@@ -1,7 +1,7 @@
 /** Projetos iniciais por tipologia. */
 import { Project, type Opening, type ProjectInput, type Site, type Typology, type TypologyKind, type UF, type UtilityPoint } from '@chalecad/engine';
 import { clamp, round } from './geometry';
-import { mezzaninePolygon, mezzanineElevation, defaultMezzanineDepth, isEditableTypology } from './edit';
+import { mezzaninePolygon, mezzanineElevation, defaultMezzanineDepth, isEditableTypology, stairRun } from './edit';
 import { newId, type IdGen } from './ids';
 import { ANNEX_DEFAULT, annexInfo, fitAnnex, type AnnexSide } from './annex';
 
@@ -169,7 +169,7 @@ export function createProject(kind: TemplateKind, params: Partial<TemplateParams
       guardrail: true,
     });
     const rise = mezzanineElevation(typology);
-    const run = Math.ceil(rise / 0.18) * 0.27;
+    const run = stairRun(rise);
     stairs.push(
       kind === 'a_frame'
         ? { id: ids('s'), type: 'straight', from: 'L0', to: 'L1', position: [round(W / 2 - 0.4, 2), round(Math.max(0.6, D - mezzDepth - run), 2)], rotationDeg: 0, width: 0.8, turnRight: true }

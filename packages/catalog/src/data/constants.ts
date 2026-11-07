@@ -54,11 +54,25 @@ export const constants: TechnicalConstants = {
   stairs: {
     idealRiser: 0.18,
     maxRiser: 0.19,
-    going: 0.27,
+    going: 0.28,
+    goingMin: 0.25,
+    goingMax: 0.32,
     ladderGoing: 0.2,
     treadThickness: 0.04,
-    blondelMin: 0.62,
-    blondelMax: 0.65,
+    blondelMin: 0.63,
+    blondelMax: 0.64,
+  },
+  norms: {
+    ceilingLiving: 2.5,
+    ceilingService: 2.3,
+    stairHeadroom: 2.1,
+    guardrailHeight: 1.1,
+    guardrailMaxGap: 0.11,
+    handrailMin: 0.8,
+    handrailMax: 0.92,
+    lightRatio: 1 / 6,
+    ventRatio: 1 / 12,
+    safetyGlassSill: 0.9,
   },
   floor: { hardenerKgPerM2: 4, sealerLPerM2: 0.2 },
   defaultCeilingMax: 2.8,
@@ -114,7 +128,7 @@ export const constants: TechnicalConstants = {
     psiWind: 0.6,
     psiLive: 0.5,
   },
-  warnings: { modulationMax: 0.1, mezzRoofMin: 2.0, mezzUnderMin: 2.2 }, // m
+  warnings: { modulationMax: 0.1, mezzRoofMin: 2.0, mezzUnderMin: 2.3 }, // m
   productivity: {
     layoutBaseHh: 6,
     layoutPerMeterHh: 0.4, // por m de perímetro

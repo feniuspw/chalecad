@@ -3,28 +3,28 @@
 exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > fixture 6,5 x 8,5: números-chave 1`] = `
 {
   "pieces": 349,
-  "steelKg": 1210.6538382982337,
+  "steelKg": 1211.7197765503302,
   "summary": {
     "fail": 2,
     "maxRatio": 4.251031417752908,
     "ok": 9,
     "warn": 3,
   },
-  "total": 138868.52862089055,
+  "total": 138882.01273977954,
 }
 `;
 
 exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > hash do resultado completo (fixture, A-frame, extras + terreno) 1`] = `
 {
-  "aframe": "6a155f49ec2c5ea2",
-  "everything": "2e3b3f6664c2d488",
-  "gable": "859b357f5cdcd8b1",
+  "aframe": "35b62e78355adb22",
+  "everything": "d9bdd7fd0bb9c86c",
+  "gable": "0c04e4b68a7dedaa",
 }
 `;
 
 exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > hash do roteiro de obra e do pacote do engenheiro 1`] = `
 {
-  "engineer": "095246118bd17891",
+  "engineer": "3392877995b058c8",
   "guide": "2c5ed47873398335",
 }
 `;

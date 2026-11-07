@@ -14,7 +14,7 @@ import {
 import { compression, G, momentResistance, simpleBeam } from './capacity';
 import { nf } from './format';
 import { computeLoads, type LoadSet } from './loads';
-import { suggest, type SuggestSpec } from './suggest';
+import { pricePerKg, suggest, type SuggestSpec } from './suggest';
 
 export { windPressure } from './loads';
 export * as structuralCapacity from './capacity';
@@ -412,6 +412,32 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
       }
     }
     if (!worst) continue;
+    // Sugestão: verga em caixa com perfil mais alto da mesma família (a alma fica vertical, então pode passar da parede)
+    let suggestion: StructuralCheck['suggestion'];
+    if (worst.ratio >= c.usage.warn) {
+      const ratioWith = (p: typeof prof) =>
+        Math.max(
+          ...gr.ops.map((o) => {
+            const ll = wallLoadsAt(wl, o.u0, o.u1);
+            return simpleBeam({ profile: p, L: gr.width, wUls: l.gammaG * ll.dead + l.gammaQ * ll.live, wServ: ll.dead + ll.live, deflDen: c.deflection.header, E, factors: c.structureFactors, n: nBox }).ratio;
+          }),
+        );
+      const best = catalog.profiles
+        .filter((p) => p.family === prof.family && p.id !== prof.id && p.Ix >= prof.Ix)
+        .map((p) => ({ p, r: ratioWith(p) }))
+        .filter((x) => x.r < c.usage.warn)
+        .sort((a, b) => a.p.massPerM - b.p.massPerM)[0];
+      if (best) {
+        const len = hdrs.reduce((a, h) => a + h.length, 0);
+        const deltaKg = len * (best.p.massPerM - prof.massPerM);
+        const deltaCost = deltaKg * pricePerKg(best.p, project, catalog);
+        suggestion = {
+          text: `Verga em caixa com ${nBox} × ${best.p.id} deixa a taxa em ${nf(best.r)} (${deltaKg >= 0 ? '+' : ''}${nf(deltaKg, 0)} kg, +R$ ${nf(Math.max(0, deltaCost), 0)}). As vergas não seguem o perfil dos montantes: ajuste no detalhamento.`,
+          deltaKg: Math.round(deltaKg * 100) / 100,
+          deltaCost: Math.round(deltaCost * 100) / 100,
+        };
+      }
+    }
     push({
       id: `header:${key}`,
       kind: 'header',
@@ -425,6 +451,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
       detail:
         `q = ${nf(wWorst)} kN/m (ELU); M = ${nf(worst.M)} kN·m, Mrd = ${nf(worst.Mrd)} kN·m (${nf(worst.rM)}); ` +
         `V = ${nf(worst.V)} kN, Vrd = ${nf(worst.Vrd)} kN (${nf(worst.rV)}); flecha = ${nf(worst.delta)} cm, limite L/${c.deflection.header} = ${nf(worst.deltaLim)} cm (${nf(worst.rD)})`,
+      ...(suggestion ? { suggestion } : {}),
     });
   }
 

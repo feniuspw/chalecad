@@ -284,11 +284,35 @@ export const TechnicalConstants = z.object({
   stairs: z.object({
     idealRiser: pos,
     maxRiser: pos,
+    /** Piso: o motor escolhe o que deixa 2e + p no meio da faixa de Blondel, limitado a [goingMin, goingMax]. */
     going: pos,
+    goingMin: pos,
+    goingMax: pos,
     ladderGoing: pos,
     treadThickness: pos,
     blondelMin: pos,
     blondelMax: pos,
+  }),
+  /**
+   * Requisitos de norma e de código de obras usados nos alertas (valores usuais; o código municipal pode exigir mais).
+   * NBR 15575 (pé-direito), NBR 14718 (guarda-corpo), NBR 9077 / NBR 9050 (escada e corrimão), NBR 7199 (vidro).
+   */
+  norms: z.object({
+    /** Pé-direito mínimo em sala e quartos (permanência prolongada). */
+    ceilingLiving: pos,
+    /** Pé-direito mínimo em banheiro, cozinha e circulação. */
+    ceilingService: pos,
+    /** Altura livre mínima sobre os degraus. */
+    stairHeadroom: pos,
+    guardrailHeight: pos,
+    guardrailMaxGap: pos,
+    handrailMin: pos,
+    handrailMax: pos,
+    /** Área de janela mínima como fração da área do piso: iluminação e ventilação. */
+    lightRatio: pos,
+    ventRatio: pos,
+    /** Vidro abaixo desta altura do piso (ou fachada envidraçada) pede vidro de segurança. */
+    safetyGlassSill: pos,
   }),
   /** Piso de concreto sobre o radier: consumos por m². */
   floor: z.object({ hardenerKgPerM2: pos, sealerLPerM2: pos }),

@@ -108,20 +108,22 @@ describe('buildModel: gable 6,5 x 8,5', () => {
     expect(win.v1).toBeCloseTo(2.1, 9);
   });
 
-  test('escada: 16 espelhos de 0,175', () => {
+  test('escada: 16 espelhos de 0,175 e piso que fecha Blondel em 63,5 cm', () => {
     const s = m.stairs[0]!;
+    const g = 0.635 - 2 * 0.175;
     expect(s.steps).toBe(16);
     expect(s.riser).toBeCloseTo(0.175, 9);
     expect(s.treads).toHaveLength(15);
-    expect(s.going).toBe(0.27);
-    expect(s.blondel).toBeCloseTo(0.62, 9);
-    expect(s.treads[0]!.size).toEqual([0.8, 0.27, 0.04]);
+    expect(s.going).toBeCloseTo(g, 9);
+    expect(s.blondel).toBeCloseTo(0.635, 9);
+    expect(s.treads[0]!.size[0]).toBe(0.8);
+    expect(s.treads[0]!.size[1]).toBeCloseTo(g, 9);
     expect(s.treads[0]!.rotationZDeg).toBe(0);
     expect(s.treads[0]!.center[0]).toBeCloseTo(0.6, 9);
-    expect(s.treads[0]!.center[1]).toBeCloseTo(0.6 + 0.135, 9);
+    expect(s.treads[0]!.center[1]).toBeCloseTo(0.6 + g / 2, 9);
     expect(s.treads[0]!.center[2]).toBeCloseTo(0.175 - 0.02, 9);
     expect(s.footprint).toHaveLength(4);
-    expect(polygonArea(s.footprint)).toBeCloseTo(0.8 * 15 * 0.27, 9);
+    expect(polygonArea(s.footprint)).toBeCloseTo(0.8 * 15 * g, 9);
   });
 
   test('JSON-serializável e sem -0', () => {

@@ -10,7 +10,9 @@ export function buildStair(stair: Stair, fromElev: number, toElev: number, c: Te
   const n = Math.max(1, Math.ceil(height / c.stairs.idealRiser - 1e-9));
   const riser = height / n;
   const ladder = stair.type === 'ladder';
-  const going = ladder ? c.stairs.ladderGoing : c.stairs.going;
+  // piso que deixa 2e + p no meio da faixa de conforto (Blondel)
+  const target = (c.stairs.blondelMin + c.stairs.blondelMax) / 2 - 2 * riser;
+  const going = ladder ? c.stairs.ladderGoing : Math.min(c.stairs.goingMax, Math.max(c.stairs.goingMin, target));
   const w = ladder ? 0.5 : stair.width;
   const th = c.stairs.treadThickness;
   const r = (stair.rotationDeg * Math.PI) / 180;

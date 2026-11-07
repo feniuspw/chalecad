@@ -99,7 +99,7 @@ export function setMezzanine(draft: Project, opts: { depth?: number; position?: 
 
 function straightStairFor(t: EditableTypology, from: string, to: string, depth: number, position: MezzaninePosition, ids: IdGen): Stair {
   const rise = mezzanineElevation(t);
-  const run = Math.ceil(rise / 0.18) * 0.27;
+  const run = stairRun(rise);
   const width = 0.8;
   if (t.kind === 'a_frame') {
     // Sob a cumeeira, subindo em direção à borda do mezanino.
@@ -136,6 +136,14 @@ export function setMezzanineEnabled(draft: Project, on: boolean, ids: IdGen = ne
   }
 }
 
+/** Comprimento em planta de uma escada reta que vence `rise`, com o mesmo piso que o motor calcula. */
+export function stairRun(rise: number): number {
+  const st = getCatalog().constants.stairs;
+  const n = Math.max(1, Math.ceil(rise / st.idealRiser - 1e-9));
+  const going = clamp((st.blondelMin + st.blondelMax) / 2 - (2 * rise) / n, st.goingMin, st.goingMax);
+  return (n - 1) * going;
+}
+
 /** Altura livre mínima sobre a escada no A-frame. */
 const STAIR_HEADROOM = 2.1;
 
@@ -149,7 +157,7 @@ function fitAFrameStairs(draft: Project, t: AFrameT): void {
   const half = halfSpan(t, STAIR_HEADROOM);
   const [x0, x1] = [t.width / 2 - half - 1e-6, t.width / 2 + half + 1e-6];
   const rise = mezzanineElevation(t);
-  const run = Math.ceil(rise / 0.18) * 0.27;
+  const run = stairRun(rise);
   draft.stairs = draft.stairs.map((s) => {
     if (s.type !== 'straight' && s.type !== 'ladder') return s;
     const r = (s.rotationDeg * Math.PI) / 180;

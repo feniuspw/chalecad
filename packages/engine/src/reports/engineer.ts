@@ -128,6 +128,12 @@ export function buildEngineerPackage(project: Project, results: Results, _catalo
   }
   if (t.kind === 'a_frame') {
     ask('aframe', 'A-frame: verificar o empuxo das águas na base e a ligação com o radier.');
+    if (t.annexes.length > 0) {
+      ask('aframe-annex', 'Cômodos laterais: detalhar o recorte da água do A-frame (caibros interrompidos e verga), o apoio dos caibros do anexo e o rufo/calha no encontro dos telhados.');
+    }
+    if (t.frontGable === 'glazed' || t.backGable === 'glazed') {
+      ask('aframe-glazing', 'Fachada envidraçada: definir caixilharia (perfis, ancoragem na estrutura) e vidro de segurança para o vento do local.');
+    }
   }
   const spliced = quantities.lines.filter((l) => l.note?.includes('emenda'));
   if (spliced.length > 0) {

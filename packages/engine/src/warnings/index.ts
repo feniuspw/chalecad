@@ -2,6 +2,7 @@ import type { Catalog } from '@chalecad/catalog';
 import { framers } from '../framing';
 import { pointInPolygon, type Vec2 } from '../geometry';
 import type { Project } from '../schema/project';
+import { normWarnings } from './norms';
 import type {
   BudgetReport,
   BuildingModel,
@@ -10,6 +11,7 @@ import type {
   QuantityReport,
   RoofPlane,
   Severity,
+  StructuralReport,
 } from '../schema/results';
 
 export interface WarningContext {
@@ -21,6 +23,8 @@ export interface WarningContext {
   catalog: Catalog;
   /** Alertas do terreno inclinado (de `computeTerrain`). */
   terrainWarnings?: EngineWarning[];
+  /** Pré-dimensionamento (cargas usadas no empuxo do A-frame). */
+  structure?: StructuralReport;
 }
 
 const EPS = 1e-9;
@@ -179,7 +183,7 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
       out.push({
         code: 'mezzanine.headroom',
         severity: 'warn',
-        message: `Mezanino "${slab.id}": altura livre sob o mezanino de ${fmt(under)} m, abaixo do mínimo de ${fmt(c.warnings.mezzUnderMin)} m.`,
+        message: `Mezanino "${slab.id}": altura livre sob o mezanino de ${fmt(under)} m, abaixo do mínimo de ${fmt(c.warnings.mezzUnderMin)} m (NBR 15575; ${fmt(c.norms.ceilingLiving)} m em sala e quartos).`,
         refs: [slab.id],
       });
     }
@@ -222,6 +226,7 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
       refs: retaining.map((e) => e.id),
     });
   }
+  out.push(...normWarnings({ project, model, catalog, structure: ctx.structure }));
   out.push(...(ctx.terrainWarnings ?? []));
 
   return out

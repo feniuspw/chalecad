@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Edges } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { BuildingModel, HostWall, ResolvedOpening, ResolvedStair, SlabModel, RoofPlane, Vec3 } from '@chalecad/engine';
@@ -322,8 +322,11 @@ function Roof({ plane, openings, ...common }: { plane: RoofPlane; openings: Reso
   );
 }
 
-const RAIL_H = 1.05;
+/** NBR 14718: guarda-corpo com 1,10 m e vãos de no máximo 11 cm (montantes verticais, nada escalável). */
+const RAIL_H = 1.1;
 const POST = 0.04;
+const BALUSTER = 0.02;
+const BALUSTER_STEP = 0.11 + BALUSTER;
 
 /** Barra entre dois pontos 3D (coordenadas do motor). */
 function Rod({ a, b, t, color }: { a: Vec3; b: Vec3; t: number; color: string }) {
@@ -364,17 +367,52 @@ function Guardrail({ a, b, z, roofPlanes }: { a: V2; b: V2; z: number; roofPlane
       ))}
       {posts.slice(1).flatMap((q, i) => {
         const p = posts[i]!;
-        return [1, 0.66, 0.33].map((f) => (
-          <Rod
-            key={`${i}-${f}`}
-            a={[p.x, p.y, z + p.h * f]}
-            b={[q.x, q.y, z + q.h * f]}
-            t={f === 1 ? 0.045 : 0.02}
-            color={c}
-          />
-        ));
+        return [
+          <Rod key={`${i}-top`} a={[p.x, p.y, z + p.h]} b={[q.x, q.y, z + q.h]} t={0.045} color={c} />,
+          <Rod key={`${i}-low`} a={[p.x, p.y, z + 0.08]} b={[q.x, q.y, z + 0.08]} t={0.025} color={c} />,
+        ];
       })}
+      <Balusters posts={posts} z={z} color={c} />
     </group>
+  );
+}
+
+/** Montantes verticais entre os postes, num único InstancedMesh. */
+function Balusters({ posts, z, color }: { posts: { x: number; y: number; h: number }[]; z: number; color: string }) {
+  const { clip } = useContext(ViewCtx);
+  const items = useMemo(() => {
+    const out: { x: number; y: number; h: number }[] = [];
+    posts.slice(1).forEach((q, i) => {
+      const p = posts[i]!;
+      const len = Math.hypot(q.x - p.x, q.y - p.y);
+      const n = Math.max(0, Math.ceil(len / BALUSTER_STEP) - 1);
+      for (let k = 1; k <= n; k++) {
+        const f = k / (n + 1);
+        out.push({ x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f, h: p.h + (q.h - p.h) * f });
+      }
+    });
+    return out;
+  }, [posts]);
+  const ref = useCallback(
+    (mesh: THREE.InstancedMesh | null) => {
+      if (!mesh) return;
+      const m = new THREE.Matrix4();
+      items.forEach((b, i) => {
+        const h = Math.max(0.02, b.h - 0.1);
+        m.compose(new THREE.Vector3(b.x, b.y, z + 0.08 + h / 2), new THREE.Quaternion(), new THREE.Vector3(1, 1, h));
+        mesh.setMatrixAt(i, m);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    },
+    [items, z],
+  );
+  if (items.length === 0) return null;
+  return (
+    <instancedMesh key={items.length} ref={ref} args={[undefined, undefined, items.length]} castShadow>
+      <boxGeometry args={[BALUSTER, BALUSTER, 1]} />
+      <meshStandardMaterial color={color} roughness={0.6} clippingPlanes={clip} />
+    </instancedMesh>
   );
 }
 

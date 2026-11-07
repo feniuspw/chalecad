@@ -64,6 +64,7 @@ export function computeAllWith(
     budget,
     catalog,
     terrainWarnings: terrainResult?.warnings,
+    structure,
   });
   lap('warnings');
   timingsMs.total = performance.now() - t0;
