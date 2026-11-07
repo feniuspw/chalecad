@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+.turbo/
+coverage/
+.env*.local
+.env
+data/
+*.sqlite
+.claude/settings.local.json
+.claude/worktrees/
+.DS_Store
+playwright-report/
+test-results/
+*.tsbuildinfo

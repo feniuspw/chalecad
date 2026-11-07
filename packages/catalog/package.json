@@ -1,0 +1,14 @@
+{
+  "name": "@chalecad/catalog",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src test"
+  },
+  "dependencies": { "zod": "^4.1.0" },
+  "devDependencies": { "@types/node": "^22.0.0" }
+}

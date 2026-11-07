@@ -1,0 +1,51 @@
+{
+  "name": "@chalecad/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "e2e": "playwright test",
+    "db:migrate": "node scripts/migrate.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "@chalecad/catalog": "workspace:*",
+    "@chalecad/engine": "workspace:*",
+    "@chalecad/ui": "workspace:*",
+    "@react-pdf/renderer": "^4.9.0",
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.2",
+    "better-sqlite3": "^12.0.0",
+    "comlink": "^4.4.2",
+    "drizzle-orm": "^0.45.4",
+    "geist": "^1.4.0",
+    "idb-keyval": "^6.2.1",
+    "immer": "^11.2.9",
+    "lucide-react": "^1.70.0",
+    "next": "^16.4.5",
+    "react": "~19.3.1",
+    "react-dom": "~19.3.1",
+    "recharts": "^3.10.1",
+    "sonner": "^2.0.0",
+    "three": "^0.187.0",
+    "zod": "^4.1.0",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@tailwindcss/postcss": "^4.3.5",
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.187.0",
+    "drizzle-kit": "^0.31.0",
+    "tailwindcss": "^4.3.5"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@chalecad/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./fixtures/*": "./fixtures/*" },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src test"
+  },
+  "dependencies": { "@chalecad/catalog": "workspace:*", "zod": "^4.1.0" },
+  "devDependencies": { "@types/node": "^22.0.0" }
+}

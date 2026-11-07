@@ -1,0 +1,26 @@
+{
+  "name": "chalecad",
+  "private": true,
+  "packageManager": "pnpm@11.5.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "turbo run dev --filter=@chalecad/web",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "e2e": "pnpm --filter @chalecad/web e2e",
+    "db:migrate": "pnpm --filter @chalecad/web db:migrate",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.6.0",
+    "turbo": "^2.11.10",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^4.0.0"
+  }
+}

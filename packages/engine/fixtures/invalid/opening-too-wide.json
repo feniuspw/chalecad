@@ -1,0 +1,1 @@
+{ "schemaVersion": 1, "meta": { "name": "x" }, "typology": { "kind": "gable_mezzanine", "width": 6, "depth": 7, "wallHeight": 2.8, "roofPitchDeg": 30 }, "levels": [ { "id": "L0", "elevation": 0 } ], "walls": [ { "id": "w1", "level": "L0", "from": [1, 1], "to": [3, 1] } ], "openings": [ { "id": "o1", "host": "w1", "type": "door", "offset": 1.5, "width": 0.9, "height": 2.1 } ] }
