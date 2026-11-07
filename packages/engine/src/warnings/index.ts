@@ -26,9 +26,6 @@ export interface WarningContext {
 const EPS = 1e-9;
 const SEV_RANK: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 const ROOF_ROLES = new Set(['rafter', 'purlin', 'ridge', 'collar_tie']);
-const MODULATION_MAX = 0.1;
-const MEZZ_ROOF_MIN = 2.0;
-const MEZZ_UNDER_MIN = 2.2;
 
 const fmt = (n: number, d = 2) => n.toFixed(d).replace('.', ',');
 
@@ -95,7 +92,7 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
       const nearest = Math.round(u / s) * s;
       for (const g of [nearest - s, nearest, nearest + s]) {
         const d = Math.round((g - u) * 100);
-        if (d !== 0 && Math.abs(d) <= MODULATION_MAX * 100 + EPS) candidates.add(d);
+        if (d !== 0 && Math.abs(d) <= c.warnings.modulationMax * 100 + EPS) candidates.add(d);
       }
     }
     for (const dCm of [...candidates].sort((a, b) => Math.abs(a) - Math.abs(b) || b - a)) {
@@ -169,20 +166,20 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
   for (const slab of model.slabs) {
     if (slab.kind !== 'mezzanine') continue;
     const roofZ = roofZAt(model.roofPlanes, centroid(slab.polygon));
-    if (roofZ !== null && roofZ - slab.topZ < MEZZ_ROOF_MIN - EPS) {
+    if (roofZ !== null && roofZ - slab.topZ < c.warnings.mezzRoofMin - EPS) {
       out.push({
         code: 'mezzanine.headroom',
         severity: 'warn',
-        message: `Mezanino "${slab.id}": altura livre sob o telhado no centro de ${fmt(roofZ - slab.topZ)} m, abaixo do mínimo de ${fmt(MEZZ_ROOF_MIN)} m.`,
+        message: `Mezanino "${slab.id}": altura livre sob o telhado no centro de ${fmt(roofZ - slab.topZ)} m, abaixo do mínimo de ${fmt(c.warnings.mezzRoofMin)} m.`,
         refs: [slab.id],
       });
     }
     const under = slab.topZ - slab.thickness;
-    if (under < MEZZ_UNDER_MIN - EPS) {
+    if (under < c.warnings.mezzUnderMin - EPS) {
       out.push({
         code: 'mezzanine.headroom',
         severity: 'warn',
-        message: `Mezanino "${slab.id}": altura livre sob o mezanino de ${fmt(under)} m, abaixo do mínimo de ${fmt(MEZZ_UNDER_MIN)} m.`,
+        message: `Mezanino "${slab.id}": altura livre sob o mezanino de ${fmt(under)} m, abaixo do mínimo de ${fmt(c.warnings.mezzUnderMin)} m.`,
         refs: [slab.id],
       });
     }

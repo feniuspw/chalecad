@@ -1,6 +1,6 @@
 import type { Catalog } from '@chalecad/catalog';
 import { add3, cross3, scale3, type Vec3 } from '../geometry';
-import { EXTRAS, pathSegments, segLen } from '../extras/geometry';
+import { pathSegments, segLen } from '../extras/geometry';
 import type { Project } from '../schema/project';
 import type { BuildingModel } from '../schema/results';
 import { PieceSink, POS_TOL } from './util';
@@ -22,7 +22,7 @@ export function generateExtras(model: BuildingModel, project: Project, catalog: 
         sink.add(e.id, 'track_bottom', sys.profiles.wallTrack, P(0, 0), P(len, 0), normal);
         sink.add(e.id, 'track_top', sys.profiles.wallTrack, P(0, e.height), P(len, e.height), normal);
         const us: number[] = [];
-        for (let k = 0; k * EXTRAS.lsfStudSpacing < len - POS_TOL; k++) us.push(k * EXTRAS.lsfStudSpacing);
+        for (let k = 0; k * c.extras.lsfStudSpacing < len - POS_TOL; k++) us.push(k * c.extras.lsfStudSpacing);
         us.push(len);
         for (const u of us) sink.add(e.id, 'stud', sys.profiles.wallStud, P(u, 0), P(u, e.height), normal);
       }

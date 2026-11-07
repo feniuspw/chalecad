@@ -11,7 +11,7 @@ import {
   type StructuralReport,
   type WeightReport,
 } from '../schema/results';
-import { compression, G, momentResistance, PSI_LIVE, PSI_WIND, simpleBeam } from './capacity';
+import { compression, G, momentResistance, simpleBeam } from './capacity';
 import { nf } from './format';
 import { computeLoads, type LoadSet } from './loads';
 import { suggest, type SuggestSpec } from './suggest';
@@ -225,13 +225,13 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
     const G_ = wl.roof.dead + wl.own + (wl.floor?.dead ?? 0);
     const Q_ = wl.roof.live + (wl.floor?.live ?? 0);
     const evalStud = (p: Profile, s: number) => {
-      const cp = compression(p, E, L, c.lsf.blockingSpacing);
+      const cp = compression(p, E, L, c.lsf.blockingSpacing, c.structureFactors);
       const Mw = (lo.windWallKPa * s * L * L) / 8;
-      const Mrd = momentResistance(p);
+      const Mrd = momentResistance(p, c.structureFactors);
       // C1: sobrecarga principal, vento secundário. C2: vento principal, sobrecarga secundária.
       const N1 = (l.gammaG * G_ + l.gammaQ * Q_) * s;
-      const M1 = PSI_WIND * l.gammaW * Mw;
-      const N2 = (l.gammaG * G_ + PSI_LIVE * l.gammaQ * Q_) * s;
+      const M1 = c.structureFactors.psiWind * l.gammaW * Mw;
+      const N2 = (l.gammaG * G_ + c.structureFactors.psiLive * l.gammaQ * Q_) * s;
       const M2 = l.gammaW * Mw;
       const r1 = N1 / cp.NcRd + M1 / Mrd;
       const r2 = N2 / cp.NcRd + M2 / Mrd;
@@ -275,6 +275,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
         wServ: (g + l.liveMezzanine) * sp,
         deflDen: c.deflection.floor,
         E,
+        factors: c.structureFactors,
       });
     const r = evalJoist(prof, spacing0);
     push(
@@ -310,7 +311,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
       const uplift = s * (l.gammaW * lo.windRoofUpliftKPa - 0.9 * g * cos);
       const wUls = Math.max(grav, uplift);
       return {
-        ...simpleBeam({ profile: p, L: longest.length, wUls, wServ: s * cos * (g + l.liveRoof * cos), deflDen: c.deflection.roof, E }),
+        ...simpleBeam({ profile: p, L: longest.length, wUls, wServ: s * cos * (g + l.liveRoof * cos), deflDen: c.deflection.roof, E, factors: c.structureFactors }),
         governs: uplift > grav ? 'sucção (0,9G − 1,4W)' : 'gravidade (1,4G + 1,5Q)',
         s,
       };
@@ -356,6 +357,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
         wServ: t * cos * (g + l.liveRoof * cos),
         deflDen: c.deflection.roof,
         E,
+        factors: c.structureFactors,
       });
       if (!worst || r.ratio > worst.r.ratio) worst = { r, governs: uplift > grav ? 'sucção' : 'gravidade' };
     }
@@ -403,7 +405,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
     for (const o of gr.ops) {
       const ll = wallLoadsAt(wl, o.u0, o.u1);
       const wUls = l.gammaG * ll.dead + l.gammaQ * ll.live;
-      const r = simpleBeam({ profile: prof, L: gr.width, wUls, wServ: ll.dead + ll.live, deflDen: c.deflection.header, E, n: nBox });
+      const r = simpleBeam({ profile: prof, L: gr.width, wUls, wServ: ll.dead + ll.live, deflDen: c.deflection.header, E, factors: c.structureFactors, n: nBox });
       if (!worst || r.ratio > worst.ratio) {
         worst = r;
         wWorst = wUls;

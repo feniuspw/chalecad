@@ -1,0 +1,30 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > fixture 6,5 x 8,5: números-chave 1`] = `
+{
+  "pieces": 349,
+  "steelKg": 1210.6538382982337,
+  "summary": {
+    "fail": 2,
+    "maxRatio": 4.251031417752908,
+    "ok": 9,
+    "warn": 3,
+  },
+  "total": 138868.52862089055,
+}
+`;
+
+exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > hash do resultado completo (fixture, A-frame, extras + terreno) 1`] = `
+{
+  "aframe": "6a155f49ec2c5ea2",
+  "everything": "2e3b3f6664c2d488",
+  "gable": "859b357f5cdcd8b1",
+}
+`;
+
+exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > hash do roteiro de obra e do pacote do engenheiro 1`] = `
+{
+  "engineer": "095246118bd17891",
+  "guide": "2c5ed47873398335",
+}
+`;

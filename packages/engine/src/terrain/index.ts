@@ -7,7 +7,10 @@ type Sloped = Extract<Project['site'], { type: 'sloped' }>;
 
 const DEG = Math.PI / 180;
 
-/** Parâmetros numéricos do método (não são constantes técnicas do domínio). */
+/**
+ * Parâmetros numéricos do método (não são constantes técnicas do domínio). As premissas técnicas
+ * (altura de dreno, limites de alerta, km por viagem extra) vêm de `catalog.constants.terrainRules`.
+ */
 export const TERRAIN = {
   /** Passo da grade de integração dos volumes (m). */
   volumeStep: 0.25,
@@ -16,14 +19,6 @@ export const TERRAIN = {
   meshMargin: 3,
   /** Alcance máximo dos taludes além do platô (m): limita o custo quando o talude nunca encontra o terreno. */
   maxReach: 25,
-  /** Taludes de corte acima desta altura (m) recebem geotêxtil e dreno no pé. */
-  drainCutHeight: 1.5,
-  /** Alertas. */
-  steepPct: 30,
-  cutWarnHeight: 3,
-  fillUnderBuilding: 1,
-  /** Cada km de bota-fora acrescenta 1/20 de viagem equivalente por viagem. */
-  kmPerExtraTrip: 20,
   bisectIterations: 50,
   /** Volume (m³) abaixo do qual não há movimento de terra. */
   eps: 1e-6,
@@ -137,6 +132,7 @@ export function computeTerrain(project: Project, model: BuildingModel, catalog: 
   const site = project.site;
   if (site.type !== 'sloped') return null;
   const tc = catalog.constants.terrain;
+  const tr = catalog.constants.terrainRules;
   const swell = tc.swellFactor;
   const comp = tc.compactionFactor;
   const s = TERRAIN.volumeStep;
@@ -219,7 +215,7 @@ export function computeTerrain(project: Project, model: BuildingModel, catalog: 
       const f = (i + 0.5) / n;
       const h = natural(ax + (bx - ax) * f, ay + (by - ay) * f) - zp;
       if (h > cutEdgeMax) cutEdgeMax = h;
-      if (h > TERRAIN.drainCutHeight) {
+      if (h > tr.drainCutHeight) {
         drainLen += step;
         geoArea += step * h * kc;
       }
@@ -257,33 +253,33 @@ export function computeTerrain(project: Project, model: BuildingModel, catalog: 
     `corte ${fmt(cutVolume, 1)} m³, aterro ${fmt(fillVolume, 1)} m³ (inclui compactação)`,
   );
   // Viagens equivalentes = cargas · (1 + km/20): o fator representa o aumento do ciclo com a distância ao bota-fora.
-  const trips = Math.ceil(truckLoads * (1 + site.disposalDistanceKm / TERRAIN.kmPerExtraTrip) - 1e-9);
+  const trips = Math.ceil(truckLoads * (1 + site.disposalDistanceKm / tr.kmPerExtraTrip) - 1e-9);
   add(
     'truck_trip',
     trips,
-    `${truckLoads} carga(s) de ${fmt(Math.max(exportVolume, importVolume), 1)} m³ ${importVolume > exportVolume ? 'importados' : 'exportados'}, distância ${fmt(site.disposalDistanceKm, 1)} km (fator ${fmt(1 + site.disposalDistanceKm / TERRAIN.kmPerExtraTrip)})`,
+    `${truckLoads} carga(s) de ${fmt(Math.max(exportVolume, importVolume), 1)} m³ ${importVolume > exportVolume ? 'importados' : 'exportados'}, distância ${fmt(site.disposalDistanceKm, 1)} km (fator ${fmt(1 + site.disposalDistanceKm / tr.kmPerExtraTrip)})`,
   );
   add('geotextile', geoArea);
   add('drain_pipe', drainLen);
 
   // Alertas.
   const warnings: EngineWarning[] = [];
-  if (site.slopePct > TERRAIN.steepPct) {
+  if (site.slopePct > tr.steepPct) {
     warnings.push({
       code: 'terrain.steep',
       severity: 'warn',
-      message: `Terreno com ${fmt(site.slopePct, 0)}% de inclinação (acima de ${TERRAIN.steepPct}%): considere fundação em palafita/estacas.`,
+      message: `Terreno com ${fmt(site.slopePct, 0)}% de inclinação (acima de ${tr.steepPct}%): considere fundação em palafita/estacas.`,
     });
   }
-  if (cutEdgeMax > TERRAIN.cutWarnHeight) {
+  if (cutEdgeMax > tr.cutWarnHeight) {
     warnings.push({
       code: 'terrain.cut_height',
       severity: 'warn',
-      message: `Talude de corte de até ${fmt(cutEdgeMax)} m (acima de ${TERRAIN.cutWarnHeight} m): exige contenção ou projeto geotécnico.`,
+      message: `Talude de corte de até ${fmt(cutEdgeMax)} m (acima de ${tr.cutWarnHeight} m): exige contenção ou projeto geotécnico.`,
     });
   }
   const fillUnder = Math.max(...model.footprint.map((p) => zp - natural(p[0], p[1])));
-  if (fillUnder > TERRAIN.fillUnderBuilding) {
+  if (fillUnder > tr.fillUnderBuilding) {
     warnings.push({
       code: 'terrain.fill_under',
       severity: 'warn',
