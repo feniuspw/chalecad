@@ -60,6 +60,7 @@ export const constants: TechnicalConstants = {
     blondelMin: 0.62,
     blondelMax: 0.65,
   },
+  floor: { hardenerKgPerM2: 4, sealerLPerM2: 0.2 },
   defaultCeilingMax: 2.8,
   terrain: { swellFactor: 1.25, compactionFactor: 0.85, truckM3: 12, excavatorM3PerDay: 250 },
   masonry: {

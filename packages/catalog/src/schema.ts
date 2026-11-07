@@ -288,6 +288,8 @@ export const TechnicalConstants = z.object({
     blondelMin: pos,
     blondelMax: pos,
   }),
+  /** Piso de concreto sobre o radier: consumos por m². */
+  floor: z.object({ hardenerKgPerM2: pos, sealerLPerM2: pos }),
   /** Altura máxima de parede interna em nível superior/A-frame quando não informada (m). */
   defaultCeilingMax: pos,
   terrain: z.object({
