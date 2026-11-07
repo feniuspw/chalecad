@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BrickWall, Box, DoorOpen, Footprints, Layers, Loader2, LocateFixed, MousePointer2, Ruler, RulerDimensionLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { IconButton, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@chalecad/ui';
@@ -47,6 +47,17 @@ export function EditorShell() {
 
   useEngine();
   useAutosave(!ready || showWelcome);
+
+  // /editor?new=1 (vindo de /projetos): abre o assistente de novo projeto.
+  useEffect(() => {
+    if (!ready || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('new') !== '1') return;
+    url.searchParams.delete('new');
+    window.history.replaceState(null, '', url.pathname + url.search);
+    setWelcomed(true);
+    setNewOpen(true);
+  }, [ready]);
 
   const viewport = useRef<ViewportHandle>(null);
   const [view, setView] = useState<ViewPreset>('3d');

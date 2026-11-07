@@ -20,6 +20,8 @@ import { getStorage, type ProjectSummary } from '@/lib/storage';
 import { selectCanRedo, selectCanUndo, selectRedoLabel, selectUndoLabel, useEditor } from '@/lib/store/editor';
 import type { ValidationIssue } from '@/lib/store/types';
 import { exportPdf } from '@/lib/pdf';
+import { exportBudgetCsv, exportPurchaseCsv } from '@/lib/export/csv';
+import { downloadText } from '@/lib/export/download';
 import { ImportErrorsDialog } from './ImportErrorsDialog';
 import { ProjectName } from './ProjectName';
 import { ComputeStatus, SaveStatus } from './StatusIndicators';
@@ -46,6 +48,20 @@ export function TopBar({ onNew }: { onNew: () => void }) {
     if (r.ok) toast.success(`“${r.name}” aberto.`, { description: 'O projeto anterior foi salvo.' });
     else setErrors({ file: file.name, issues: r.issues });
   };
+
+  const csv = (kind: 'compras' | 'orcamento') => {
+    const { project, results } = useEditor.getState();
+    if (!results) {
+      toast.info('Aguarde o cálculo terminar para exportar.');
+      return;
+    }
+    const slug = project.meta.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
+    const file = `${slug}-${kind}.csv`;
+    downloadText(file, kind === 'compras' ? exportPurchaseCsv(results, project) : exportBudgetCsv(results, project));
+    toast.success(`Arquivo ${file} baixado.`);
+  };
+  const onPurchaseCsv = () => csv('compras');
+  const onBudgetCsv = () => csv('orcamento');
 
   const onPdf = () => {
     const { project, results } = useEditor.getState();
@@ -156,8 +172,11 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             <DropdownMenuItem onSelect={onPdf}>
               <FileText /> PDF com plantas e lista
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => toast.info('Exportação disponível em breve')}>
+            <DropdownMenuItem onSelect={onPurchaseCsv}>
               <FileText /> CSV por fornecedor
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onBudgetCsv}>
+              <FileText /> CSV do orçamento
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
