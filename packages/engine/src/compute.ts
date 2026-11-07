@@ -5,7 +5,8 @@ import { loadProject } from './load';
 import { buildModel } from './model';
 import { computeQuantities } from './quantities';
 import type { Project } from './schema/project';
-import { ENGINE_VERSION } from './index';
+import { ENGINE_VERSION } from './version';
+import { generatePieces } from './framing';
 import type { BuildingModel, Piece, Results } from './schema/results';
 import { computeWarnings } from './warnings';
 import { computeWeight } from './weight';
@@ -81,4 +82,16 @@ export function computeFromJsonWith(
   const r = loadProject(json);
   if (!r.ok) return { ok: false, issues: r.issues };
   return { ok: true, results: computeAllWith(r.project, catalog, opts, deps), project: r.project };
+}
+
+const defaultDeps: ComputeDeps = { generatePieces };
+
+/** Calcula tudo a partir de um projeto validado. Função principal chamada pelo Web Worker. */
+export function computeAll(project: Project, catalog: Catalog, opts?: ComputeOptions): Results {
+  return computeAllWith(project, catalog, opts, defaultDeps);
+}
+
+/** Valida o JSON e calcula. Nunca lança por erro de validação. */
+export function computeFromJson(json: unknown, catalog: Catalog, opts?: ComputeOptions): ComputeFromJsonResult {
+  return computeFromJsonWith(json, catalog, opts, defaultDeps);
 }

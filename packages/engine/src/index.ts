@@ -1,4 +1,4 @@
-export const ENGINE_VERSION = '0.1.0';
+export { ENGINE_VERSION } from './version';
 export * from './schema';
 export * from './load';
 export * from './model';
