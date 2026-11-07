@@ -2,6 +2,7 @@
 import { useMemo } from 'react';
 import type { Project, UF } from '@chalecad/engine';
 import { getCatalog, type Catalog, type Profile } from '@chalecad/catalog';
+import { hasRidgeAxis } from '@/lib/project/edit';
 import { fmt } from '@/lib/project/format';
 import { useEditor } from '@/lib/store/editor';
 import { Section, Segmented, SelectField, SliderField, SwitchField, type Option } from './fields';
@@ -115,7 +116,7 @@ export function RoofSection({ project }: { project: Project }) {
   const roofing: Option<string>[] = cat.materials
     .filter((m) => m.category === 'roofing' && m.baseUnit === 'm2')
     .map((m) => ({ value: m.id, label: m.name }));
-  const fixedAxis = project.typology.kind === 'a_frame';
+  const fixedAxis = !hasRidgeAxis(project.typology);
   return (
     <Section title="Cobertura" {...section}>
       <SelectField
@@ -132,7 +133,7 @@ export function RoofSection({ project }: { project: Project }) {
           { value: 'width', label: 'Largura', disabled: fixedAxis },
         ]}
         onChange={(v) => update('Alterar eixo da cumeeira', (d) => void (d.roof.ridgeAxis = v))}
-        hint={fixedAxis ? 'fixo no A-frame' : undefined}
+        hint={fixedAxis ? 'definido pela tipologia' : undefined}
       />
       <SwitchField label="Calhas" description="Calha e rufos no beiral" checked={project.roof.gutters} onChange={(on) => update(on ? 'Incluir calhas' : 'Remover calhas', (d) => void (d.roof.gutters = on))} />
     </Section>

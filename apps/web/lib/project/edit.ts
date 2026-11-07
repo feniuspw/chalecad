@@ -3,16 +3,30 @@
  * (use dentro de `useEditor.getState().update(label, (d) => ...)`) e mantêm o projeto coerente:
  * mezanino acompanha largura/profundidade, aberturas continuam dentro das paredes, etc.
  */
-import type { Level, Opening, Project, Stair, Typology, Vec2 } from '@chalecad/engine';
-import { clamp, hostLength, round } from './geometry';
+import { current, isDraft } from 'immer';
+import { getCatalog } from '@chalecad/catalog';
+import { buildModel, type Level, type Opening, type Project, type Stair, type Typology, type TypologyKind, type Vec2 } from '@chalecad/engine';
+import { clamp, hostLength, planBounds, round } from './geometry';
 import { newId, type IdGen } from './ids';
 
-export type EditableTypology = Extract<Typology, { kind: 'gable_mezzanine' | 'a_frame' }>;
-type GableT = Extract<Typology, { kind: 'gable_mezzanine' }>;
-type AFrameT = Extract<Typology, { kind: 'a_frame' }>;
-/** Campos editáveis de qualquer uma das tipologias suportadas. */
-export type TypologyPatch = Partial<Omit<GableT, 'kind'>> & Partial<Omit<AFrameT, 'kind'>>;
+type T<K extends TypologyKind> = Extract<Typology, { kind: K }>;
+type GableT = T<'gable_mezzanine'>;
+type AFrameT = T<'a_frame'>;
+type CombinedT = T<'combined'>;
+/** Tipologias que aceitam mezanino no editor. */
+export type EditableTypology = GableT | AFrameT;
+/** Campos editáveis de qualquer tipologia (a ala de L/T aceita atualização parcial). */
+export type TypologyPatch = Partial<Omit<GableT, 'kind'>> &
+  Partial<Omit<AFrameT, 'kind'>> &
+  Partial<Omit<T<'shed'>, 'kind'>> &
+  Partial<Omit<T<'flat_roof'>, 'kind'>> &
+  Partial<Omit<T<'gambrel'>, 'kind'>> &
+  Partial<Omit<CombinedT, 'kind' | 'wing'>> & { wing?: Partial<CombinedT['wing']> };
+/** Tipologias com mezanino (duas águas e A-frame). Mantém o nome histórico. */
 export const isEditableTypology = (t: Typology): t is EditableTypology => t.kind === 'gable_mezzanine' || t.kind === 'a_frame';
+export const supportsMezzanine = isEditableTypology;
+/** O eixo da cumeeira só é escolhido nestas tipologias. */
+export const hasRidgeAxis = (t: Typology) => t.kind === 'gable_mezzanine' || t.kind === 'gambrel';
 
 export type MezzaninePosition = 'front' | 'back';
 
@@ -112,21 +126,42 @@ export function setMezzanineEnabled(draft: Project, on: boolean, ids: IdGen = ne
     const ground = groundLevel(draft);
     draft.stairs.push(straightStairFor(t, ground.id, lvId, depth, 'back', ids));
   } else if (!on && existing) {
-    const gone = new Set(draft.levels.filter((l) => l.elevation > 0).map((l) => l.id));
-    draft.levels = draft.levels.filter((l) => !gone.has(l.id));
-    const removedWalls = new Set(draft.walls.filter((w) => gone.has(w.level)).map((w) => w.id));
-    draft.walls = draft.walls.filter((w) => !removedWalls.has(w.id));
-    draft.openings = draft.openings.filter((o) => !removedWalls.has(o.host));
-    draft.stairs = draft.stairs.filter((s) => !gone.has(s.from) && !gone.has(s.to));
+    removeUpperLevels(draft);
   }
+}
+
+/** Remove níveis superiores e tudo que depende deles (paredes, aberturas, escadas). */
+export function removeUpperLevels(draft: Project): void {
+  const gone = new Set(draft.levels.filter((l) => l.elevation > 0).map((l) => l.id));
+  if (gone.size === 0) return;
+  draft.levels = draft.levels.filter((l) => !gone.has(l.id));
+  const removedWalls = new Set(draft.walls.filter((w) => gone.has(w.level)).map((w) => w.id));
+  draft.walls = draft.walls.filter((w) => !removedWalls.has(w.id));
+  draft.openings = draft.openings.filter((o) => !removedWalls.has(o.host));
+  draft.stairs = draft.stairs.filter((s) => !gone.has(s.from) && !gone.has(s.to));
 }
 
 // ---------------------------------------------------------------------------
 // Coerência geral
 // ---------------------------------------------------------------------------
 
-function clampPoint(p: Vec2, w: number, d: number): Vec2 {
-  return [round(clamp(p[0], 0, w), 3), round(clamp(p[1], 0, d), 3)];
+function clampPoint(p: Vec2, b: { x1: number; y1: number }): Vec2 {
+  return [round(clamp(p[0], 0, b.x1), 3), round(clamp(p[1], 0, b.y1), 3)];
+}
+
+/** Altura máxima segura das paredes externas (para limitar aberturas). null = sem limite conhecido. */
+function exteriorWallHeight(t: Typology): number | null {
+  switch (t.kind) {
+    case 'gable_mezzanine':
+    case 'flat_roof':
+    case 'gambrel':
+    case 'combined':
+      return t.wallHeight;
+    case 'shed':
+      return Math.min(t.lowHeight, t.highHeight);
+    default:
+      return null;
+  }
 }
 
 /** Abertura dentro do hospedeiro: reduz largura/altura e desloca; remove se não couber (< 30 cm). */
@@ -138,9 +173,9 @@ export function fitOpening(project: Project, o: Opening): Opening | null {
   let { offset, width, height, sill } = o;
   width = clamp(width, 0.3, Math.min(6, len));
   offset = clamp(offset, 0, Math.max(0, len - width));
-  const t = project.typology;
-  if (t.kind === 'gable_mezzanine' && o.host.startsWith('ext-')) {
-    const maxTop = t.wallHeight - 0.1;
+  const wallH = o.host.startsWith('ext-') || o.host.startsWith('wing-') ? exteriorWallHeight(project.typology) : null;
+  if (wallH !== null) {
+    const maxTop = wallH - 0.1;
     sill = clamp(sill, 0, Math.max(0, maxTop - 0.3));
     height = clamp(height, 0.3, Math.max(0.3, maxTop - sill));
   }
@@ -165,59 +200,150 @@ export function fitOpenings(draft: Project): { adjusted: number; removed: number
   return { adjusted, removed };
 }
 
+/** Faz a ala de L/T caber no volume principal (largura da ala ≤ profundidade, offset + largura ≤ largura). */
+export function fitWing(t: CombinedT): void {
+  const w = t.wing;
+  w.width = round(clamp(w.width, 2, Math.max(2, Math.min(20, t.width, t.depth))), 3);
+  w.depth = round(clamp(w.depth, 2, 20), 3);
+  const maxOff = Math.max(0, t.width - w.width);
+  w.offset = round(t.shape === 'T' ? maxOff / 2 : clamp(w.offset, 0, maxOff), 3);
+}
+
+/** IDs de hospedeiros gerados que existem para a tipologia (paredes externas e águas). */
+export function generatedHosts(p: Project): { walls: Set<string>; roofs: Set<string> } {
+  const t = p.typology;
+  const std = ['ext-front', 'ext-back', 'ext-left', 'ext-right'];
+  switch (t.kind) {
+    case 'a_frame':
+      return { walls: new Set(['ext-front', 'ext-back']), roofs: new Set(['roof-a', 'roof-b']) };
+    case 'gambrel':
+      return { walls: new Set(std), roofs: new Set(['roof-a', 'roof-b', 'roof-a2', 'roof-b2']) };
+    case 'shed':
+    case 'flat_roof':
+      return { walls: new Set(std), roofs: new Set(['roof-a']) };
+    case 'combined':
+      return {
+        walls: new Set(['ext-front', 'ext-left', 'ext-right', 'ext-back', 'ext-back-2', 'wing-back', 'wing-left', 'wing-right']),
+        roofs: new Set(['roof-a', 'roof-b', 'wing-roof-a', 'wing-roof-b']),
+      };
+    default:
+      return { walls: new Set(std), roofs: new Set(['roof-a', 'roof-b']) };
+  }
+}
+
 /**
- * Chame depois de mudar dimensões ou tipologia: mezanino acompanha a edificação, paredes internas,
- * pontos de utilidade e escadas ficam dentro do contorno e as aberturas voltam a caber nas paredes.
+ * Chame depois de mudar dimensões ou tipologia: mezanino acompanha a edificação (ou some, nas tipologias sem
+ * mezanino), paredes internas, pontos de utilidade e escadas ficam dentro do contorno e as aberturas voltam a caber.
  */
 export function reconcileProject(draft: Project): ReconcileReport {
   const t = draft.typology;
   let removedWalls = 0;
+  if (t.kind === 'combined') fitWing(t);
   if (isEditableTypology(t)) {
     if (getMezzanine(draft)) setMezzanine(draft, {});
-    const w = t.width;
-    const d = t.depth;
-    const goneWalls = new Set<string>();
-    for (const wall of draft.walls) {
-      wall.from = clampPoint(wall.from, w, d);
-      wall.to = clampPoint(wall.to, w, d);
-      if (Math.hypot(wall.to[0] - wall.from[0], wall.to[1] - wall.from[1]) < 0.1) goneWalls.add(wall.id);
-    }
-    if (goneWalls.size) {
-      draft.walls = draft.walls.filter((x) => !goneWalls.has(x.id));
-      draft.openings = draft.openings.filter((o) => !goneWalls.has(o.host));
-      removedWalls = goneWalls.size;
-    }
-    for (const u of draft.utilities) u.position = clampPoint(u.position, w, d);
-    for (const s of draft.stairs) s.position = clampPoint(s.position, w, d);
-    // Hospedeiros que não existem na tipologia ativa.
-    const sideHosts = new Set(['ext-left', 'ext-right']);
-    draft.openings = draft.openings.filter((o) =>
-      t.kind === 'a_frame' ? !sideHosts.has(o.host) : !o.host.startsWith('roof-') || o.type === 'skylight',
-    );
+  } else {
+    const before = draft.walls.length;
+    removeUpperLevels(draft);
+    removedWalls += before - draft.walls.length;
   }
+  const b = planBounds(t);
+  const goneWalls = new Set<string>();
+  for (const wall of draft.walls) {
+    wall.from = clampPoint(wall.from, b);
+    wall.to = clampPoint(wall.to, b);
+    if (Math.hypot(wall.to[0] - wall.from[0], wall.to[1] - wall.from[1]) < 0.1) goneWalls.add(wall.id);
+  }
+  if (goneWalls.size) {
+    draft.walls = draft.walls.filter((x) => !goneWalls.has(x.id));
+    draft.openings = draft.openings.filter((o) => !goneWalls.has(o.host));
+    removedWalls += goneWalls.size;
+  }
+  for (const u of draft.utilities) u.position = clampPoint(u.position, b);
+  for (const s of draft.stairs) s.position = clampPoint(s.position, b);
+  // Hospedeiros que não existem na tipologia ativa.
+  const hosts = generatedHosts(draft);
+  const roofOpenings = t.kind === 'a_frame' || t.kind === 'gambrel';
+  draft.openings = draft.openings.filter((o) => {
+    if (o.host.startsWith('roof-') || o.host.startsWith('wing-roof-')) return hosts.roofs.has(o.host) && (o.type === 'skylight' || roofOpenings);
+    if (o.host.startsWith('ext-') || o.host.startsWith('wing-')) return hosts.walls.has(o.host);
+    return true;
+  });
   const f = fitOpenings(draft);
   return { removedOpenings: f.removed, removedWalls, adjustedOpenings: f.adjusted };
 }
 
 /** Altera dimensões/parâmetros da tipologia ativa e reconcilia o projeto. */
 export function patchTypology(draft: Project, patch: TypologyPatch): ReconcileReport {
-  Object.assign(draft.typology, patch);
-  if (draft.typology.kind === 'a_frame') draft.roof.ridgeAxis = 'depth';
+  const t = draft.typology;
+  const { wing, ...rest } = patch;
+  Object.assign(t, rest);
+  if (wing && t.kind === 'combined') Object.assign(t.wing, wing);
+  if (t.kind === 'shed') {
+    if (patch.lowHeight !== undefined && t.highHeight < t.lowHeight) t.highHeight = Math.min(9, t.lowHeight);
+    else if (patch.highHeight !== undefined && t.highHeight < t.lowHeight) t.lowHeight = Math.max(2.2, t.highHeight);
+  }
+  if (!hasRidgeAxis(t)) draft.roof.ridgeAxis = 'depth';
   return reconcileProject(draft);
 }
 
-/** Troca a tipologia mantendo largura, profundidade e mezanino. */
-export function switchTypology(draft: Project, kind: 'gable_mezzanine' | 'a_frame'): ReconcileReport {
+/** Valores padrão de uma tipologia, mantendo largura/profundidade (e pé-direito/inclinação quando comparáveis). */
+export function defaultTypology(kind: TypologyKind, prev: Pick<Typology, 'width' | 'depth'> & Partial<Record<string, unknown>>): Typology {
+  const { width, depth } = prev;
+  const wall = typeof prev.wallHeight === 'number' ? prev.wallHeight : 2.8;
+  const pitch = typeof prev.roofPitchDeg === 'number' ? prev.roofPitchDeg : 35;
+  switch (kind) {
+    case 'gable_mezzanine':
+      return { kind, width, depth, wallHeight: wall, roofPitchDeg: pitch, eave: 0.6, rake: 0.3 };
+    case 'a_frame':
+      return { kind, width, depth, ridgeHeight: 6, kneeWallHeight: 0, rake: 0.4, frontGable: 'glazed', backGable: 'closed' };
+    case 'shed':
+      return { kind, width, depth, lowHeight: Math.min(wall, 3), highHeight: round(Math.min(9, Math.min(wall, 3) + 1.2), 2), highSide: 'front', eave: 0.5 };
+    case 'flat_roof':
+      return { kind, width, depth, wallHeight: wall, parapetHeight: 0.6, slopePct: 5 };
+    case 'gambrel':
+      return { kind, width, depth, wallHeight: wall, lowerPitchDeg: 60, upperPitchDeg: 25, breakRatio: 0.4, eave: 0.4, rake: 0.3 };
+    case 'combined': {
+      const ww = round(clamp(width * 0.5, 2, Math.max(2, Math.min(20, width, depth))), 2);
+      const wing = { width: ww, depth: round(clamp(depth * 0.6, 2, 20), 2), offset: 0 };
+      return { kind, shape: 'L', width, depth, wallHeight: wall, roofPitchDeg: Math.min(60, Math.max(5, pitch)), eave: 0.5, rake: 0.3, wing };
+    }
+  }
+}
+
+/** Troca a tipologia mantendo largura, profundidade e aberturas que continuam válidas. Mezanino só em duas águas e A-frame. */
+export function switchTypology(draft: Project, kind: TypologyKind, ids: IdGen = newId): ReconcileReport {
   const t = draft.typology;
   if (t.kind === kind) return { removedOpenings: 0, removedWalls: 0, adjustedOpenings: 0 };
-  const base = { width: t.width, depth: t.depth };
-  if (kind === 'a_frame') {
-    draft.typology = { kind, ...base, ridgeHeight: 6, kneeWallHeight: 0, rake: 0.4, frontGable: 'glazed', backGable: 'closed' };
-    draft.roof.ridgeAxis = 'depth';
-  } else {
-    draft.typology = { kind, ...base, wallHeight: 2.8, roofPitchDeg: 35, eave: 0.6, rake: 0.3 };
+  draft.typology = defaultTypology(kind, t as unknown as Pick<Typology, 'width' | 'depth'> & Partial<Record<string, unknown>>);
+  if (!hasRidgeAxis(draft.typology)) draft.roof.ridgeAxis = 'depth';
+  const rep = reconcileProject(draft);
+  rep.removedOpenings += pruneInvalidOpenings(draft);
+  if (kind === 'combined' && !draft.openings.some((o) => o.host.startsWith('wing-'))) addWingWindow(draft, ids);
+  return rep;
+}
+
+/** Remove aberturas que o modelo considera fora do hospedeiro (ex.: janela que não cabe na empena triangular). */
+export function pruneInvalidOpenings(draft: Project): number {
+  let invalid: Set<string>;
+  try {
+    const plain = isDraft(draft) ? current(draft) : draft;
+    invalid = new Set(buildModel(plain, getCatalog()).openings.filter((o) => !o.valid).map((o) => o.id));
+  } catch {
+    return 0;
   }
-  return reconcileProject(draft);
+  if (invalid.size === 0) return 0;
+  draft.openings = draft.openings.filter((o) => !invalid.has(o.id));
+  return invalid.size;
+}
+
+/** Janela centralizada no fundo da ala de L/T. */
+export function addWingWindow(draft: Project, ids: IdGen = newId): void {
+  const t = draft.typology;
+  if (t.kind !== 'combined') return;
+  const width = round(Math.min(1.2, t.wing.width - 0.8), 2);
+  if (width < 0.5) return;
+  draft.openings.push({ id: ids('o'), host: 'wing-back', type: 'window', offset: round((t.wing.width - width) / 2, 2), width, height: 1.2, sill: 0.9 });
+  fitOpenings(draft);
 }
 
 // ---------------------------------------------------------------------------
