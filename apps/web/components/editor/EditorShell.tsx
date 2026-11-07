@@ -16,8 +16,8 @@ import { selectionHostId, useEditor } from '@/lib/store/editor';
 import type { CameraView, Tool } from '@/lib/store/types';
 import { NewProjectDialog } from './NewProjectDialog';
 import { PropertiesPanel } from './properties/PropertiesPanel';
-// Único ponto de import do painel de resultados: o F1-W2 troca por `@/components/results/ResultsPanel`.
-import { ResultsPanel } from './ResultsPanel';
+// Painel de resultados (F1-W2).
+import { ResultsPanel } from '@/components/results/ResultsPanel';
 import { TopBar } from './TopBar';
 import { useResizablePanel } from './useResizablePanel';
 import { ValidationBanner } from './ValidationBanner';
