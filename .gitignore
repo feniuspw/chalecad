@@ -5,7 +5,8 @@ dist/
 coverage/
 .env*.local
 .env
-data/
+/data/
+/apps/web/data/
 *.sqlite
 .claude/settings.local.json
 .claude/worktrees/
