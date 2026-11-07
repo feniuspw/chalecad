@@ -20,6 +20,7 @@ import { getStorage, type ProjectSummary } from '@/lib/storage';
 import { selectCanRedo, selectCanUndo, selectRedoLabel, selectUndoLabel, useEditor } from '@/lib/store/editor';
 import type { ValidationIssue } from '@/lib/store/types';
 import { exportPdf } from '@/lib/pdf';
+import { CompareButton } from '@/components/compare/CompareButton';
 import { exportBudgetCsv, exportPurchaseCsv } from '@/lib/export/csv';
 import { downloadText } from '@/lib/export/download';
 import { ImportErrorsDialog } from './ImportErrorsDialog';
@@ -109,6 +110,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         <Button variant="outline" size="sm" onClick={onNew}>
           <Plus /> Novo
         </Button>
+        <CompareButton />
 
         <DropdownMenu onOpenChange={loadRecent}>
           <DropdownMenuTrigger asChild>

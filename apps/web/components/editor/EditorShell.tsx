@@ -4,7 +4,8 @@ import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, Loa
 import { toast } from 'sonner';
 import { IconButton, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@chalecad/ui';
 import { ArtNotice } from '@/components/ArtNotice';
-import { Viewport, type ViewportHandle, type ViewPreset } from '@/components/scene/Viewport';
+import { PathDrawer, Viewport, type ViewportHandle, type ViewPreset } from '@/components/scene/Viewport';
+import { useExtraTools } from './properties/ui-state';
 import { useAutosave } from '@/hooks/useAutosave';
 import { useBootstrap } from '@/hooks/useBootstrap';
 import { useEngine } from '@/hooks/useEngine';
@@ -54,6 +55,13 @@ export function EditorShell() {
 
   useEngine();
   useAutosave(!ready || showWelcome);
+
+  // Desenho de caminho (cerca, muro, arrimo) no 3D, pedido pelo painel de extras.
+  const [drawingExtra, setDrawingExtra] = useState<string | null>(null);
+  useEffect(() => {
+    useExtraTools.getState().setDrawPath((id) => setDrawingExtra(id));
+    return () => useExtraTools.getState().setDrawPath(null);
+  }, []);
 
   // /editor?new=1 (vindo de /projetos): abre o assistente de novo projeto.
   useEffect(() => {
@@ -288,6 +296,23 @@ export function EditorShell() {
           <span className="hidden text-xs text-stone-400 tabular-nums sm:block">Unidades: metros · BRL</span>
         </footer>
       </div>
+
+      <PathDrawer
+        active={drawingExtra !== null}
+        onComplete={(path, closed) => {
+          const id = drawingExtra;
+          setDrawingExtra(null);
+          if (!id || path.length < 2) return;
+          useEditor.getState().update('Desenhar caminho', (d) => {
+            const e = d.extras.find((x) => x.id === id);
+            if (!e || !('path' in e)) return;
+            e.path = path;
+            if ('closed' in e) e.closed = closed;
+          });
+          toast.success('Caminho atualizado.');
+        }}
+        onCancel={() => setDrawingExtra(null)}
+      />
 
       <NewProjectDialog open={newOpen || showWelcome} onOpenChange={closeNew} onCreate={handleCreate} firstAccess={showWelcome} />
     </TooltipProvider>
