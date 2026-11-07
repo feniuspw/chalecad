@@ -7,6 +7,15 @@ import { bboxToThree, viewDirection, type ThreeBounds, type ViewPreset } from '@
 import { BuildingView } from './BuildingView';
 import type { ViewportHandle, ViewportProps } from './types';
 
+/** Props opcionais de controle externo (estado do editor). Sem elas, a seleção fica interna. */
+export interface ControlledViewportProps {
+  /** Hospedeiro selecionado (controlado). `undefined` = seleção interna do componente. */
+  selectedId?: string | null;
+  /** Hospedeiro em destaque de hover vindo de fora (ex.: lista no painel). */
+  hoverId?: string | null;
+  onHoverHost?: (id: string | null) => void;
+}
+
 type Controls = React.ComponentRef<typeof OrbitControls>;
 
 interface RigProps {
@@ -186,10 +195,14 @@ export default function ViewportCanvas({
   onSelectHost,
   hoverable = true,
   apiRef,
-}: ViewportProps) {
+  selectedId,
+  hoverId,
+  onHoverHost,
+}: ViewportProps & ControlledViewportProps) {
   const bounds = useMemo(() => bboxToThree(model.bbox), [model.bbox]);
   const signature = useMemo(() => `${model.walls.length}-${model.roofPlanes.length}-${JSON.stringify(model.bbox)}`, [model]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [innerSelected, setSelected] = useState<string | null>(null);
+  const selected = selectedId !== undefined ? selectedId : innerSelected;
 
   const interactive = hoverable && !showcase;
   const hostIds = useMemo(() => {
@@ -218,6 +231,8 @@ export default function ViewportCanvas({
         model={model}
         highlight={hostIds}
         hoverable={interactive}
+        hoverId={hoverId}
+        onHoverHost={onHoverHost}
         onSelectHost={(id) => {
           setSelected(id);
           onSelectHost?.(id);

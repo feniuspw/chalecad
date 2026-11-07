@@ -3,6 +3,7 @@ import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@chalecad/ui';
 import type { ViewportProps } from './types';
+import type { ControlledViewportProps } from './ViewportCanvas';
 
 export type { ViewportHandle, ViewportProps, ViewPreset } from './types';
 
@@ -18,7 +19,7 @@ const ViewportCanvas = dynamic(() => import('./ViewportCanvas'), {
   ),
 });
 
-export function Viewport({ className, ...props }: ViewportProps) {
+export function Viewport({ className, ...props }: ViewportProps & ControlledViewportProps) {
   return (
     <div className={cn('scene-sky relative size-full overflow-hidden', className)}>
       <ViewportCanvas {...props} />

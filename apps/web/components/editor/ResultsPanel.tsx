@@ -1,10 +1,10 @@
 'use client';
-import { Calculator, Scale, Wallet } from 'lucide-react';
-import type { BuildingModel } from '@chalecad/engine';
-import { Badge, Card, CardContent, CardHeader, CardTitle, ScrollArea, Tabs, TabsContent, TabsList, TabsTrigger } from '@chalecad/ui';
+import { Calculator, Loader2, Scale, Wallet } from 'lucide-react';
+import { Badge, Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@chalecad/ui';
 import { ArtNotice } from '@/components/ArtNotice';
-
-const fmt = (n: number, d = 2) => n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+import { fmt, formatMs } from '@/lib/project/format';
+import { useEditor } from '@/lib/store/editor';
+import { PARTIAL_WARNING_CODE } from '@/lib/engine/compute';
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -30,19 +30,33 @@ function Soon({ icon: Icon, title }: { icon: typeof Calculator; title: string })
   );
 }
 
-export function ResultsPanel({ model, selected }: { model: BuildingModel; selected: string | null }) {
-  return (
-    <Tabs defaultValue="results" className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-border p-3">
-        <TabsList className="w-full">
-          <TabsTrigger value="results">Resultados</TabsTrigger>
-          <TabsTrigger value="params">Parâmetros</TabsTrigger>
-        </TabsList>
-      </div>
+/** Painel direito (provisório do F1-W1): lê `results` do store. O F1-W2 o substitui por `components/results/ResultsPanel`. */
+export function ResultsPanel() {
+  const results = useEditor((s) => s.results);
+  const computing = useEditor((s) => s.computing);
+  const selection = useEditor((s) => s.selection);
+  const stale = useEditor((s) => s.revision !== s.computedRevision);
+  const model = results?.model;
+  const partial = results?.warnings.some((w) => w.code === PARTIAL_WARNING_CODE) ?? true;
+  const ms = results?.timingsMs.worker ?? results?.timingsMs.total;
 
-      <TabsContent value="results" className="min-h-0 flex-1">
-        <ScrollArea className="h-full">
-          <div className="space-y-3 p-3">
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <h2 className="text-sm font-semibold text-stone-900">Resultados</h2>
+        <span className="flex items-center gap-1.5 text-xs text-stone-500 tabular-nums" aria-live="polite">
+          {computing || stale ? (
+            <>
+              <Loader2 className="size-3 animate-spin" /> calculando
+            </>
+          ) : ms !== undefined ? (
+            `calculado em ${formatMs(ms)}`
+          ) : null}
+        </span>
+      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-3 p-3">
+          {model ? (
             <Card>
               <CardHeader>
                 <CardTitle>Edificação</CardTitle>
@@ -57,34 +71,60 @@ export function ResultsPanel({ model, selected }: { model: BuildingModel; select
                 </dl>
               </CardContent>
             </Card>
+          ) : (
+            <p className="px-1 text-sm text-stone-500">Calculando o projeto…</p>
+          )}
 
-            {selected ? (
-              <Card className="border-amber-300 bg-amber-50/40">
-                <CardContent className="flex items-center justify-between py-3">
-                  <span className="text-sm text-stone-700">Selecionado</span>
-                  <Badge variant="accent" className="font-mono">
-                    {selected}
-                  </Badge>
-                </CardContent>
-              </Card>
-            ) : (
-              <p className="px-1 text-xs text-stone-500">Clique numa parede, água do telhado, laje ou escada para selecionar.</p>
-            )}
+          {results ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Cálculo</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-2 pb-3">
+                <dl className="divide-y divide-border">
+                  <Row label="Peças de estrutura" value={`${results.pieces.length}`} />
+                  <Row label="Itens da lista de compra" value={`${results.quantities.lines.length}`} />
+                  <Row label="Tempo de cálculo" value={ms !== undefined ? formatMs(ms) : '—'} />
+                </dl>
+              </CardContent>
+            </Card>
+          ) : null}
 
-            <Soon icon={Calculator} title="Lista de materiais" />
-            <Soon icon={Scale} title="Peso e estrutura" />
-            <Soon icon={Wallet} title="Orçamento por etapa" />
-          </div>
-        </ScrollArea>
-      </TabsContent>
+          {selection ? (
+            <Card className="border-amber-300 bg-amber-50/40">
+              <CardContent className="flex items-center justify-between py-3">
+                <span className="text-sm text-stone-700">Selecionado</span>
+                <Badge variant="accent" className="font-mono">
+                  {selection.id}
+                </Badge>
+              </CardContent>
+            </Card>
+          ) : (
+            <p className="px-1 text-xs text-stone-500">Clique numa parede, água do telhado, laje ou escada para selecionar.</p>
+          )}
 
-      <TabsContent value="params" className="min-h-0 flex-1">
-        <div className="p-4 text-sm text-stone-500">Dimensões, telhado e aberturas serão editados aqui.</div>
-      </TabsContent>
+          {results && results.warnings.length > 0 ? (
+            <ul className="space-y-1.5">
+              {results.warnings.map((w, i) => (
+                <li key={`${w.code}-${i}`} className="rounded-md border border-border bg-surface-muted px-3 py-2 text-xs text-stone-600">
+                  {w.message}
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
+          {partial ? (
+            <>
+              <Soon icon={Calculator} title="Lista de materiais" />
+              <Soon icon={Scale} title="Peso e estrutura" />
+              <Soon icon={Wallet} title="Orçamento por etapa" />
+            </>
+          ) : null}
+        </div>
+      </ScrollArea>
       <div className="border-t border-border bg-surface-muted p-3">
         <ArtNotice className="items-start" />
       </div>
-    </Tabs>
+    </div>
   );
 }

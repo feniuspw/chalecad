@@ -13,6 +13,9 @@ export interface BuildingViewProps {
   highlight?: { hostIds: string[] };
   onSelectHost?: (id: string) => void;
   hoverable?: boolean;
+  /** Hover controlado de fora (ex.: item de lista): realça o hospedeiro como se o mouse estivesse nele. */
+  hoverId?: string | null;
+  onHoverHost?: (id: string | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -26,12 +29,14 @@ interface HostGroupProps {
   hoverable: boolean;
   active: boolean;
   onSelect?: (id: string) => void;
+  externalHover?: boolean;
+  onHover?: (id: string | null) => void;
   position?: THREE.Vector3;
   quaternion?: THREE.Quaternion;
   children: ReactNode;
 }
 
-function HostGroup({ id, hoverable, active, onSelect, children, position, quaternion }: HostGroupProps) {
+function HostGroup({ id, hoverable, active, onSelect, externalHover = false, onHover, children, position, quaternion }: HostGroupProps) {
   const [hovered, setHovered] = useState(false);
   useEffect(() => {
     if (!hovered) return;
@@ -41,14 +46,19 @@ function HostGroup({ id, hoverable, active, onSelect, children, position, quater
     };
   }, [hovered]);
 
-  const value = useMemo(() => ({ hovered, active }), [hovered, active]);
+  const shownHover = hovered || externalHover;
+  const value = useMemo(() => ({ hovered: shownHover, active }), [shownHover, active]);
   const handlers = hoverable
     ? {
         onPointerOver: (e: ThreeEvent<PointerEvent>) => {
           e.stopPropagation();
           setHovered(true);
+          onHover?.(id);
         },
-        onPointerOut: () => setHovered(false),
+        onPointerOut: () => {
+          setHovered(false);
+          onHover?.(null);
+        },
         onClick: (e: ThreeEvent<MouseEvent>) => {
           if (e.delta > 4) return; // foi arrasto de câmera, não clique
           e.stopPropagation();
@@ -175,6 +185,8 @@ interface PartCommon {
   hoverable: boolean;
   active: boolean;
   onSelect?: (id: string) => void;
+  externalHover?: boolean;
+  onHover?: (id: string | null) => void;
 }
 
 function Wall({ wall, openings, ...common }: { wall: HostWall; openings: ResolvedOpening[] } & PartCommon) {
@@ -305,9 +317,9 @@ function Stair({ stair, ...common }: { stair: ResolvedStair } & PartCommon) {
  * Renderiza o BuildingModel. As coordenadas do motor (z-up) entram direto: o único
  * `<group rotation={[-PI/2,0,0]}>` abaixo leva z-up para y-up (ver lib/three/convert.ts).
  */
-export function BuildingView({ model, highlight, onSelectHost, hoverable = true }: BuildingViewProps) {
+export function BuildingView({ model, highlight, onSelectHost, hoverable = true, hoverId = null, onHoverHost }: BuildingViewProps) {
   const lit = useMemo(() => new Set(highlight?.hostIds ?? []), [highlight]);
-  const common = (id: string): PartCommon => ({ hoverable, active: lit.has(id), onSelect: onSelectHost });
+  const common = (id: string): PartCommon => ({ hoverable, active: lit.has(id), onSelect: onSelectHost, externalHover: hoverId === id, onHover: onHoverHost });
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]}>
