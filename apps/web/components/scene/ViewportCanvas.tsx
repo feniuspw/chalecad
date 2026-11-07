@@ -78,7 +78,7 @@ export default function ViewportCanvas({ model, showcase = false, apiRef }: View
 
   if (showcase) {
     return (
-      <Canvas shadows dpr={[1, 2]} camera={{ fov: 35, near: 0.1, far: 600, position: [12, 9, 12] }} gl={{ antialias: true, alpha: true }} className="pointer-events-none">
+      <Canvas shadows="percentage" dpr={[1, 2]} camera={{ fov: 35, near: 0.1, far: 600, position: [12, 9, 12] }} gl={{ antialias: true, alpha: true }} className="pointer-events-none">
         <ShowcaseRig bounds={bounds} />
         <ShowcaseLights bounds={bounds} />
         <BuildingView model={model} hoverable={false} />
@@ -89,7 +89,7 @@ export default function ViewportCanvas({ model, showcase = false, apiRef }: View
   return (
     <Canvas
       frameloop="demand"
-      shadows
+      shadows="percentage"
       dpr={[1, 2]}
       camera={{ fov: 35, near: 0.1, far: 600, position: [12, 9, 12] }}
       gl={{ antialias: true, alpha: true }}
