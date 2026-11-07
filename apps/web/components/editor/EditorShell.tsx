@@ -110,6 +110,21 @@ export function EditorShell() {
   }, []);
   useShortcuts(toolPicked);
 
+  // Reenquadra a câmera quando o tamanho da edificação muda bastante (troca de tipologia, novo projeto, extras).
+  const lastBox = useRef<number[] | null>(null);
+  useEffect(() => {
+    if (!model) return;
+    const { min, max } = model.bbox;
+    const box = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
+    const prev = lastBox.current;
+    lastBox.current = box;
+    if (!prev) return;
+    const changed = box.some((v, i) => Math.abs(v - prev[i]!) > Math.max(1.5, 0.2 * prev[i]!));
+    if (!changed) return;
+    const t = setTimeout(() => viewport.current?.center(), 250);
+    return () => clearTimeout(t);
+  }, [model]);
+
   const pickView = (v: (typeof VIEWS)[number]) => {
     setView(v.id);
     setCameraView(v.camera);
