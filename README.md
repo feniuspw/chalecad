@@ -12,8 +12,10 @@ Pré-requisitos: Node 22+, pnpm 11.
 pnpm install
 cp .env.example apps/web/.env.local   # DATA_MODE=sqlite, AI_ENABLED=false
 pnpm db:migrate                       # cria apps/web/data/chalecad.sqlite
-pnpm dev                              # http://localhost:3000
+pnpm dev                              # http://localhost:3000 (modo desenvolvimento)
 ```
+
+Versão otimizada (abre bem mais rápido): `pnpm app` (build + start em http://localhost:3000).
 
 IA analista: em `apps/web/.env.local`, `AI_ENABLED=true` e `ANTHROPIC_API_KEY=...` (modelo padrão `claude-opus-5-5`, troque com `AI_MODEL`).
 

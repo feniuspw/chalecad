@@ -2,7 +2,9 @@
   "name": "chalecad",
   "private": true,
   "packageManager": "pnpm@11.5.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "turbo run dev --filter=@chalecad/web",
     "build": "turbo run build",
@@ -11,7 +13,8 @@
     "lint": "turbo run lint",
     "e2e": "pnpm --filter @chalecad/web e2e",
     "db:migrate": "pnpm --filter @chalecad/web db:migrate",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "app": "pnpm --filter @chalecad/web build && pnpm --filter @chalecad/web start"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
