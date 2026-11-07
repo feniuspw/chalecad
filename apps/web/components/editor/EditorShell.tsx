@@ -48,7 +48,7 @@ const MODES: { id: ViewMode; label: string; hint: string; icon: typeof Home }[] 
 ];
 
 export function EditorShell() {
-  const { ready, firstAccess } = useBootstrap();
+  const { ready, firstAccess, wantsNew } = useBootstrap();
   const [newOpen, setNewOpen] = useState(false);
   const [welcomed, setWelcomed] = useState(false);
   const showWelcome = ready && firstAccess && !welcomed;
@@ -63,9 +63,7 @@ export function EditorShell() {
     return () => useExtraTools.getState().setDrawPath(null);
   }, []);
 
-  // /editor?new=1 (vindo de /projetos): abre o assistente de novo projeto. Lido no primeiro render,
-  // antes de o bootstrap trocar a URL para ?id=.
-  const [wantsNew] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('new') === '1');
+  // /editor?new=1 (vindo de /projetos): abre o assistente de novo projeto (o bootstrap lê o parâmetro).
   useEffect(() => {
     if (!ready || !wantsNew) return;
     setWelcomed(true);
