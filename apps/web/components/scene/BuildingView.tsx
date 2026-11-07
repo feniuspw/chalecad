@@ -4,7 +4,7 @@ import { Edges } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { BuildingModel, HostWall, ResolvedOpening, ResolvedStair, SlabModel, RoofPlane, Vec3 } from '@chalecad/engine';
 import * as THREE from 'three';
-import { freeSlabEdges, guardrailLayout, openingPlacement, roofZAt, type V2 } from '@/lib/three/convert';
+import { freeSlabEdges, glazingBars, guardrailLayout, guardrailSpan, openingPlacement, roofZAt, type V2 } from '@/lib/three/convert';
 import { explodeGap as computeGap, type ExplodeLayer } from '@/lib/three/views';
 import type { ViewMode } from '@/lib/store/types';
 import { COLORS } from './materials';
@@ -257,13 +257,45 @@ interface PartCommon {
   onHover?: (id: string | null) => void;
 }
 
+/** Fachada envidraçada: vidro na forma da parede + caixilhos (requadro, montantes e travessas). */
+function GlazedWall({ geometry, outline, openings, depth }: { geometry: THREE.BufferGeometry; outline: V2[]; openings: ResolvedOpening[]; depth: number }) {
+  const { hovered, active, faded } = useContext(StyleCtx);
+  const { clip, ghost } = useContext(ViewCtx);
+  const bars = useMemo(() => glazingBars(outline, openings), [outline, openings]);
+  const c = COLORS.windowFrame;
+  return (
+    <group>
+      <mesh geometry={geometry} renderOrder={2} scale={[1, 1, 0.25]}>
+        <meshStandardMaterial
+          color={active ? COLORS.accent : hovered ? COLORS.hover : COLORS.glass}
+          transparent
+          opacity={ghost || faded ? 0.12 : 0.34}
+          roughness={0.05}
+          metalness={0.2}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          clippingPlanes={clip}
+        />
+      </mesh>
+      {bars.map((b, i) => (
+        <Rod key={i} a={[b.from[0], b.from[1], 0]} b={[b.to[0], b.to[1], 0]} t={Math.min(0.08, depth)} color={c} />
+      ))}
+    </group>
+  );
+}
+
 function Wall({ wall, openings, ...common }: { wall: HostWall; openings: ResolvedOpening[] } & PartCommon) {
   const built = useMemo(() => makeWallGeometry(wall, openings), [wall, openings]);
   useEffect(() => () => built.geometry.dispose(), [built]);
   const interior = wall.kind === 'interior';
+  const glazed = wall.assemblyId === 'gable_glazed';
   return (
     <HostGroup id={wall.id} position={built.position} quaternion={built.quaternion} {...common}>
-      <Surface geometry={built.geometry} color={interior ? COLORS.wallInterior : COLORS.wallExterior} roughness={0.92} />
+      {glazed ? (
+        <GlazedWall geometry={built.geometry} outline={wall.outline as V2[]} openings={built.openings} depth={wall.thickness} />
+      ) : (
+        <Surface geometry={built.geometry} color={interior ? COLORS.wallInterior : COLORS.wallExterior} roughness={0.92} />
+      )}
       {built.openings.map((op) => (
         <OpeningMesh key={op.id} op={op} depth={wall.thickness} />
       ))}
@@ -349,7 +381,14 @@ function Guardrail({ a, b, z, roofPlanes }: { a: V2; b: V2; z: number; roofPlane
 function Slab({ slab, model, ...common }: { slab: SlabModel; model: BuildingModel } & PartCommon) {
   const built = useMemo(() => makeSlabGeometry(slab), [slab]);
   useEffect(() => () => built.geometry.dispose(), [built]);
-  const free = useMemo(() => (slab.kind === 'mezzanine' ? freeSlabEdges(slab, model.walls) : []), [slab, model.walls]);
+  const free = useMemo(() => {
+    if (slab.kind !== 'mezzanine') return [];
+    // só onde há altura para o guarda-corpo (bordas que encostam na água do A-frame não levam)
+    const clearance = (x: number, y: number) => roofZAt(model.roofPlanes, x, y) - slab.topZ;
+    return freeSlabEdges(slab, model.walls)
+      .map(([a, b]) => guardrailSpan(a, b, clearance, RAIL_H))
+      .filter((e): e is [V2, V2] => e !== null);
+  }, [slab, model.walls, model.roofPlanes]);
   const color = slab.kind === 'radier' ? COLORS.radier : COLORS.mezzanine;
   return (
     <HostGroup id={slab.id} {...common}>

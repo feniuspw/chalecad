@@ -273,3 +273,92 @@ export function roofZAt(planes: Pick<RoofPlane, 'vertices' | 'origin' | 'uAxis' 
   }
   return Infinity;
 }
+
+/**
+ * Trecho da borda livre onde cabe guarda-corpo: o maior intervalo contínuo em que a folga até o telhado é de
+ * pelo menos `minH`. Bordas que encostam na água (A-frame) somem; as que chegam nela são encurtadas.
+ */
+export function guardrailSpan(a: V2, b: V2, clearance: (x: number, y: number) => number, minH = 1.0, samples = 48): [V2, V2] | null {
+  const at = (t: number): V2 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  let best: [number, number] | null = null;
+  let start: number | null = null;
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const p = at(t);
+    const ok = clearance(p[0], p[1]) >= minH;
+    if (ok && start === null) start = t;
+    if ((!ok || i === samples) && start !== null) {
+      const end = ok ? t : (i - 1) / samples;
+      if (!best || end - start > best[1] - best[0]) best = [start, end];
+      start = null;
+    }
+  }
+  if (!best) return null;
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]) * (best[1] - best[0]);
+  return len < 0.3 ? null : [at(best[0]), at(best[1])];
+}
+
+export interface GlazingBar {
+  from: V2;
+  to: V2;
+}
+
+/** Faixa [uMin, uMax] do contorno na altura v (contorno convexo em u: empenas, retângulos). */
+function spanAt(outline: V2[], v: number): [number, number] | null {
+  const us: number[] = [];
+  for (let i = 0; i < outline.length; i++) {
+    const p = outline[i]!;
+    const q = outline[(i + 1) % outline.length]!;
+    if ((p[1] - v) * (q[1] - v) > 0 || Math.abs(q[1] - p[1]) < EPS) continue;
+    us.push(p[0] + ((v - p[1]) / (q[1] - p[1])) * (q[0] - p[0]));
+  }
+  return us.length >= 2 ? [Math.min(...us), Math.max(...us)] : null;
+}
+
+/**
+ * Caixilhos de uma fachada envidraçada no referencial (u, v) da parede: requadro no contorno, montantes a cada
+ * `spacing` e travessas a cada `transom` de altura. Vãos (portas) interrompem montantes e travessas.
+ */
+export function glazingBars(outline: V2[], holes: Pick<ResolvedOpening, 'u0' | 'u1' | 'v0' | 'v1'>[], spacing = 1.2, transom = 2.4): GlazingBar[] {
+  const bars: GlazingBar[] = outline.map((p, i) => ({ from: p, to: outline[(i + 1) % outline.length]! }));
+  const us = outline.map((p) => p[0]);
+  const vs = outline.map((p) => p[1]);
+  const [u0, u1] = [Math.min(...us), Math.max(...us)];
+  const [v0, v1] = [Math.min(...vs), Math.max(...vs)];
+  const keep = (segs: [number, number][]) => segs.filter(([m, n]) => n - m > 0.05);
+  const cutV = (u: number, a: number, b: number): [number, number][] => {
+    let segs: [number, number][] = [[a, b]];
+    for (const h of holes) {
+      if (u <= h.u0 || u >= h.u1) continue;
+      segs = segs.flatMap(([x, y]) => keep([[x, Math.min(y, h.v0)], [Math.max(x, h.v1), y]]));
+    }
+    return segs;
+  };
+  const cutU = (v: number, a: number, b: number): [number, number][] => {
+    let segs: [number, number][] = [[a, b]];
+    for (const h of holes) {
+      if (v <= h.v0 || v >= h.v1) continue;
+      segs = segs.flatMap(([x, y]) => keep([[x, Math.min(y, h.u0)], [Math.max(x, h.u1), y]]));
+    }
+    return segs;
+  };
+  const n = Math.max(1, Math.round((u1 - u0) / spacing));
+  for (let k = 1; k < n; k++) {
+    const u = u0 + ((u1 - u0) * k) / n;
+    // altura do contorno nessa coluna: maior v com o ponto (u, v) dentro
+    let top = v0;
+    for (let i = 0; i < outline.length; i++) {
+      const p = outline[i]!;
+      const q = outline[(i + 1) % outline.length]!;
+      if ((p[0] - u) * (q[0] - u) > 0 || Math.abs(q[0] - p[0]) < EPS) continue;
+      top = Math.max(top, p[1] + ((u - p[0]) / (q[0] - p[0])) * (q[1] - p[1]));
+    }
+    for (const [a, b] of cutV(u, v0, top)) bars.push({ from: [u, a], to: [u, b] });
+  }
+  for (let v = v0 + transom; v < v1 - 0.4; v += transom) {
+    const s = spanAt(outline, v);
+    if (!s) continue;
+    for (const [a, b] of cutU(v, s[0], s[1])) bars.push({ from: [a, v], to: [b, v] });
+  }
+  return bars;
+}

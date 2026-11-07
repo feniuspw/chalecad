@@ -3,7 +3,7 @@ import { produce } from 'immer';
 import { getCatalog } from '@chalecad/catalog';
 import { computeAll, type Project } from '@chalecad/engine';
 import { addAnnex, annexInfo, annexLimits, fitAnnex, patchAnnex, removeAnnex } from './annex';
-import { patchTypology } from './edit';
+import { patchTypology, switchTypology } from './edit';
 import { hostLength, planBounds } from './geometry';
 import { createProject } from './templates';
 
@@ -71,5 +71,17 @@ describe('anexos laterais do A-frame', () => {
     expect(hostLength(p, 'ext-left')).toBeCloseTo(9 - a.offset - a.length, 9);
     expect(hostLength(p, 'ext-left-2')).toBeCloseTo(a.offset, 9);
     expect(hostLength(p, 'ext-right')).toBe(9);
+  });
+
+  test('escada herdada de duas águas volta para baixo da cumeeira, subindo até o mezanino', () => {
+    const gable = createProject('gable_mezzanine', { width: 6, depth: 9, mezzanine: true }, ids);
+    const p = produce(gable, (d) => {
+      switchTypology(d, 'a_frame', ids);
+      patchTypology(d, { ridgeHeight: 7.5 });
+    });
+    const s = p.stairs[0]!;
+    expect(s.position[0]).toBeGreaterThan(2);
+    expect(s.position[0]).toBeLessThan(4);
+    expect(computeAll(p, getCatalog()).model.stairs).toHaveLength(1);
   });
 });

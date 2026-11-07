@@ -102,9 +102,14 @@ function straightStairFor(t: EditableTypology, from: string, to: string, depth: 
   const run = Math.ceil(rise / 0.18) * 0.27;
   const width = 0.8;
   if (t.kind === 'a_frame') {
-    // Sob a cumeeira, sobe em direção ao mezanino do fundo.
-    const y = position === 'back' ? Math.max(0.6, t.depth - depth - run) : 0.6;
-    return { id: ids('s'), type: 'straight', from, to, position: [round(t.width / 2 - width / 2, 2), round(y, 2)], rotationDeg: 0, width, turnRight: true };
+    // Sob a cumeeira, subindo em direção à borda do mezanino.
+    if (position === 'back') {
+      const y = Math.max(0.6, t.depth - depth - run);
+      return { id: ids('s'), type: 'straight', from, to, position: [round(t.width / 2 - width / 2, 2), round(y, 2)], rotationDeg: 0, width, turnRight: true };
+    }
+    // girada 180°: o canto esquerdo do pé fica à direita em planta
+    const y = Math.min(t.depth - 0.3, depth + run);
+    return { id: ids('s'), type: 'straight', from, to, position: [round(t.width / 2 + width / 2, 2), round(y, 2)], rotationDeg: 180, width, turnRight: true };
   }
   return { id: ids('s'), type: 'straight', from, to, position: [0.2, 0.6], rotationDeg: 0, width, turnRight: true };
 }
@@ -129,6 +134,40 @@ export function setMezzanineEnabled(draft: Project, on: boolean, ids: IdGen = ne
   } else if (!on && existing) {
     removeUpperLevels(draft);
   }
+}
+
+/** Altura livre mínima sobre a escada no A-frame. */
+const STAIR_HEADROOM = 2.1;
+
+/**
+ * A-frame: escada que sai da faixa com pé-direito (herdada de outra tipologia, ou depois de estreitar o chalé)
+ * volta para baixo da cumeeira, subindo em direção à borda do mezanino.
+ */
+function fitAFrameStairs(draft: Project, t: AFrameT): void {
+  const m = getMezzanine(draft);
+  if (!m) return;
+  const half = halfSpan(t, STAIR_HEADROOM);
+  const [x0, x1] = [t.width / 2 - half - 1e-6, t.width / 2 + half + 1e-6];
+  const rise = mezzanineElevation(t);
+  const run = Math.ceil(rise / 0.18) * 0.27;
+  draft.stairs = draft.stairs.map((s) => {
+    if (s.type !== 'straight' && s.type !== 'ladder') return s;
+    const r = (s.rotationDeg * Math.PI) / 180;
+    const fwd: Vec2 = [Math.sin(r), Math.cos(r)];
+    const right: Vec2 = [Math.cos(r), -Math.sin(r)];
+    const w = s.type === 'ladder' ? 0.5 : s.width;
+    const len = s.type === 'ladder' ? 0 : run;
+    const [px, py] = s.position;
+    const corners: Vec2[] = [
+      [px, py],
+      [px + right[0] * w, py + right[1] * w],
+      [px + fwd[0] * len, py + fwd[1] * len],
+      [px + right[0] * w + fwd[0] * len, py + right[1] * w + fwd[1] * len],
+    ];
+    if (corners.every(([x]) => x >= x0 && x <= x1)) return s;
+    const placed = straightStairFor(t, s.from, s.to, m.depth, m.position, () => s.id);
+    return { ...placed, type: s.type, width: s.width, turnRight: s.turnRight };
+  });
 }
 
 /** Remove níveis superiores e tudo que depende deles (paredes, aberturas, escadas). */
@@ -274,6 +313,7 @@ export function reconcileProject(draft: Project): ReconcileReport {
   }
   for (const u of draft.utilities) u.position = clampPoint(u.position, b);
   for (const s of draft.stairs) s.position = clampPoint(s.position, b);
+  if (t.kind === 'a_frame') fitAFrameStairs(draft, t);
   // Hospedeiros que não existem na tipologia ativa.
   const hosts = generatedHosts(draft);
   const roofOpenings = t.kind === 'a_frame' || t.kind === 'gambrel';

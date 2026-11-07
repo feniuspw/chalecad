@@ -36,6 +36,7 @@ export interface AnnexGeometry {
  * Geometria dos anexos laterais do A-frame. A água do anexo sobe em direção ao A-frame e continua para dentro
  * da linha da base até cruzar a água do A-frame (em `reach`, na cota `meetZ`). As paredes de ponta do anexo
  * fecham também esse trecho (triângulo entre as duas águas), por isso o contorno delas tem a base inclinada.
+ * A água do anexo é um retângulo: nas pontas, o beiral segue reto até o encontro, por cima da água do A-frame.
  */
 export function annexGeometry(t: AFrame): AnnexGeometry[] {
   const W = t.width;
@@ -76,7 +77,7 @@ export function annexGeometry(t: AFrame): AnnexGeometry[] {
         { id: id('side'), kind: 'exterior', from: [-w, y1], to: [-w, y0], outline: rectOut(a.length, low) },
         { id: id('front'), kind: 'exterior', from: [-w, y0], to: [reach, y0], outline: outer },
       ];
-      plan = [[-w - e, y0 - e], [0, y0 - e], [0, y0], [reach, y0], [reach, y1], [0, y1], [0, y1 + e], [-w - e, y1 + e]];
+      plan = [[-w - e, y0 - e], [reach, y0 - e], [reach, y1 + e], [-w - e, y1 + e]];
       rect = { x0: -w, x1: 0, y0, y1 };
       roofZ = (x) => H + x * ta;
     } else {
@@ -85,7 +86,7 @@ export function annexGeometry(t: AFrame): AnnexGeometry[] {
         { id: id('side'), kind: 'exterior', from: [W + w, y0], to: [W + w, y1], outline: rectOut(a.length, low) },
         { id: id('back'), kind: 'exterior', from: [W + w, y1], to: [W - reach, y1], outline: outer },
       ];
-      plan = [[W, y0 - e], [W + w + e, y0 - e], [W + w + e, y1 + e], [W, y1 + e], [W, y1], [W - reach, y1], [W - reach, y0], [W, y0]];
+      plan = [[W - reach, y0 - e], [W + w + e, y0 - e], [W + w + e, y1 + e], [W - reach, y1 + e]];
       rect = { x0: W, x1: W + w, y0, y1 };
       roofZ = (x) => H + (W - x) * ta;
     }

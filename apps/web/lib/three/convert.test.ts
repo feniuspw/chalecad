@@ -5,7 +5,9 @@ import type { BuildingModel, HostWall, ResolvedOpening } from '@chalecad/engine'
 import {
   bboxToThree,
   freeSlabEdges,
+  glazingBars,
   guardrailLayout,
+  guardrailSpan,
   openingFits,
   openingPlacement,
   roofZAt,
@@ -151,5 +153,37 @@ describe('roofZAt', () => {
     expect(roofZAt(model.roofPlanes, 3.25, 2)).toBeCloseTo(2.8 + 3.25 * tan35, 2); // cumeeira
     expect(roofZAt(model.roofPlanes, 6.5, 2)).toBeCloseTo(2.8, 2);
     expect(roofZAt(model.roofPlanes, 20, 2)).toBe(Infinity);
+  });
+});
+
+describe('guardrailSpan', () => {
+  // telhado de A-frame: folga cresce do canto (x = 0) para o meio
+  const clearance = (x: number) => x * 2 - 1;
+  it('encurta a borda até onde cabe o guarda-corpo', () => {
+    const span = guardrailSpan([0, 3], [4, 3], clearance, 1)!;
+    expect(span[0][0]).toBeGreaterThanOrEqual(1 - 1e-9);
+    expect(span[0][0]).toBeLessThan(1.1);
+    expect(span[1][0]).toBe(4);
+  });
+  it('borda colada na água some', () => {
+    expect(guardrailSpan([0.2, 0], [0.2, 4], clearance, 1)).toBeNull();
+  });
+});
+
+describe('glazingBars', () => {
+  const tri: [number, number][] = [[0, 0], [6, 0], [3, 7]];
+  it('requadro, montantes dentro do triângulo e travessas', () => {
+    const bars = glazingBars(tri, []);
+    expect(bars.length).toBeGreaterThan(3 + 3);
+    for (const b of bars) for (const p of [b.from, b.to]) {
+      expect(p[1]).toBeLessThanOrEqual(7 + 1e-9);
+      expect(p[0]).toBeGreaterThanOrEqual(-1e-9);
+      expect(p[0]).toBeLessThanOrEqual(6 + 1e-9);
+    }
+  });
+  it('porta interrompe o montante que passa por ela', () => {
+    const door = { u0: 2.5, u1: 3.5, v0: 0, v1: 2.1 };
+    const mid = glazingBars(tri, [door]).filter((b) => b.from[0] === 3 && b.to[0] === 3);
+    expect(mid.every((b) => Math.min(b.from[1], b.to[1]) >= 2.1 - 1e-9)).toBe(true);
   });
 });
