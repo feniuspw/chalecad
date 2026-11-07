@@ -105,7 +105,7 @@ describe('buildEngineerPackage', () => {
     expect(pkg.attentionPoints.some((p) => p.text.includes('x.test'))).toBe(true);
     expect(pkg.openQuestions.length).toBeGreaterThan(0);
     expect(pkg.openQuestions.some((q) => q.rule === 'check-fail')).toBe(true);
-    expect(pkg.loadAssumptions.loads?.windQKPa).toBe(0.6);
+    expect(pkg.loadAssumptions.loads?.windQKPa).toBe(base.loads.windQKPa);
   });
 
   test('solo informado não é tratado como padrão', () => {
