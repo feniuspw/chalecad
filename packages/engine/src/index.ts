@@ -3,5 +3,6 @@ export * from './schema';
 export * from './load';
 export * from './model';
 export * from './geometry';
+export * from './framing';
 export * from './quantities';
 export * from './weight';
