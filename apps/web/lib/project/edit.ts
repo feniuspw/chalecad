@@ -53,8 +53,16 @@ function halfSpan(t: EditableTypology, z: number): number {
   return Math.max(0.3, (t.width / 2) * (1 - (z - knee) / Math.max(0.1, t.ridgeHeight - knee)));
 }
 
-export function mezzaninePolygon(t: EditableTypology, depth: number, position: MezzaninePosition): Vec2[] {
-  const hs = halfSpan(t, mezzanineElevation(t));
+/** A-frame: faixa de cota do piso do mezanino (acima, ≥ 2 m livres no centro e ≥ 2 m de largura de piso). */
+export function aFrameMezzRange(t: AFrameT): [number, number] {
+  const k = t.kneeWallHeight;
+  const byWidth = k + (t.ridgeHeight - k) * (1 - 1 / (t.width / 2));
+  const max = Math.min(t.ridgeHeight - 2.0, byWidth);
+  return [2.1, Math.max(2.1, round(max, 2))];
+}
+
+export function mezzaninePolygon(t: EditableTypology, depth: number, position: MezzaninePosition, elevation = mezzanineElevation(t)): Vec2[] {
+  const hs = halfSpan(t, elevation);
   const x0 = round(t.width / 2 - hs, 3);
   const x1 = round(t.width / 2 + hs, 3);
   const y0 = position === 'back' ? round(t.depth - depth, 3) : 0;
@@ -86,19 +94,20 @@ export const maxMezzanineDepth = (t: Typology) => Math.max(1.5, round(t.depth - 
 export const defaultMezzanineDepth = (t: Typology) => clamp(round(t.depth * 0.41, 1), 1.5, maxMezzanineDepth(t));
 
 /** Reconstrói o polígono do mezanino a partir de profundidade e posição, mantendo-o dentro da edificação. */
-export function setMezzanine(draft: Project, opts: { depth?: number; position?: MezzaninePosition }): void {
+export function setMezzanine(draft: Project, opts: { depth?: number; position?: MezzaninePosition; elevation?: number }): void {
   const t = draft.typology;
   const info = getMezzanine(draft);
   if (!isEditableTypology(t) || !info) return;
   const depth = clamp(opts.depth ?? info.depth, 1, maxMezzanineDepth(t));
   const position = opts.position ?? info.position;
   const lv = draft.levels.find((l) => l.id === info.level.id)!;
-  lv.polygon = mezzaninePolygon(t, depth, position);
-  lv.elevation = mezzanineElevation(t);
+  // A-frame: a cota é escolhida pelo usuário dentro da faixa; duas águas: topo das paredes
+  const elevation = t.kind === 'a_frame' ? round(clamp(opts.elevation ?? lv.elevation, ...aFrameMezzRange(t)), 3) : mezzanineElevation(t);
+  lv.polygon = mezzaninePolygon(t, depth, position, elevation);
+  lv.elevation = elevation;
 }
 
-function straightStairFor(t: EditableTypology, from: string, to: string, depth: number, position: MezzaninePosition, ids: IdGen): Stair {
-  const rise = mezzanineElevation(t);
+function straightStairFor(t: EditableTypology, from: string, to: string, depth: number, position: MezzaninePosition, ids: IdGen, rise = mezzanineElevation(t)): Stair {
   const run = stairRun(rise);
   const width = 0.8;
   if (t.kind === 'a_frame') {
@@ -156,7 +165,7 @@ function fitAFrameStairs(draft: Project, t: AFrameT): void {
   if (!m) return;
   const half = halfSpan(t, STAIR_HEADROOM);
   const [x0, x1] = [t.width / 2 - half - 1e-6, t.width / 2 + half + 1e-6];
-  const rise = mezzanineElevation(t);
+  const rise = m.level.elevation;
   const run = stairRun(rise);
   draft.stairs = draft.stairs.map((s) => {
     if (s.type !== 'straight' && s.type !== 'ladder') return s;
@@ -173,7 +182,7 @@ function fitAFrameStairs(draft: Project, t: AFrameT): void {
       [px + right[0] * w + fwd[0] * len, py + right[1] * w + fwd[1] * len],
     ];
     if (corners.every(([x]) => x >= x0 && x <= x1)) return s;
-    const placed = straightStairFor(t, s.from, s.to, m.depth, m.position, () => s.id);
+    const placed = straightStairFor(t, s.from, s.to, m.depth, m.position, () => s.id, rise);
     return { ...placed, type: s.type, width: s.width, turnRight: s.turnRight };
   });
 }

@@ -5,6 +5,7 @@ import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, 
 import type { Project, TypologyKind } from '@chalecad/engine';
 import { aFramePitchDeg, degToPct, pctToDeg } from '@/lib/project/geometry';
 import {
+  aFrameMezzRange,
   getMezzanine,
   isEditableTypology,
   maxMezzanineDepth,
@@ -391,6 +392,18 @@ export function MezzanineSection({ project }: { project: Project }) {
             unit="m"
             onChange={(v, c) => (c ? updateCoalesced : update)('Alterar profundidade do mezanino', (d) => setMezzanine(d, { depth: v }))}
           />
+          {t.kind === 'a_frame' ? (
+            <SliderField
+              label="Altura do piso"
+              value={info.level.elevation}
+              min={aFrameMezzRange(t)[0]}
+              max={aFrameMezzRange(t)[1]}
+              step={0.05}
+              unit="m"
+              hint="mais alto = mais pé-direito embaixo"
+              onChange={(v, c) => (c ? updateCoalesced : update)('Alterar altura do mezanino', (d) => setMezzanine(d, { elevation: v }))}
+            />
+          ) : null}
           <Segmented<MezzaninePosition>
             label="Posição"
             value={info.position}

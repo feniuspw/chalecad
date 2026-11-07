@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { CircleCheck, ChevronDown, ChevronRight, ShieldAlert, TriangleAlert, Wand2, OctagonAlert, Wind } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, cn } from '@chalecad/ui';
-import { getCatalog } from '@chalecad/catalog';
-import type { CheckStatus, Project, StructuralCheck, StructuralReport } from '@chalecad/engine';
+import type { CheckStatus, StructuralCheck, StructuralReport } from '@chalecad/engine';
 import { formatBRL, formatNumber } from '@/lib/format';
 import { useEditor } from '@/lib/store/editor';
 import { Block, EmptyState, KV, SectionTitle } from './shared';
@@ -43,35 +42,10 @@ export function RatioBar({ ratio, status }: { ratio: number; status: CheckStatus
   );
 }
 
-type Applier = (d: Project) => void;
+import { suggestionRecipe } from '@/lib/project/suggestions';
+import { NormFixButton } from './NormFixButton';
 
-/** Converte a sugestão do motor em uma edição do projeto, conforme o tipo da verificação. */
-export function suggestionRecipe(check: StructuralCheck): { label: string; recipe: Applier } | null {
-  const s = check.suggestion;
-  if (!s) return null;
-  const profile = s.profileId;
-  const spacing = s.studSpacing;
-  const hasProfile = profile !== undefined && getCatalog().profiles.some((p) => p.id === profile);
-  const field = check.kind === 'stud' ? 'wallStud' : check.kind === 'joist' ? 'joist' : check.kind === 'rafter' ? 'rafter' : check.kind === 'purlin' ? 'purlin' : null;
-  const applyProfile = hasProfile && field !== null;
-  if (!applyProfile && spacing === undefined) return null;
-  const parts: string[] = [];
-  if (applyProfile) parts.push(profile!);
-  if (spacing !== undefined) parts.push(`montantes a cada ${formatNumber(spacing * 100, 0)} cm`);
-  return {
-    label: parts.join(' + '),
-    recipe: (d) => {
-      if (applyProfile && field) {
-        d.system.profiles[field] = profile!;
-        if (field === 'wallStud') {
-          const track = profile!.replace(/^Ue/, 'U');
-          if (getCatalog().profiles.some((p) => p.id === track)) d.system.profiles.wallTrack = track;
-        }
-      }
-      if (spacing !== undefined) d.system.studSpacing = spacing;
-    },
-  };
-}
+export { suggestionRecipe };
 
 function Summary({ report }: { report: StructuralReport }) {
   const { ok, warn, fail, maxRatio } = report.summary;
@@ -226,6 +200,7 @@ export function StructureTab({ report }: { report: StructuralReport | null }) {
   return (
     <div className="space-y-3 p-3">
       <Summary report={report} />
+      {report.summary.fail > 0 ? <NormFixButton className="w-full" /> : null}
       <Loads loads={report.loads} />
       <div className="flex items-center justify-between gap-2">
         <SectionTitle>Verificações ({checks.length})</SectionTitle>
