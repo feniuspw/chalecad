@@ -8,6 +8,7 @@ import {
 import { distToSegment, length2, polygonArea, polylineLength, type Vec2 } from '../geometry';
 import type { Project, Stage } from '../schema/project';
 import type { BuildingModel, HostWall, ResolvedOpening, RoofPlane } from '../schema/results';
+import { combinedGeometry } from '../model/combined';
 import { paginateSheets, type Rect } from './paginate';
 
 /**
@@ -142,6 +143,7 @@ export function collectItems(model: BuildingModel, project: Project, catalog: Ca
   const fmt = (n: number) => n.toFixed(2).replace('.', ',');
   const planeNet = (r: RoofPlane) =>
     Math.max(0, r.area - (ops.get(r.id) ?? []).reduce((s, o) => s + openingArea(o), 0));
+  const combinedGeo = project.typology.kind === 'combined' ? combinedGeometry(project.typology) : undefined;
   let roofNet = 0;
   let gableEdges = 0;
   let eaves = 0;
@@ -167,6 +169,18 @@ export function collectItems(model: BuildingModel, project: Project, catalog: Ca
       gableEdges += 2 * r.vLength; // rufos laterais
       ridge += r.uLength; // cumeeira/rufo de encontro no lado alto
       eaves += r.uLength; // calha no lado baixo
+    } else if (model.typology === 'gambrel') {
+      gableEdges += 2 * r.vLength;
+      if (r.id.endsWith('2')) ridge += r.uLength / 2; // só as águas superiores chegam à cumeeira
+      else {
+        eaves += r.uLength; // beiral só na água inferior
+        gableEdges += r.uLength; // rufo da quebra (uma linha por lado)
+      }
+    } else if (model.typology === 'combined' && combinedGeo) {
+      // ala: só a empena (um lado do plano) tem rufo lateral; o outro lado é o rincão
+      gableEdges += r.id.startsWith('wing-') ? r.vLength : 2 * r.vLength;
+      ridge += r.uLength / 2;
+      eaves += combinedGeo.eaveLengths[r.id] ?? r.uLength;
     } else {
       gableEdges += 2 * r.vLength;
       ridge += r.uLength / 2; // cada cumeeira é compartilhada por duas águas
@@ -183,6 +197,14 @@ export function collectItems(model: BuildingModel, project: Project, catalog: Ca
   const first = model.roofPlanes[0];
   simple(out, catalog, first?.id ?? 'roof-a', 'roof', 'ridge_cap', ridge);
   simple(out, catalog, first?.id ?? 'roof-a', 'roof', 'flashing', gableEdges, { unitSize: c.roof.flashingLength });
+  if (combinedGeo) {
+    // rincões (água-furtada): rufo ao longo das linhas de encontro ala x telhado principal
+    const valleyLen = combinedGeo.valleys.reduce((acc, v) => acc + v.length, 0);
+    simple(out, catalog, 'wing-roof-a', 'roof', 'flashing', valleyLen, {
+      unitSize: c.roof.flashingLength,
+      note: `rincão (água-furtada): ${fmt(valleyLen)} m`,
+    });
+  }
   if (project.roof.gutters) {
     simple(out, catalog, first?.id ?? 'roof-a', 'roof', 'gutter', eaves, { unitSize: c.roof.gutterLength });
   }
@@ -256,13 +278,16 @@ export function collectItems(model: BuildingModel, project: Project, catalog: Ca
     const inner = model.walls
       .filter((w) => w.kind === 'interior' && w.level === ground.id)
       .reduce((s, w) => s + w.length * w.thickness, 0);
-    const area = Math.max(0, t.width * t.depth - inner);
+    const area = Math.max(0, (combinedGeo ? polygonArea(combinedGeo.axisPolygon) : t.width * t.depth) - inner);
     const hid = radier?.id ?? 'radier';
     simple(out, catalog, hid, 'floor', 'floor_hardener', area * c.floor.hardenerKgPerM2);
     simple(out, catalog, hid, 'floor', 'sealer', area * c.floor.sealerLPerM2);
     const s = c.radier.floorJointSpacing;
     const lines = (len: number) => Math.max(0, Math.ceil(len / s - 1e-9) - 1);
-    simple(out, catalog, hid, 'floor', 'joint_cut', lines(t.width) * t.depth + lines(t.depth) * t.width);
+    const rects = combinedGeo ? [combinedGeo.mainRect, combinedGeo.wingRect] : [{ x0: 0, x1: t.width, y0: 0, y1: t.depth }];
+    let joints = 0;
+    for (const r of rects) joints += lines(r.x1 - r.x0) * (r.y1 - r.y0) + lines(r.y1 - r.y0) * (r.x1 - r.x0);
+    simple(out, catalog, hid, 'floor', 'joint_cut', joints);
   }
 
   // --- Escadas -----------------------------------------------------------------------

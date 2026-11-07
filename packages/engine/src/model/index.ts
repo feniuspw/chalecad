@@ -26,6 +26,8 @@ import type {
 import { buildExtraModels } from '../extras';
 import { buildStair } from './stairs';
 import { slopedGeometry } from './sloped';
+import { gambrelGeometry } from './gambrel';
+import { combinedGeometry, type CombinedGeometry } from './combined';
 
 const DEG = Math.PI / 180;
 
@@ -58,9 +60,6 @@ const rect = (l: number, h: number): Vec2[] => [[0, 0], [l, 0], [l, h], [0, h]];
 
 export function buildModel(project: Project, catalog: Catalog): BuildingModel {
   const { typology: t, system, levels } = project;
-  if (t.kind === 'gambrel' || t.kind === 'combined') {
-    throw new Error(`Tipologia ainda não suportada: ${t.kind}`);
-  }
   const c = catalog.constants;
   const stud = findProfile(catalog, system.profiles.wallStud);
   const joist = findProfile(catalog, system.profiles.joist);
@@ -98,6 +97,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
   let roofZ: (x: number, y: number) => number;
   /** Altura das paredes internas do térreo sem nível acima (null = vai até o telhado). */
   let groundWallHeight: number | null;
+  let combined: CombinedGeometry | undefined;
 
   if (t.kind === 'shed' || t.kind === 'flat_roof') {
     const sg = slopedGeometry(t);
@@ -108,6 +108,20 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     for (const w of sg.walls) {
       walls.push(mkWall({ ...w, assemblyId: extId, exteriorSide: 'right', loadBearing: w.kind !== 'parapet' }));
     }
+  } else if (t.kind === 'gambrel') {
+    const gg = gambrelGeometry(t, project.roof.ridgeAxis);
+    roofPlanes = gg.roofPlanes;
+    ridgeHeight = gg.ridgeHeight;
+    roofZ = gg.roofZ;
+    groundWallHeight = null;
+    for (const w of gg.walls) walls.push(mkWall({ ...w, assemblyId: extId, exteriorSide: 'right', loadBearing: true }));
+  } else if (t.kind === 'combined') {
+    combined = combinedGeometry(t);
+    roofPlanes = combined.roofPlanes;
+    ridgeHeight = combined.ridgeHeight;
+    roofZ = combined.roofZ;
+    groundWallHeight = null;
+    for (const w of combined.walls) walls.push(mkWall({ ...w, assemblyId: extId, exteriorSide: 'right', loadBearing: true }));
   } else {
     const isGable = t.kind === 'gable_mezzanine';
     groundWallHeight = t.kind === 'gable_mezzanine' ? t.wallHeight : null;
@@ -191,7 +205,9 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
 
   // --- Lajes ----------------------------------------------------------------
   const h = extT / 2;
-  const footprint: Vec2[] = [[-h, -h], [W + h, -h], [W + h, D + h], [-h, D + h]];
+  const footprint: Vec2[] = combined
+    ? offsetPolygon(combined.axisPolygon, h)
+    : [[-h, -h], [W + h, -h], [W + h, D + h], [-h, D + h]];
   const radierPoly = offsetPolygon(footprint, system.foundation.border);
   const slabs: SlabModel[] = [
     {
@@ -316,7 +332,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     typology: t.kind,
     footprint,
     footprintArea: polygonArea(footprint),
-    builtArea: W * D + mezzArea,
+    builtArea: (combined ? polygonArea(combined.axisPolygon) : W * D) + mezzArea,
     walls,
     roofPlanes,
     slabs,
@@ -328,3 +344,6 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
   };
   return normalizeZero(model);
 }
+
+export { combinedGeometry, type CombinedGeometry, type Valley } from './combined';
+export { gambrelGeometry, type GambrelGeometry } from './gambrel';
