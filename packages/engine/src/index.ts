@@ -8,5 +8,6 @@ export * from './quantities';
 export * from './weight';
 export * from './extras';
 export * from './budget';
+export * from './structure';
 export * from './warnings';
 export * from './compute';
