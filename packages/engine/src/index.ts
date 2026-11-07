@@ -5,3 +5,6 @@ export * from './model';
 export * from './geometry';
 export * from './quantities';
 export * from './weight';
+export * from './budget';
+export * from './warnings';
+export * from './compute';
