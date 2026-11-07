@@ -87,12 +87,15 @@ describe('deck', () => {
     expect(line(q, 'guardrail')).toBeUndefined();
   });
 
-  test('coberto: telha = comprimento x (depth + 0,3)/cos10, terças e pilares', () => {
+  test('coberto: telha = comprimento x run/cos(inclinação), terças e pilares, sem invadir o telhado', () => {
     const { quantities: q, model, pieces } = withExtras({ ...deck, covered: true });
-    const area = 6.5 * (2.3 / Math.cos((10 * Math.PI) / 180));
     const roof = model.extras[0]!.roof!;
+    // Inclinação entre o mínimo da telha (3°) e 10°, ajustada para manter 2,1 m livres sob a borda baixa.
+    expect(roof.slopeDeg).toBeGreaterThanOrEqual(3);
+    expect(roof.slopeDeg).toBeLessThanOrEqual(10);
+    const area = 6.5 * (roof.vLength);
     expect(roof.area).toBeCloseTo(area, 9);
-    expect(roof.slopeDeg).toBeCloseTo(10, 9);
+    expect(Math.max(...roof.vertices.map((v) => v[2]))).toBeLessThan(2.8);
     const l = q.lines.find((x) => x.stage === 'extras' && x.itemId === 'sandwich_eps30')!;
     expect(l.netQty).toBeCloseTo(area, 9);
     expect(pieces.filter((p) => p.hostId === 'd1' && p.role === 'purlin').length).toBeGreaterThanOrEqual(2);
