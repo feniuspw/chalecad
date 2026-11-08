@@ -179,6 +179,15 @@ const MAT_COLS = [
   { key: 'subtotal', label: 'Subtotal', flex: 1.7, right: true },
 ] as const;
 
+const ROOM_COLS = [
+  { key: 'name', label: 'Cômodo', flex: 2.2 },
+  { key: 'use', label: 'Uso', flex: 1.6 },
+  { key: 'area', label: 'Área', flex: 1.2, right: true },
+  { key: 'ceilingAvg', label: 'Pé-direito médio', flex: 1.5, right: true },
+  { key: 'floor', label: 'Piso', flex: 3 },
+  { key: 'walls', label: 'Paredes', flex: 3 },
+] as const;
+
 function MatRow({ r, i }: { r: Record<(typeof MAT_COLS)[number]['key'], string>; i: number }) {
   return (
     <View style={[s.tr, i % 2 ? s.trAlt : {}]} wrap={false}>
@@ -243,6 +252,27 @@ export function ChaleDocument({ data, plans, elevations }: ChaleDocumentProps) {
             <KeyValues rows={data.dimensions} />
           </View>
         </View>
+        {data.rooms.length > 0 ? (
+          <View wrap={false}>
+            <Text style={s.h2}>Cômodos</Text>
+            <View style={s.thead}>
+              {ROOM_COLS.map((c) => (
+                <Text key={c.key} style={[s.th, { flex: c.flex }, 'right' in c ? s.right : {}]}>
+                  {c.label}
+                </Text>
+              ))}
+            </View>
+            {data.rooms.map((r, i) => (
+              <View key={i} style={[s.tr, i % 2 ? s.trAlt : {}]}>
+                {ROOM_COLS.map((c) => (
+                  <Text key={c.key} style={[s.td, { flex: c.flex }, 'right' in c ? s.right : {}]}>
+                    {r[c.key]}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+        ) : null}
         <Text style={s.h2}>Orçamento resumido</Text>
         <KeyValues rows={data.budget.totals.map((t) => ({ label: t.label, value: t.value }))} />
       </Section>

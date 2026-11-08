@@ -89,7 +89,8 @@ describe('tabela de cômodos', () => {
     expect(data.rooms[0]!.floor).toContain('vinílico');
     expect(data.rooms[0]!.walls).toContain('Pintura');
     expect(data.rooms[1]).toMatchObject({ area: 'aberto', walls: 'Sem revestimento' });
-    expect(data.premises.some((g) => g.group === 'Cômodos')).toBe(true);
+    // cômodos saem na tabela própria do documento, não nas premissas
+    expect(data.premises.some((g) => g.group === 'Cômodos')).toBe(false);
   });
 
   it('sem cômodos, nada muda', () => {

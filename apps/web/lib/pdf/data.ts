@@ -331,13 +331,6 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
     },
   ];
 
-  if (rooms.length > 0) {
-    // O documento lista as premissas em pares rótulo/valor: os cômodos entram por aqui até haver tabela própria.
-    premises.splice(2, 0, {
-      group: 'Cômodos',
-      items: rooms.map((r) => ({ label: r.name, value: `${r.use} · ${r.area} · pé-direito médio ${r.ceilingAvg} · piso: ${r.floor} · paredes: ${r.walls}` })),
-    });
-  }
 
   return {
     title: project.meta.name,
