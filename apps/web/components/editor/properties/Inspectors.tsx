@@ -304,6 +304,8 @@ export function ObjectInspector() {
       return <StairInspector obj={obj} />;
     case 'extra':
       return <ExtraInspector id={obj.id} project={project} />;
+    case 'room':
+      return null; // F5-W1: RoomInspector
     default:
       return <HostInspector obj={obj} project={project} />;
   }

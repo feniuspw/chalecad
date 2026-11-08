@@ -2,7 +2,7 @@
  * Contratos de saída do motor. Tudo aqui é JSON serializável (sem classes, Map, funções).
  * Convenção de coordenadas: [x, y, z] com z para cima (ver project.ts).
  */
-import type { OpeningType, Stage, TypologyKind, Vec2 } from './project';
+import type { OpeningType, RoomUse, Stage, TypologyKind, Vec2 } from './project';
 
 export type Vec3 = [number, number, number];
 
@@ -60,6 +60,34 @@ export interface RoofPlane {
   isWall: boolean;
   /** Contorno real em (u, v) quando a água não é o retângulo u × v (ex.: recorte de anexo no A-frame). */
   outline?: Vec2[];
+}
+
+/** Trecho do contorno de um cômodo e o que há nele. */
+export interface RoomEdge {
+  from: Vec2;
+  to: Vec2;
+  /** Parede (externa ou interna) sob este trecho; null = aberto (sem parede) ou água do A-frame. */
+  hostId: string | null;
+}
+
+/** Cômodo resolvido pelo motor a partir do `seed` e das paredes. */
+export interface RoomModel {
+  id: string;
+  level: string;
+  use: RoomUse;
+  name: string;
+  /** Contorno no eixo das paredes (anti-horário). null se o ponto não está dentro de um ambiente fechado. */
+  polygon: Vec2[] | null;
+  edges: RoomEdge[];
+  area: number;
+  perimeter: number;
+  /** Altura livre (piso → teto, laje de cima ou telhado), em m: mínima, média (pela área) e máxima. */
+  ceiling: { min: number; avg: number; max: number };
+  /** Área de vidro que ilumina o cômodo (janelas, portas de vidro, claraboias e fachada envidraçada) e as aberturas que contam. */
+  glazing: number;
+  openingIds: string[];
+  /** Banheiro, cozinha e lavanderia: paredes internas do contorno usam a assembly molhada. */
+  wet: boolean;
 }
 
 export interface SlabModel {
@@ -130,6 +158,7 @@ export interface BuildingModel {
   stairs: ResolvedStair[];
   /** Preenchido pelos extras (vazio até a Fase 2). */
   extras: ExtraModel[];
+  rooms: RoomModel[];
   ridgeHeight: number;
   bbox: { min: Vec3; max: Vec3 };
 }

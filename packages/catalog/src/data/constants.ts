@@ -73,6 +73,17 @@ export const constants: TechnicalConstants = {
     lightRatio: 1 / 6,
     ventRatio: 1 / 12,
     safetyGlassSill: 0.9,
+    // NBR 15575: 2,50 m em ambientes de permanência prolongada; 2,30 m em banheiro, lavanderia, circulação e depósito.
+    rooms: {
+      living: { ceiling: 2.5, light: true, vent: true, wet: false, minArea: 8 },
+      bedroom: { ceiling: 2.5, light: true, vent: true, wet: false, minArea: 6 },
+      kitchen: { ceiling: 2.5, light: true, vent: true, wet: true, minArea: 4 },
+      bathroom: { ceiling: 2.3, light: false, vent: true, wet: true, minArea: 1.5 },
+      laundry: { ceiling: 2.3, light: false, vent: true, wet: true, minArea: 1.5 },
+      circulation: { ceiling: 2.3, light: false, vent: false, wet: false, minArea: 0 },
+      storage: { ceiling: 2.3, light: false, vent: false, wet: false, minArea: 0 },
+      other: { ceiling: 2.3, light: false, vent: false, wet: false, minArea: 0 },
+    },
   },
   floor: { hardenerKgPerM2: 4, sealerLPerM2: 0.2 },
   defaultCeilingMax: 2.8,

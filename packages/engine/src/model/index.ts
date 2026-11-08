@@ -379,6 +379,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     openings,
     stairs,
     extras: buildExtraModels(project, catalog.constants.extras),
+    rooms: [], // F5-E1: resolvido por model/rooms.ts
     ridgeHeight,
     bbox: bbox3(pts),
   };

@@ -313,6 +313,14 @@ export const TechnicalConstants = z.object({
     ventRatio: pos,
     /** Vidro abaixo desta altura do piso (ou fachada envidraçada) pede vidro de segurança. */
     safetyGlassSill: pos,
+    /**
+     * Regras por uso do cômodo: pé-direito mínimo, se exige janela para iluminação (1/lightRatio) ou só ventilação
+     * (1/ventRatio, ou exaustão mecânica), se é área molhada e área mínima usual (código de obras).
+     */
+    rooms: z.record(
+      z.string(),
+      z.object({ ceiling: pos, light: z.boolean(), vent: z.boolean(), wet: z.boolean(), minArea: nonneg }),
+    ),
   }),
   /** Piso de concreto sobre o radier: consumos por m². */
   floor: z.object({ hardenerKgPerM2: pos, sealerLPerM2: pos }),

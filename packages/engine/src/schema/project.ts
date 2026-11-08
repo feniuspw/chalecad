@@ -447,6 +447,42 @@ export const Budget = z
 // Projeto
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Cômodos e acabamentos
+// ---------------------------------------------------------------------------
+
+/** Uso do cômodo: define pé-direito mínimo, exigência de janela e área molhada. */
+export const RoomUse = z.enum(['living', 'kitchen', 'bedroom', 'bathroom', 'laundry', 'circulation', 'storage', 'other']);
+export type RoomUse = z.infer<typeof RoomUse>;
+
+/**
+ * Cômodo. Não guarda contorno: o motor acha o polígono fechado pelas paredes em volta do ponto `seed`
+ * (paredes externas e internas do nível; no mezanino, a borda da laje). Assim o cômodo acompanha as paredes.
+ */
+export const Room = z.object({
+  id: Id,
+  level: Id,
+  use: RoomUse,
+  name: z.string().max(40).optional(),
+  seed: Vec2,
+  /** Material de piso (catálogo, `finish_floor_*`). Ausente = acabamento do nível. */
+  floor: Id.optional(),
+  /** Revestimento das paredes (catálogo, `finish_wall_*`). Ausente = sem revestimento orçado. */
+  walls: Id.optional(),
+});
+export type Room = z.infer<typeof Room>;
+
+/** Acabamentos gerais. Ausente = sem item de acabamento orçado (só o fechamento da assembly). */
+export const Finishes = z.object({
+  /** Revestimento externo das paredes (catálogo, `finish_facade_*`). */
+  facade: Id.optional(),
+  /** Face interna das águas que são parede (A-frame): `finish_ceiling_*`. */
+  interiorRoof: Id.optional(),
+  /** Cor da telha (só visual). */
+  roofColor: z.enum(['graphite', 'black', 'terracotta', 'white', 'green']).optional(),
+});
+export type Finishes = z.infer<typeof Finishes>;
+
 export const ProjectBase = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   meta: Meta,
@@ -467,6 +503,8 @@ export const ProjectBase = z.object({
   roof: Roof.default({ cladding: 'sandwich_eps30', ridgeAxis: 'depth', gutters: true }),
   utilities: z.array(UtilityPoint).default([]),
   extras: z.array(Extra).default([]),
+  rooms: z.array(Room).default([]),
+  finishes: Finishes.default({}),
   design: Design,
   budget: Budget,
   priceBookId: Id.default('default-2026-11'),
@@ -488,6 +526,7 @@ export const Project = ProjectBase.superRefine((p, ctx) => {
   dup(p.openings.map((o) => o.id), 'openings');
   dup(p.stairs.map((s) => s.id), 'stairs');
   dup(p.extras.map((e) => e.id), 'extras');
+  dup(p.rooms.map((r) => r.id), 'rooms');
 
   const levelIds = new Set(p.levels.map((l) => l.id));
   const wallIds = new Set(p.walls.map((w) => w.id));
@@ -523,6 +562,9 @@ export const Project = ProjectBase.superRefine((p, ctx) => {
       }
     });
   }
+  p.rooms.forEach((r, i) => {
+    if (!levelIds.has(r.level)) ctx.addIssue({ code: 'custom', path: ['rooms', i, 'level'], message: `Nível inexistente: ${r.level}` });
+  });
   p.stairs.forEach((s, i) => {
     if (!levelIds.has(s.from)) ctx.addIssue({ code: 'custom', path: ['stairs', i, 'from'], message: `Nível inexistente: ${s.from}` });
     if (!levelIds.has(s.to)) ctx.addIssue({ code: 'custom', path: ['stairs', i, 'to'], message: `Nível inexistente: ${s.to}` });

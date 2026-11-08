@@ -5,7 +5,7 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { applyPatches as immerApplyPatches, enablePatches, produceWithPatches, type Patch } from 'immer';
-import { loadProject, type Opening, type Project, type ResolvedOpening, type Stair, type Wall } from '@chalecad/engine';
+import { loadProject, type Opening, type Project, type ResolvedOpening, type Room, type RoomModel, type Stair, type Wall } from '@chalecad/engine';
 import { createProject } from '../project/templates';
 import { groundLevel } from '../project/edit';
 import type {
@@ -253,7 +253,8 @@ export type SelectedObject =
   | { kind: 'slab'; id: string }
   | { kind: 'level'; id: string }
   | { kind: 'extra'; id: string }
-  | { kind: 'piece'; id: string };
+  | { kind: 'piece'; id: string }
+  | { kind: 'room'; room: Room; resolved: RoomModel | null };
 
 /** Resolve a seleção para o objeto do projeto (ou null). Função pura, testável. */
 export function resolveSelection(state: Pick<EditorStore, 'selection' | 'project' | 'results'>): SelectedObject | null {
@@ -273,6 +274,11 @@ export function resolveSelection(state: Pick<EditorStore, 'selection' | 'project
     case 'stair': {
       const stair = project.stairs.find((s) => s.id === sel.id);
       return stair ? { kind: 'stair', stair } : null;
+    }
+    case 'room': {
+      const room = project.rooms.find((r) => r.id === sel.id);
+      if (!room) return null;
+      return { kind: 'room', room, resolved: state.results?.model.rooms.find((r) => r.id === sel.id) ?? null };
     }
     default:
       return { kind: sel.kind, id: sel.id };

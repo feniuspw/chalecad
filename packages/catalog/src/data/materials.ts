@@ -88,4 +88,20 @@ export const materials: Material[] = [
   m('gabion', 'Gabião', 'earthwork', 'm3', 'm³', 1, 1700, 3, frac),
   m('geotextile', 'Geotêxtil', 'earthwork', 'm2', 'm²', 1, 0.2, 10, frac),
   m('drain_pipe', 'Dreno', 'earthwork', 'm', 'm', 1, 0.5, 5, frac),
+  // Acabamentos escolhidos por cômodo (piso, paredes), fachada e face interna das águas. Preço de material por m²;
+  // a mão de obra de acabamento já é orçada por m² construído.
+  m('finish_floor_porcelain', 'Porcelanato 60 x 60 (com argamassa e rejunte)', 'finishing', 'm2', 'm²', 1, 23, 10, frac),
+  m('finish_floor_ceramic', 'Piso cerâmico 45 x 45 (com argamassa e rejunte)', 'finishing', 'm2', 'm²', 1, 18, 10, frac),
+  m('finish_floor_vinyl', 'Piso vinílico em régua', 'finishing', 'm2', 'm²', 1, 5, 8, frac),
+  m('finish_floor_laminate', 'Piso laminado', 'finishing', 'm2', 'm²', 1, 8, 8, frac),
+  m('finish_floor_wood', 'Assoalho de madeira maciça', 'finishing', 'm2', 'm²', 1, 18, 10, frac),
+  m('finish_wall_paint', 'Pintura acrílica (selador, massa e 2 demãos)', 'finishing', 'm2', 'm²', 1, 0.5, 5, frac),
+  m('finish_wall_wood', 'Lambri de madeira (pinus tratado)', 'finishing', 'm2', 'm²', 1, 8, 10, frac),
+  m('finish_wall_tile', 'Revestimento cerâmico de parede (com argamassa)', 'finishing', 'm2', 'm²', 1, 15, 10, frac),
+  m('finish_facade_texture', 'Textura acrílica sobre placa cimentícia', 'finishing', 'm2', 'm²', 1, 2, 5, frac),
+  m('finish_facade_wood', 'Siding de madeira tratada', 'finishing', 'm2', 'm²', 1, 10, 10, frac),
+  m('finish_facade_siding', 'Siding vinílico', 'finishing', 'm2', 'm²', 1, 3, 8, frac),
+  m('finish_facade_brick', 'Plaqueta de tijolinho', 'finishing', 'm2', 'm²', 1, 25, 10, frac),
+  m('finish_ceiling_wood', 'Forro de lambri de madeira (pinus)', 'finishing', 'm2', 'm²', 1, 8, 10, frac),
+  m('finish_ceiling_paint', 'Pintura do drywall (massa e 2 demãos)', 'finishing', 'm2', 'm²', 1, 0.5, 5, frac),
 ];

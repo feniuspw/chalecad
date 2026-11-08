@@ -14,6 +14,20 @@ const STEEL_BRL_PER_KG = 13.5;
 
 /** Materiais: [preço, preço máx?] por unidade de compra. */
 const MATERIAL_PRICES: Record<string, [number, number?]> = {
+  finish_floor_porcelain: [95, 140],
+  finish_floor_ceramic: [55, 75],
+  finish_floor_vinyl: [85, 120],
+  finish_floor_laminate: [65, 90],
+  finish_floor_wood: [230, 320],
+  finish_wall_paint: [18, 25],
+  finish_wall_wood: [75, 110],
+  finish_wall_tile: [60, 90],
+  finish_facade_texture: [28, 40],
+  finish_facade_wood: [120, 170],
+  finish_facade_siding: [70, 95],
+  finish_facade_brick: [95, 130],
+  finish_ceiling_wood: [70, 100],
+  finish_ceiling_paint: [18, 25],
   cement_board_10: [138.24],
   osb_11: [95],
   osb_18: [168],

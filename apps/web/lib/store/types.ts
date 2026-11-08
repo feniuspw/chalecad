@@ -11,9 +11,9 @@ export type ViewMode = 'finished' | 'skeleton' | 'exploded' | 'heatmap';
 /** Câmera: 3D orbital ou ortográficas 2D. `plan` mostra o nível ativo em planta. */
 export type CameraView = '3d' | 'plan' | 'front' | 'back' | 'left' | 'right';
 
-export type Tool = 'select' | 'wall' | 'opening' | 'stair' | 'mezzanine' | 'measure' | 'dimension';
+export type Tool = 'select' | 'wall' | 'opening' | 'stair' | 'mezzanine' | 'measure' | 'dimension' | 'room';
 
-export type SelectionKind = 'host' | 'opening' | 'wall' | 'stair' | 'level' | 'extra' | 'piece' | 'roof' | 'slab';
+export type SelectionKind = 'host' | 'opening' | 'wall' | 'stair' | 'level' | 'extra' | 'piece' | 'roof' | 'slab' | 'room';
 export interface Selection {
   kind: SelectionKind;
   id: string;
