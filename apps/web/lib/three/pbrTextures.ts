@@ -4,14 +4,15 @@
  * para o desmonta-monta do React não regenerar tudo).
  */
 import * as THREE from 'three';
-import { describePbr, normalFromHeight, normalStrength, pbrPixels, pbrRepeat, renderPattern, type PbrTier } from './pbr';
+import { describePbr, materialRoughness, normalFromHeight, normalStrength, pbrPixels, pbrRepeat, renderPattern, type PbrTier } from './pbr';
+import { applyGain, hexRgb, meanGain, photoFor, photoUrl, type PhotoSpec } from './photoTextures';
 
 export interface PbrMaps {
   id: string;
   tier: PbrTier;
-  map: THREE.CanvasTexture;
-  normalMap: THREE.CanvasTexture;
-  roughnessMap: THREE.CanvasTexture;
+  map: THREE.Texture;
+  normalMap: THREE.Texture;
+  roughnessMap: THREE.Texture;
 }
 
 interface Entry {
@@ -60,7 +61,48 @@ export function getPbrMaps(id: string | undefined, tier: PbrTier): PbrMaps | und
   const maps: PbrMaps = { id, tier, map: makeTexture(a, rep, true), normalMap: makeTexture(n, rep, false), roughnessMap: makeTexture(r, rep, false) };
   cache.set(k, { maps, refs: 0 });
   scheduleSweep();
+  const photo = photoFor(id, tier);
+  if (photo) void upgradeToPhoto(maps, photo);
   return maps;
+}
+
+const loader = typeof document === 'undefined' ? undefined : new THREE.ImageLoader();
+
+/**
+ * Troca as imagens procedurais pelas fotos quando as três carregam (os mesmos objetos `Texture`, então os materiais
+ * não precisam ser recriados). `dispose` antes: a GPU realoca a textura com o novo tamanho.
+ */
+/** Foto em canvas com a média ajustada para `target` (cor do acabamento ou rugosidade do material). */
+function normalized(img: HTMLImageElement, target: [number, number, number]): HTMLCanvasElement | undefined {
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return undefined;
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, c.width, c.height);
+  applyGain(data.data, meanGain(data.data, target));
+  ctx.putImageData(data, 0, 0);
+  return c;
+}
+
+async function upgradeToPhoto(maps: PbrMaps, photo: PhotoSpec): Promise<void> {
+  if (!loader) return;
+  const imgs = await Promise.all((['diff', 'nor', 'rough'] as const).map((m) => loader.loadAsync(photoUrl(photo, m)))).catch(() => undefined);
+  if (!imgs || cache.get(key(maps.id, maps.tier))?.maps !== maps) return;
+  const spec = describePbr(maps.id);
+  const rough = Math.round(materialRoughness(maps.id) * 255);
+  const diff = spec ? normalized(imgs[0]!, hexRgb(spec.color)) : undefined;
+  const rgh = normalized(imgs[2]!, [rough, rough, rough]);
+  if (!diff || !rgh) return;
+  const images = [diff, imgs[1]!, rgh];
+  [maps.map, maps.normalMap, maps.roughnessMap].forEach((t, i) => {
+    t.dispose();
+    t.image = images[i]!;
+    t.repeat.set(1 / photo.size, 1 / photo.size);
+    t.rotation = photo.rotate ? Math.PI / 2 : 0;
+    t.needsUpdate = true;
+  });
 }
 
 export function retainPbr(id: string | undefined, tier: PbrTier): void {
