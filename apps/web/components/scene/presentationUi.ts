@@ -20,6 +20,9 @@ interface PresentationUi {
   playing: boolean;
   /** Quadros por segundo medidos (null fora do modo apresentação). */
   fps: number | null;
+  /** Tarefa longa em andamento (fotos em lote ou vídeo). Durante o vídeo os painéis somem e a câmera trava. */
+  task: { kind: 'photos' | 'video'; label: string; progress: number } | null;
+  setTask(t: PresentationUi['task']): void;
   setQuality(q: QualityChoice): void;
   setDegraded(v: boolean): void;
   setLamps(v: boolean): void;
@@ -39,6 +42,8 @@ export const usePresentationUi = create<PresentationUi>()((set) => ({
   vegetation: true,
   playing: false,
   fps: null,
+  task: null,
+  setTask: (task) => set({ task }),
   setQuality: (quality) => set({ quality, degraded: false }),
   setDegraded: (degraded) => set((s) => (s.degraded === degraded ? s : { degraded })),
   setLamps: (lamps) => set({ lamps }),

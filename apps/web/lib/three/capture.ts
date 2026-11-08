@@ -1,6 +1,6 @@
 /**
  * Salvar imagem: nome do arquivo, resolução alvo e registro da função de captura (a cena registra
- * o que sabe renderizar; o painel só chama). Sem three nem DOM.
+ * o que sabe renderizar; o painel só chama). Sem three; DOM só nas funções de download.
  */
 
 /** `nome-do-projeto-AAAA-MM-DD-HHhMM.png` (nome sem acentos, minúsculo, hifenizado). */
@@ -22,16 +22,36 @@ export function captureScale(cssWidth: number, cssHeight: number, dpr: number, m
   return Math.max(1, target);
 }
 
-export type CaptureFn = () => Promise<void>;
+/** Gera o PNG da cena em alta resolução (a cena sabe renderizar). */
+export type CaptureFn = () => Promise<Blob>;
 let registered: CaptureFn | null = null;
 
 export function registerCapture(fn: CaptureFn | null) {
   registered = fn;
 }
 
-/** Dispara a captura; false se a cena de apresentação não está montada. */
-export async function captureImage(): Promise<boolean> {
-  if (!registered) return false;
-  await registered();
+/** PNG da cena atual; null se a cena de apresentação não está montada. */
+export async function captureBlob(): Promise<Blob | null> {
+  return registered ? registered() : null;
+}
+
+/** Baixa um blob pelo navegador. */
+export function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/** Dispara a captura e baixa o PNG; false se a cena de apresentação não está montada. */
+export async function captureImage(fileName?: string): Promise<boolean> {
+  const blob = await captureBlob();
+  if (!blob) return false;
+  const name = fileName ?? imageFileName((await import('@/lib/store/editor')).useEditor.getState().project.meta.name, new Date());
+  downloadBlob(blob, name);
   return true;
 }

@@ -4,9 +4,9 @@ import { PerformanceMonitor } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
-import { captureScale, imageFileName, registerCapture } from '@/lib/three/capture';
-import { useEditor } from '@/lib/store/editor';
+import { captureScale, registerCapture } from '@/lib/three/capture';
 import { autoExposure } from '@/lib/three/landscape';
+import { CameraDirector } from './CameraDirector';
 import { Exposure } from './ExposureEffect';
 import { effectiveQuality, usePresentationUi } from './presentationUi';
 import { useSunState } from './useSunState';
@@ -55,6 +55,7 @@ export function PresentationFx() {
       </EffectComposer>
       <FpsMeter />
       <ImageCapture />
+      <CameraDirector />
     </>
   );
 }
@@ -84,13 +85,13 @@ function FpsMeter() {
 function ImageCapture() {
   const gl = useThree((s) => s.gl);
   const getState = useThree((s) => s.get);
-  const request = useRef<{ wait: number; restore: number; done: () => void; fail: (e: Error) => void } | null>(null);
+  const request = useRef<{ wait: number; restore: number; done: (b: Blob) => void; fail: (e: Error) => void } | null>(null);
 
   useEffect(() => {
     registerCapture(
       () =>
-        new Promise<void>((resolve, reject) => {
-          if (request.current) return resolve();
+        new Promise<Blob>((resolve, reject) => {
+          if (request.current) return reject(new Error('Já existe uma captura em andamento.'));
           const { size, viewport, setDpr } = getState();
           const restore = viewport.dpr;
           setDpr(captureScale(size.width, size.height, window.devicePixelRatio || 1, gl.capabilities.maxTextureSize));
@@ -109,15 +110,7 @@ function ImageCapture() {
     const restore = () => getState().setDpr(r.restore);
     gl.domElement.toBlob((blob) => {
       if (!blob) return r.fail(new Error('Não foi possível gerar a imagem.'));
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = imageFileName(useEditor.getState().project.meta.name, new Date());
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      r.done();
+      r.done(blob);
     }, 'image/png');
     restore();
   }, 2);

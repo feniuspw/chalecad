@@ -10,6 +10,7 @@ import { useEditor } from '@/lib/store/editor';
 import { Compass } from './Compass';
 import { usePresentationUi, type QualityChoice } from './presentationUi';
 import { useSunState } from './useSunState';
+import { TaskBar, ViewsSection } from './ViewsSection';
 
 const QUALITY: { id: QualityChoice; label: string; hint: string }[] = [
   { id: 'auto', label: 'Auto', hint: 'Começa em Alta e cai para Leve se o FPS ficar baixo' },
@@ -22,7 +23,7 @@ const DAY_SECONDS = 14;
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
-/** Painel do sol do modo apresentação: data, hora, animação, atalhos, compasso, andar por dentro, salvar imagem. */
+/** Painel do sol do modo apresentação: data, hora, animação, atalhos, compasso, câmera (vistas, fotos, vídeo), andar por dentro, salvar imagem. */
 export interface SunPanelProps {
   /** Mostra "Andar por dentro" (padrão: sim). Falso em telas de toque, sem PointerLock. */
   allowWalk?: boolean;
@@ -41,6 +42,7 @@ export function SunPanel({ allowWalk = true, allowSave = true, compact = false, 
   const walk = useEditor((s) => s.walk);
   const hasModel = useEditor((s) => Boolean(s.results?.model));
   const { quality, lamps, installations, playing, fps, scenario, vegetation, setQuality, setLamps, setInstallations, setPlaying, setScenario, setVegetation } = usePresentationUi();
+  const recording = usePresentationUi((s) => s.task?.kind === 'video');
   const installationsOn = useEditor((s) => s.project.installations.enabled);
 
   // a hora vai de um pouco antes do nascer a um pouco depois do pôr (crepúsculo, para as luzes acesas fazerem sentido)
@@ -106,7 +108,9 @@ export function SunPanel({ allowWalk = true, allowSave = true, compact = false, 
   }
 
   return (
-    <div className={cn('pointer-events-auto absolute bottom-14 left-3 w-[22rem] max-w-[calc(100%-1.5rem)] rounded-xl border border-border bg-white/92 p-3 shadow-float backdrop-blur', className)} aria-label="Painel do sol">
+    <>
+    <TaskBar />
+    <div hidden={recording} className={cn('pointer-events-auto absolute bottom-14 left-3 max-h-[calc(100%-5rem)] w-[22rem] overflow-y-auto max-w-[calc(100%-1.5rem)] rounded-xl border border-border bg-white/92 p-3 shadow-float backdrop-blur', className)} aria-label="Painel do sol">
       <div className="flex gap-3">
         <div className="min-w-0 flex-1 space-y-2.5">
           <div className="flex items-center gap-2">
@@ -225,6 +229,7 @@ export function SunPanel({ allowWalk = true, allowSave = true, compact = false, 
           ) : null}
         </div>
       ) : null}
+      {hasModel ? <ViewsSection compact={compact} /> : null}
       <div className="mt-1.5 flex justify-between text-[10px] text-stone-400 tabular-nums">
         <span>
           {sun.location.city ?? `${sun.location.lat.toFixed(2)}°, ${sun.location.lon.toFixed(2)}°`} · norte a {Math.round(sun.northDeg)}°
@@ -232,5 +237,6 @@ export function SunPanel({ allowWalk = true, allowSave = true, compact = false, 
         {fps !== null ? <span>{fps} fps</span> : null}
       </div>
     </div>
+    </>
   );
 }
