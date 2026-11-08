@@ -146,7 +146,8 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
     if (widx < woodMin || widx > woodMax) {
       out.push({
         code: 'wood.index',
-        severity: 'warn',
+        // Índice de sanidade (referência de mercado), não verificação de segurança: só informa.
+        severity: 'info',
         message: `Índice de madeira de ${fmt(widx, 3)} m³/m² fora da faixa usual (${fmt(woodMin, 3)} a ${fmt(woodMax, 3)} m³/m²). Revise seções e espaçamentos.`,
       });
     }
@@ -162,7 +163,8 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
     if (idx < steelMin || idx > steelMax) {
       out.push({
         code: 'steel.index',
-        severity: 'warn',
+        // Índice de sanidade (referência de mercado), não verificação de segurança: só informa.
+        severity: 'info',
         message: `Índice de aço de ${fmt(idx, 1)} kg/m² fora da faixa usual (${fmt(steelMin, 1)} a ${fmt(steelMax, 1)} kg/m²). Revise perfis e espaçamentos.`,
       });
     }

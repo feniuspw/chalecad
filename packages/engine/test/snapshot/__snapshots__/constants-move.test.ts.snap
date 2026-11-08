@@ -16,15 +16,15 @@ exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > fixture
 
 exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > hash do resultado completo (fixture, A-frame, extras + terreno) 1`] = `
 {
-  "aframe": "ff096db8c55caeb8",
-  "everything": "23abcc32f9a9da70",
-  "gable": "d5f1694966960cd5",
+  "aframe": "a6df4bffed1d0f02",
+  "everything": "846d43bc96bba745",
+  "gable": "0cc826d009d3ac2a",
 }
 `;
 
 exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > hash do roteiro de obra e do pacote do engenheiro 1`] = `
 {
-  "engineer": "a5f6e71d7d17d63a",
+  "engineer": "9122542f8c587530",
   "guide": "2c5ed47873398335",
 }
 `;
