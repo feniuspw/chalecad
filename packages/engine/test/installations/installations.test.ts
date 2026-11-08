@@ -170,17 +170,20 @@ describe('instalações: caixa d água, vazio e orçamento', () => {
     expect(r.weight.totalKg).toBeCloseTo(off.weight.totalKg, 6);
   });
 
-  test('quantitativos: breaker = circuitos + 1, panel_box, caixas e fios por bitola', () => {
+  test('quantitativos: itens elétricos vêm do projeto elétrico (F16-E1); os estimados saem', () => {
     const r = run({ ...bedroom, installations: inst() });
+    const e = r.installations!.electrical!;
     const line = (id: string) => r.quantities.lines.find((l) => l.stage === 'installations' && l.itemId === id);
-    expect(line('breaker')!.netQty).toBe(r.installations!.circuits.length + 1);
-    expect(line('panel_box')!.netQty).toBe(1);
+    expect(line('breaker')!.netQty).toBe(e.circuits.length); // sem o +1 da estimativa antiga
+    expect(line('breaker_main')!.netQty).toBe(1);
+    expect(line(e.panel.size === 18 ? 'panel_box' : `panel_${e.panel.size}`)!.netQty).toBe(1);
     expect(line('box_4x2')!.netQty).toBe(4); // 3 tomadas + 1 interruptor
     expect(line('outlet_2pt')!.netQty).toBe(3);
-    expect(line('light_fixture')!.netQty).toBe(1);
+    expect(line('light_fixture')).toBeUndefined(); // vira lum_plafon_18w (luminária do projeto elétrico)
+    expect(line('lum_plafon_18w')!.netQty).toBe(e.layout.points.filter((p) => p.kind === 'light').length);
     expect(line('wire_1_5')!.netQty).toBeGreaterThan(0);
     expect(line('wire_2_5')!.netQty).toBeGreaterThan(0);
-    expect(line('breaker_dr')!.netQty).toBe(1);
+    expect(line('dps_175')!.netQty).toBe(1);
   });
 
   test('desempenho: instalações em poucos ms e computeAll abaixo de 300 ms', () => {
