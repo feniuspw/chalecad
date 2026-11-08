@@ -26,6 +26,8 @@ export interface WarningContext {
   terrainWarnings?: EngineWarning[];
   /** Alertas das instalações estimadas (de `computeInstallations`). */
   installationWarnings?: EngineWarning[];
+  /** Alertas de desempenho (térmico e solar, de `computePerformance`). */
+  performanceWarnings?: EngineWarning[];
   /** Pré-dimensionamento (cargas usadas no empuxo do A-frame). */
   structure?: StructuralReport;
 }
@@ -268,6 +270,7 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
   out.push(...furnitureWarnings({ project, model, catalog }));
   out.push(...(ctx.terrainWarnings ?? []));
   out.push(...(ctx.installationWarnings ?? []));
+  out.push(...(ctx.performanceWarnings ?? []));
 
   return out
     .map((w, i) => ({ w, i }))

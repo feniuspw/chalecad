@@ -150,6 +150,21 @@ export function buildEngineerPackage(project: Project, results: Results, catalog
       .join('; ');
     ask('rooms', `Cômodos do projeto: ${list}. Conferir pé-direito, iluminação e ventilação de cada um com o código de obras do município e as cargas das paredes internas molhadas.`);
   }
+  let thermal: EngineerPackage['summary']['thermal'];
+  const perf = results.performance;
+  if (perf && perf.thermal.length > 0) {
+    thermal = {
+      zone: perf.zone,
+      elements: perf.thermal.map((e) => ({ kind: e.kind, label: e.label, U: e.U, CT: e.CT, limitU: e.limitU, limitCT: e.limitCT })),
+    };
+    const desc = perf.thermal
+      .map((e) => `${e.kind === 'wall' ? 'parede' : 'cobertura'} U ${fmt(e.U)} W/m²K (limite ${fmt(e.limitU, 1)}), CT ${fmt(e.CT, 0)} kJ/m²K`)
+      .join('; ');
+    ask(
+      'thermal',
+      `Desempenho térmico (NBR 15575, simplificado, zona bioclimática ${perf.zone}${perf.zoneSource === 'uf' ? ', pela capital do estado' : ''}): ${desc}. Desempenho térmico: confirmar por simulação (CT baixa em sistema leve)?`,
+    );
+  }
   const spliced = quantities.lines.filter((l) => l.note?.includes('emenda'));
   if (spliced.length > 0) {
     ask('splices', `Há peças maiores que a barra comercial (${spliced.map((l) => l.name).join(', ')}): definir o detalhe de emenda.`);
@@ -203,6 +218,7 @@ export function buildEngineerPackage(project: Project, results: Results, catalog
       steelKg: quantities.steelKg,
       totalWeightKg: weight.totalKg,
       ...(installations ? { installations } : {}),
+      ...(thermal ? { thermal } : {}),
     },
     loadAssumptions: {
       loads: structure ? { ...structure.loads } : null,

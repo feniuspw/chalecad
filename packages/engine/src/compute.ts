@@ -2,6 +2,7 @@ import type { Catalog } from '@chalecad/catalog';
 import { getPriceBook } from '@chalecad/catalog';
 import { computeBudget } from './budget';
 import { computeInstallations } from './installations';
+import { computePerformance } from './performance';
 import { loadProject } from './load';
 import { buildModel } from './model';
 import { computeQuantities } from './quantities';
@@ -52,7 +53,9 @@ export function computeAllWith(
   // Instalações antes dos quantitativos: os itens da etapa `installations` entram na compra.
   const installs = computeInstallations(project, model, catalog);
   if (installs) lap('installations');
-  const quantities = computeQuantities(model, pieces, project, catalog, terrainResult?.items, installs?.items);
+  const perf = computePerformance(project, model, catalog);
+  lap('performance');
+  const quantities = computeQuantities(model, pieces, project, catalog, terrainResult?.items, installs?.items, perf.items);
   lap('quantities');
   const weight = computeWeight(model, pieces, quantities, project, catalog);
   lap('weight');
@@ -69,6 +72,7 @@ export function computeAllWith(
     catalog,
     terrainWarnings: terrainResult?.warnings,
     installationWarnings: installs?.warnings,
+    performanceWarnings: perf.warnings,
     structure,
   });
   lap('warnings');
@@ -85,7 +89,7 @@ export function computeAllWith(
     budget,
     terrain: terrainResult?.report ?? null,
     installations: installs?.report ?? null,
-    performance: null,
+    performance: perf.report,
     warnings,
     timingsMs,
   };
