@@ -17,7 +17,9 @@ export function tryPatch(project: Project, ops: readonly JsonPatchOp[]): PatchOu
   if (!parsed.success) {
     return { ok: false, errors: parsed.error.issues.slice(0, 8).map((i) => `${i.path.join('.') || '(raiz)'}: ${i.message}`) };
   }
-  if (JSON.stringify(parsed.data) === JSON.stringify(project)) {
+  // compara com o projeto normalizado: campos novos com padrão (schema aditivo) não contam como mudança
+  const before = Project.safeParse(project);
+  if (JSON.stringify(parsed.data) === JSON.stringify(before.success ? before.data : project)) {
     return { ok: false, errors: ['O patch não altera nada no projeto (confira os caminhos dos campos).'] };
   }
   return { ok: true, project: parsed.data };
