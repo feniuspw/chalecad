@@ -252,12 +252,12 @@ describe('paredes do usuário', () => {
     });
     const m = buildModel(p, testCatalog);
     const w = Object.fromEntries(m.walls.map((x) => [x.id, x]));
-    expect(w.x1!.outline[2]![1]).toBeCloseTo(2.2, 9); // até L2 (5 - 2.8)
+    expect(Math.max(...w.x1!.outline.map((o) => o[1]))).toBeCloseTo(2.2, 9); // até L2 (5 - 2.8); a borda baixa é cortada pelo telhado
     expect(w.x1!.loadBearing).toBe(true);
     expect(w.x1!.baseZ).toBe(2.8);
-    expect(w.x2!.outline[2]![1]).toBe(1.1);
+    expect(Math.max(...w.x2!.outline.map((o) => o[1]))).toBe(1.1);
     expect(w.x2!.assemblyId).toBe('ext_cement_osb_wool_drywall');
-    expect(w.x3!.outline[2]![1]).toBeLessThanOrEqual(2.8);
+    expect(Math.max(...w.x3!.outline.map((o) => o[1]))).toBeLessThanOrEqual(2.8);
   });
 
   test('assembly ou perfil ausentes lançam erro em pt-BR', () => {

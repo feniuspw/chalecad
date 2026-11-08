@@ -2,15 +2,15 @@
 
 exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > fixture 6,5 x 8,5: números-chave 1`] = `
 {
-  "pieces": 349,
-  "steelKg": 1211.7197765503302,
+  "pieces": 347,
+  "steelKg": 1210.0033421971264,
   "summary": {
     "fail": 2,
     "maxRatio": 4.251031417752908,
     "ok": 9,
     "warn": 3,
   },
-  "total": 138071.2056426641,
+  "total": 138049.54820876522,
 }
 `;
 
@@ -18,13 +18,13 @@ exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > hash do
 {
   "aframe": "a6df4bffed1d0f02",
   "everything": "846d43bc96bba745",
-  "gable": "0cc826d009d3ac2a",
+  "gable": "b947b45dd6026a89",
 }
 `;
 
 exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > hash do roteiro de obra e do pacote do engenheiro 1`] = `
 {
-  "engineer": "9122542f8c587530",
-  "guide": "2c5ed47873398335",
+  "engineer": "6be10db254cd2c4d",
+  "guide": "74d001f9b1851ab5",
 }
 `;

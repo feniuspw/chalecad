@@ -30,6 +30,7 @@ import { gambrelGeometry } from './gambrel';
 import { combinedGeometry, type CombinedGeometry } from './combined';
 import { annexGeometry, type AnnexGeometry } from './annex';
 import { resolveFurniture } from './furniture';
+import { clippedWallOutline } from './wallclip';
 import { annexAxisPolygon, completeRooms, resolveRoomLayouts, wetInteriorWallIds } from './rooms';
 
 const DEG = Math.PI / 180;
@@ -295,6 +296,8 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
       ([a, b]) => distToSegment(w.from, a, b) <= 0.05 && distToSegment(w.to, a, b) <= 0.05,
     );
 
+  /** Contorno retangular (sem corte do telhado) das paredes internas: valida aberturas. */
+  const fullOutline = new Map<string, Vec2[]>();
   for (const w of project.walls) {
     const lvl = levels.find((l) => l.id === w.level);
     if (!lvl) throw new Error(`Nível inexistente: ${w.level}`);
@@ -310,6 +313,8 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
       height = Math.max(Math.min(roofZ(mid[0], mid[1]) - lvl.elevation, c.defaultCeilingMax), 0);
     }
     const len = length2(w.from, w.to);
+    fullOutline.set(w.id, rect(len, height));
+    const clip = clippedWallOutline([w.from[0], w.from[1]], [w.to[0], w.to[1]], lvl.elevation, height, roofPlanes);
     walls.push(
       mkWall({
         id: w.id,
@@ -318,7 +323,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
         from: [w.from[0], w.from[1]],
         to: [w.to[0], w.to[1]],
         baseZ: lvl.elevation,
-        outline: rect(len, height),
+        outline: clip.outline,
         assemblyId,
         loadBearing: onMezzEdge(w),
         wet: w.wet === true || asm.kind === 'wall_wet',
@@ -328,7 +333,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
 
   // --- Aberturas ------------------------------------------------------------
   const hostOutline = new Map<string, { kind: 'wall' | 'roof'; outline: Vec2[] }>();
-  for (const w of walls) hostOutline.set(w.id, { kind: 'wall', outline: w.outline });
+  for (const w of walls) hostOutline.set(w.id, { kind: 'wall', outline: fullOutline.get(w.id) ?? w.outline });
   for (const r of roofPlanes) hostOutline.set(r.id, { kind: 'roof', outline: r.outline ?? rect(r.uLength, r.vLength) });
 
   const openings: ResolvedOpening[] = project.openings.map((o) => {

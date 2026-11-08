@@ -89,6 +89,20 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
       });
     }
   }
+  for (const o of model.openings) {
+    if (!o.valid || o.hostKind !== 'wall') continue;
+    const wall = model.walls.find((w) => w.id === o.hostId);
+    if (!wall || wall.kind !== 'interior') continue;
+    const corners: [number, number][] = [[o.u0, o.v0], [o.u1, o.v0], [o.u1, o.v1], [o.u0, o.v1]];
+    if (!corners.every((p) => pointInPolygon(p, wall.outline, 1e-6))) {
+      out.push({
+        code: 'wall.roof_clip',
+        severity: 'warn',
+        message: `A abertura "${o.id}" não cabe sob o telhado na parede "${wall.id}": o topo da parede é cortado pela face de baixo da cobertura.`,
+        refs: [o.id, wall.id],
+      });
+    }
+  }
   const s = project.system.studSpacing;
   for (const o of model.openings) {
     if (!o.valid || o.hostKind !== 'wall') continue;
