@@ -64,7 +64,11 @@ Fluxos paralelos: motor (E) e editor (W).
 ## Fase 12 — usabilidade e realismo
 - [x] F12-W2 glossário, alertas explicados, busca nas propriedades
 - [x] painéis recolhíveis, mão de obra regional
-- [ ] F12-W1 renderização realista procedural
+- [x] F12-W1 renderização realista procedural
+
+## Fase 13 — qualidade do assistente e apresentação
+- [x] F13-W1 assistente gera chalés dentro das verificações; modelos prontos conformados
+- [x] F13-W2 vistas prontas, fotos em lote e vídeo 360°
 
 ## Fechamento (2026-11-07)
 - Critérios de saída verificados: JSON válido carrega e renderiza (F0); chalé 6,5 x 8,5 calcula tudo em ~3 ms (< 300 ms) (F1); verificações estruturais com taxas e cores, extras, meia-água, telhado plano e comparação de variantes (F2); IA com tool use citando ferramentas, gambrel e L/T, roteiro e pacote do engenheiro (F3); terreno com corte/aterro testado contra cálculo manual (F4).
