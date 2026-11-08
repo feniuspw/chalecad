@@ -116,10 +116,11 @@ function Tank({ item, liters, onPick }: { item: Item; liters: number; onPick: (p
 }
 
 /** Traçado esquemático: um LineSegments por sistema (elétrica, AF, AQ). */
-function Routes({ report, elevations }: { report: InstallationsReport; elevations: Record<string, number> }) {
+function Routes({ report, elevations, skip }: { report: InstallationsReport; elevations: Record<string, number>; skip?: ReadonlyArray<'electric' | 'cold' | 'hot'> }) {
   const groups = useMemo(() => {
     const by: Record<'electric' | 'cold' | 'hot', number[]> = { electric: [], cold: [], hot: [] };
     for (const r of installationRoutes(report, elevations)) {
+      if (skip?.includes(r.system)) continue;
       for (let i = 0; i + 1 < r.pts.length; i++) by[r.system].push(...r.pts[i]!, ...r.pts[i + 1]!);
     }
     return (Object.keys(by) as (keyof typeof by)[]).filter((k) => by[k].length > 0).map((k) => ({ system: k, geometry: new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(by[k], 3)) }));
@@ -168,6 +169,8 @@ export interface InstallationsViewProps {
   elevations: Record<string, number>;
   exploded?: boolean;
   interactive?: boolean;
+  /** Falso quando a hidráulica calculada desenha os tubos reais (cilindros): some o traçado esquemático de água. */
+  showPlumbingRoutes?: boolean;
 }
 
 const KINDS: Kind[] = ['outlet', 'outlet_high', 'switch', 'tue', 'light', 'panel', 'water_cold', 'water_hot', 'sewer', 'drain'];
@@ -176,7 +179,7 @@ const KINDS: Kind[] = ['outlet', 'outlet_high', 'switch', 'tue', 'light', 'panel
  * Pontos de instalações no 3D (referencial do motor, dentro do MotorGroup): um InstancedMesh por tipo, caixa d'água,
  * traçado esquemático e tooltip no clique.
  */
-export function InstallationsView({ model, report, elevations, exploded = false, interactive = true }: InstallationsViewProps) {
+export function InstallationsView({ model, report, elevations, exploded = false, interactive = true, showPlumbingRoutes = true }: InstallationsViewProps) {
   const [picked, setPicked] = useState<string | null>(null);
   const gap = explodeGap(model.ridgeHeight);
   const items = useMemo<Item[]>(() => report.points.map((point) => ({ point, placed: placePoint(point, model.walls, elevations[point.level] ?? 0) })), [report.points, model.walls, elevations]);
@@ -195,7 +198,7 @@ export function InstallationsView({ model, report, elevations, exploded = false,
         <InstancedKind key={k} kind={k} items={byKind.get(k) ?? []} onPick={onPick} />
       ))}
       {tank ? <Tank item={tank} liters={report.tankLiters} onPick={onPick} /> : null}
-      <Routes report={report} elevations={elevations} />
+      <Routes report={report} elevations={elevations} {...(showPlumbingRoutes ? {} : { skip: ['cold', 'hot'] as const })} />
       {pickedPoint ? <Tooltip point={pickedPoint} report={report} item={items.find((i) => i.point.id === pickedPoint.id)} onClose={() => setPicked(null)} /> : null}
     </ExplodeGroup>
   );

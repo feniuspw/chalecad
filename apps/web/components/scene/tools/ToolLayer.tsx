@@ -13,6 +13,8 @@ import { RoomTool } from './RoomTool';
 import { SelectOverlays } from './SelectOverlays';
 import { StairTool } from './StairTool';
 import { WallTool } from './WallTool';
+import { PlumbToolLayer } from './plumb/PlumbTools';
+import { usePlumb } from '@/lib/plumb/store';
 
 function PlanOnlyHint({ text }: { text: string }) {
   useHint(text);
@@ -22,6 +24,7 @@ function PlanOnlyHint({ text }: { text: string }) {
 /** Ferramenta de planta ativa. Fora de 3D/planta (fachadas) avisa em vez de desenhar. */
 export function ToolLayer({ model }: { model: BuildingModel }) {
   const tool = useEditor((s) => s.tool);
+  const plumbTool = usePlumb((s) => s.tool);
   const view = useEditor((s) => s.cameraView);
   const env = useToolEnv(model);
   const drawable = view === '3d' || view === 'plan';
@@ -31,6 +34,8 @@ export function ToolLayer({ model }: { model: BuildingModel }) {
     if (tool === 'dimension' && view !== 'plan') useEditor.getState().setCameraView('plan');
   }, [tool, view]);
 
+  // Hidráulica: a ferramenta do tubo, ponto ou caixa ocupa o lugar da seleção
+  if (plumbTool && tool === 'select') return view === 'plan' ? <PlumbToolLayer env={env} /> : <PlanOnlyHint text="Abra a Planta para desenhar a hidráulica" />;
   if (tool === 'select')
     return (
       <>

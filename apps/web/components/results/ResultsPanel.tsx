@@ -14,6 +14,7 @@ import { useEditor } from '@/lib/store/editor';
 import { AlertsTab, visibleWarnings, worstSeverity } from './AlertsTab';
 import { BudgetTab } from './BudgetTab';
 import { InstallationsTab } from './InstallationsTab';
+import { PlumbingTab } from './PlumbingTab';
 import { Kpis, KpisSkeleton } from './Kpis';
 import { MaterialsTab } from './MaterialsTab';
 import { PerformanceTab } from './PerformanceTab';
@@ -96,7 +97,7 @@ export function ResultsPanel() {
   const installationsOn = useEditor((s) => s.project.installations.enabled);
   const project = useEditor((s) => s.project);
   const [tab, setTab] = useState('summary');
-  const activeTab = tab === 'installations' && !installationsOn ? 'summary' : tab;
+  const activeTab = (tab === 'installations' || tab === 'plumbing') && !installationsOn ? 'summary' : tab;
   const busy = computing || stale;
 
   const warnings = useMemo(() => visibleWarnings(results?.warnings ?? []), [results]);
@@ -142,6 +143,7 @@ export function ResultsPanel() {
               Estrutura
             </Tab>
             {installationsOn ? <Tab value="installations">Instalações</Tab> : null}
+            {installationsOn ? <Tab value="plumbing">Hidráulica</Tab> : null}
             <Tab value="performance">
               <Leaf className="size-3.5" /> Desempenho
             </Tab>
@@ -182,6 +184,13 @@ export function ResultsPanel() {
             <TabsContent value="installations" className="flex min-h-0 flex-1 flex-col">
               <Scroll>
                 <InstallationsTab report={results.installations ?? null} results={results} />
+              </Scroll>
+            </TabsContent>
+          ) : null}
+          {installationsOn ? (
+            <TabsContent value="plumbing" className="flex min-h-0 flex-1 flex-col">
+              <Scroll>
+                <PlumbingTab report={results.installations?.plumbing ?? null} warnings={results.warnings} project={project} />
               </Scroll>
             </TabsContent>
           ) : null}

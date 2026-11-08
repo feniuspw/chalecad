@@ -19,6 +19,8 @@ import { FinishesView } from './FinishesView';
 import { useFurnitureAlertLevels, useFurnitureModels } from './furnitureData';
 import { FurnitureView } from './FurnitureView';
 import { InstallationsView } from './InstallationsView';
+import { Plumb3D } from './tools/plumb/Plumb3D';
+import { usePlumb } from '@/lib/plumb/store';
 import { RainTankView, SolarPanelsView } from './PerformanceView';
 import { MotorGroup } from './MotorGroup';
 import { PresentationFx } from './PresentationFx';
@@ -76,6 +78,7 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const cameraView = useEditor((s) => s.cameraView);
   const activeLevelId = useEditor((s) => s.activeLevelId);
   const tool = useEditor((s) => s.tool);
+  const plumbTool = usePlumb((s) => s.tool);
   const selection = useEditor((s) => s.selection);
   const hoverId = useEditor((s) => s.hoverId);
   const highlight = useEditor((s) => s.highlight);
@@ -156,7 +159,7 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
     return () => setNotice(null);
   }, [overlayPieces, viewMode, results?.structure, pieces, setNotice]);
 
-  const selectingEnabled = tool === 'select' && !presentation;
+  const selectingEnabled = tool === 'select' && !presentation && !plumbTool;
   const selectedOpeningId = selection?.kind === 'opening' ? selection.id : null;
   const selectedPieceId = selection?.kind === 'piece' ? selection.id : null;
 
@@ -172,7 +175,7 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
       {walking ? (
         <WalkRig model={model} levelId={activeLevelId} far={PRESENTATION_FAR} />
       ) : (
-        <CameraRig bounds={bounds} view={view} extraHeight={exploded ? gap * 3 : 0} leftDrags={tool === 'select'} apiRef={apiRef} far={presentation ? PRESENTATION_FAR : undefined} />
+        <CameraRig bounds={bounds} view={view} extraHeight={exploded ? gap * 3 : 0} leftDrags={tool === 'select' && (!plumbTool || plumbTool === 'edit')} apiRef={apiRef} far={presentation ? PRESENTATION_FAR : undefined} />
       )}
       {presentation ? (
         <>
@@ -272,7 +275,8 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
 
       {showInstallations && installationsReport ? (
         <MotorGroup>
-          <InstallationsView model={model} report={installationsReport} elevations={levelElevations} exploded={exploded} interactive={selectingEnabled} />
+          <InstallationsView model={model} report={installationsReport} elevations={levelElevations} exploded={exploded} interactive={selectingEnabled} showPlumbingRoutes={!installationsReport.plumbing} />
+          {installationsReport.plumbing ? <Plumb3D exploded={exploded} gap={gap} /> : null}
         </MotorGroup>
       ) : null}
 

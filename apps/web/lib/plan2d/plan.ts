@@ -25,6 +25,8 @@ export interface PlanOptions {
   idPrefix?: string;
   /** Pontos de instalações elétricas e hidráulicas; desenha os símbolos do nível e a legenda. */
   installations?: InstallationPoint[];
+  /** Camada extra em SVG (ex.: hidráulica), desenhada sobre as paredes; recebe a conversão metros -> unidades do SVG. */
+  overlay?: (ctx: { P: (p: Vec2) => [number, number]; S: number; levelId: string }) => string;
 }
 
 export const UNITS_PER_METER = 60;
@@ -233,6 +235,7 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
   );
 
   layers.push(instLayer);
+  if (opts.overlay) layers.push(opts.overlay({ P, S, levelId: level.id }));
 
   // Aberturas.
   const byId = new Map(cut.map((w) => [w.id, w]));

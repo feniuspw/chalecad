@@ -7,6 +7,7 @@ import { formatNumber } from '@/lib/format';
 import { summarizePoints } from '@/lib/three/installations';
 import { useEditor } from '@/lib/store/editor';
 import { Field, Notice, Section, Segmented, SwitchField } from './fields';
+import { PlumbingBlock } from './PlumbInspector';
 
 type Heater = Project['installations']['waterHeater'];
 
@@ -154,6 +155,8 @@ export function InstallationsSection({ project }: { project: Project }) {
           ) : !noRooms ? (
             <Notice>{engineNotice ?? 'Calculando as instalações…'}</Notice>
           ) : null}
+
+          <PlumbingBlock />
         </>
       ) : null}
     </Section>
