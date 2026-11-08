@@ -1,6 +1,6 @@
 'use client';
 import type { ComponentType } from 'react';
-import { Armchair, BrickWall, ChevronRight, Fence, Mountain, Plus } from 'lucide-react';
+import { Armchair, BrickWall, ChevronRight, Droplets, Fence, Mountain, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge, Button } from '@chalecad/ui';
 import type { Project } from '@chalecad/engine';
@@ -14,7 +14,7 @@ export const EXTRA_ICONS: Record<ExtraKind, ComponentType<{ className?: string }
   wall: BrickWall,
   fence: Fence,
   retaining: Mountain,
-  water_tower: Mountain,
+  water_tower: Droplets,
 };
 
 const ADD: { kind: ExtraKind; label: string; hint: string }[] = [
@@ -22,6 +22,7 @@ const ADD: { kind: ExtraKind; label: string; hint: string }[] = [
   { kind: 'wall', label: 'Muro', hint: 'Alvenaria em volta da casa' },
   { kind: 'fence', label: 'Cerca', hint: 'Mourões e tela' },
   { kind: 'retaining', label: 'Muro de arrimo', hint: 'Contém o corte do terreno' },
+  { kind: 'water_tower', label: "Torre da caixa d'água", hint: 'Eleva a caixa acima do chuveiro mais alto (sobre o banheiro do mezanino)' },
 ];
 
 export function ExtrasSection({ project }: { project: Project }) {
@@ -40,13 +41,14 @@ export function ExtrasSection({ project }: { project: Project }) {
     if (box.id) {
       select({ kind: 'extra', id: box.id });
       if (kind === 'retaining' && project.site.type === 'flat') toast.info('O arrimo vale mais em terreno inclinado. Ajuste em “Terreno”.');
+      if (kind === 'water_tower') toast.info('A torre foi posta sobre o banheiro (do mezanino, se houver). A caixa precisa ficar ~1 m acima do chuveiro mais alto.');
     }
   };
 
   return (
     <Section title="Extras" open={open} onOpenChange={(v) => setOpen('extras', v)} badge={<Badge variant="neutral">{extras.length === 0 ? 'nenhum' : extras.length}</Badge>}>
       {extras.length === 0 ? (
-        <Notice>Nenhum extra ainda. Adicione varanda, muro, cerca ou muro de arrimo: eles entram no orçamento (etapa “Extras”).</Notice>
+        <Notice>Nenhum extra ainda. Adicione varanda, muro, cerca, muro de arrimo ou a torre da caixa d'água: eles entram no orçamento (etapa “Extras”).</Notice>
       ) : (
         <ul className="space-y-1.5">
           {extras.map((e) => {

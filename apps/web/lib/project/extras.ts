@@ -2,7 +2,8 @@
  * Extras do projeto (varanda/deck, muro, cerca, muro de arrimo): criação com padrões coerentes, edição de
  * caminhos, duplicação e resumo. Funções puras que mutam um rascunho Immer.
  */
-import type { Extra, Project, Vec2 } from '@chalecad/engine';
+import { buildModel, Project as ProjectSchema, type Extra, type Project, type Vec2 } from '@chalecad/engine';
+import { getCatalog } from '@chalecad/catalog';
 import { clamp, planBounds, round } from './geometry';
 import { newId, type IdGen } from './ids';
 
@@ -73,6 +74,32 @@ export function sideLength(p: Project, side: Side): number {
   return side === 'front' || side === 'back' ? p.typology.width : p.typology.depth;
 }
 
+/** Altura do chuveiro mais alto + folga da caixa acima dele (m): a caixa precisa ficar ~1 m acima. */
+export const TOWER_SHOWER_HEIGHT = 2.1;
+export const TOWER_HEAD = 1.2;
+
+/**
+ * Onde pôr a torre da caixa d'água: sobre o banheiro do mezanino; senão sobre o do térreo; senão no centro da planta.
+ * A cota do piso da caixa é o piso do banheiro + chuveiro (2,1 m) + 1,2 m de coluna d'água.
+ */
+export function towerSpot(p: Project): { position: Vec2; platformZ: number; roomId: string | null } {
+  const baths = p.rooms.filter((r) => r.use === 'bathroom');
+  const elevOf = (level: string) => p.levels.find((l) => l.id === level)?.elevation ?? 0;
+  const pick = [...baths].sort((a, b) => elevOf(b.level) - elevOf(a.level))[0];
+  if (pick) {
+    let c: Vec2 = [pick.seed[0], pick.seed[1]];
+    try {
+      const room = buildModel(ProjectSchema.parse(JSON.parse(JSON.stringify(p))), getCatalog()).rooms.find((r) => r.id === pick.id);
+      if (room?.polygon && room.polygon.length > 2) c = [room.polygon.reduce((s, v) => s + v[0], 0) / room.polygon.length, room.polygon.reduce((s, v) => s + v[1], 0) / room.polygon.length];
+    } catch {
+      // sem modelo: usa o ponto do cômodo
+    }
+    return { position: [round(c[0], 2), round(c[1], 2)], platformZ: round(clamp(elevOf(pick.level) + TOWER_SHOWER_HEIGHT + TOWER_HEAD, 2, 10), 2), roomId: pick.id };
+  }
+  const b = planBounds(p.typology);
+  return { position: [round((b.x0 + b.x1) / 2, 2), round((b.y0 + b.y1) / 2, 2)], platformZ: 5, roomId: null };
+}
+
 /** Cria o extra com padrões coerentes com o projeto. Devolve o ID. */
 export function addExtra(draft: Project, kind: ExtraKind, ids: IdGen = newId): string {
   const id = ids('x');
@@ -92,6 +119,11 @@ export function addExtra(draft: Project, kind: ExtraKind, ids: IdGen = newId): s
     case 'retaining':
       draft.extras.push({ id, kind, path: retainingPath(draft), height: 1.5, type: 'block', drainage: true });
       break;
+    case 'water_tower': {
+      const spot = towerSpot(draft);
+      draft.extras.push({ id, kind, position: spot.position, width: 1.6, depth: 1.6, platformZ: spot.platformZ, roof: 'gable' });
+      break;
+    }
   }
   return id;
 }
@@ -133,7 +165,7 @@ export function patchExtra(draft: Project, id: string, patch: Record<string, unk
 }
 
 type PathExtra = Of<'fence'> | Of<'wall'> | Of<'retaining'>;
-export const isPathExtra = (e: Extra): e is PathExtra => e.kind !== 'deck';
+export const isPathExtra = (e: Extra): e is PathExtra => e.kind !== 'deck' && e.kind !== 'water_tower';
 
 export function setVertex(draft: Project, id: string, index: number, v: Vec2): void {
   const e = draft.extras.find((x) => x.id === id);

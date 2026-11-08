@@ -13,6 +13,7 @@ import { createProject, DEFAULT_PARAMS, TEMPLATE_LABELS, TYPOLOGY_DESCRIPTIONS, 
 import { DownhillPicker } from './properties/DownhillPicker';
 import { Field, Notice, SelectField, Segmented, SliderField, SwitchField } from './properties/fields';
 import { UF_OPTIONS } from './properties/SystemSections';
+import { WizardPanel, WIZARD_FLAG } from '@/components/wizard/WizardDialog';
 import { LPlanIllustration, TPlanIllustration, TerrainIllustration, TYPOLOGY_ART } from './TypologyIllustrations';
 
 const KINDS = Object.keys(TEMPLATE_LABELS) as TemplateKind[];
@@ -141,7 +142,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
   const [kind, setKind] = useState<TemplateKind>('gable_mezzanine');
   const [params, setParams] = useState<TemplateParams>(DEFAULT_PARAMS.gable_mezzanine);
   const [nameTouched, setNameTouched] = useState(false);
-  const [tab, setTab] = useState<'models' | 'scratch'>('models');
+  const [tab, setTab] = useState<'wizard' | 'models' | 'scratch'>('models');
   const [presetId, setPresetId] = useState<string>(PRESETS[0]!.id);
   const [presetName, setPresetName] = useState<string>(PRESETS[0]!.name);
   const nameId = useId();
@@ -154,7 +155,10 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
       setKind('gable_mezzanine');
       setParams(DEFAULT_PARAMS.gable_mezzanine);
       setNameTouched(false);
-      setTab('models');
+      // A lista vazia de projetos pede o assistente "Me ajude a montar" (o editor limpa a URL, então vai por sessionStorage).
+      const wantsWizard = typeof window !== 'undefined' && (window.sessionStorage.getItem(WIZARD_FLAG) === '1' || new URLSearchParams(window.location.search).get('wizard') === '1');
+      if (typeof window !== 'undefined') window.sessionStorage.removeItem(WIZARD_FLAG);
+      setTab(wantsWizard ? 'wizard' : 'models');
       setPresetId(PRESETS[0]!.id);
       setPresetName(PRESETS[0]!.name);
     }
@@ -208,8 +212,9 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn('gap-5 p-0', tab === 'models' ? 'max-w-4xl' : 'max-w-2xl')}
+        className={cn('gap-5 p-0', tab === 'models' || tab === 'wizard' ? 'max-w-4xl' : 'max-w-2xl')}
         onKeyDown={(e) => {
+          if (tab === 'wizard') return;
           if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof HTMLTextAreaElement)) {
             e.preventDefault();
             if (tab === 'models') createFromPreset();
@@ -222,15 +227,16 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
           <DialogTitle>{firstAccess ? 'Bem-vindo ao ChaléCAD' : 'Novo projeto'}</DialogTitle>
           <DialogDescription>
             {firstAccess ? 'Vamos começar pelo seu chalé. ' : ''}
-            {tab === 'models' ? 'Escolha um modelo pronto, já com cômodos, acabamentos e móveis. Dá para mudar tudo depois.' : `Passo ${step + 1} de ${STEPS.length}: ${STEPS[step]?.toLowerCase()}.`}
+            {tab === 'wizard' ? 'Responda perguntas simples e montamos um chalé completo, com cômodos, móveis e custo.' : tab === 'models' ? 'Escolha um modelo pronto, já com cômodos, acabamentos e móveis. Dá para mudar tudo depois.' : `Passo ${step + 1} de ${STEPS.length}: ${STEPS[step]?.toLowerCase()}.`}
           </DialogDescription>
-          <Tabs value={tab} onValueChange={(v) => setTab(v as 'models' | 'scratch')} className="mt-1">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as 'wizard' | 'models' | 'scratch')} className="mt-1">
             <TabsList className="w-full sm:w-auto" aria-label="Como começar">
+              <TabsTrigger value="wizard">Me ajude a montar</TabsTrigger>
               <TabsTrigger value="models">Modelos prontos</TabsTrigger>
               <TabsTrigger value="scratch">Do zero</TabsTrigger>
             </TabsList>
           </Tabs>
-          <ol className={cn('mt-2 flex items-center gap-2', tab === 'models' && 'hidden')} aria-label="Passos">
+          <ol className={cn('mt-2 flex items-center gap-2', tab !== 'scratch' && 'hidden')} aria-label="Passos">
             {STEPS.map((s, i) => (
               <li key={s} className="flex flex-1 items-center gap-2" aria-current={i === step ? 'step' : undefined}>
                 <span className={cn('grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold', i < step ? 'bg-accent text-white' : i === step ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500')}>
@@ -243,7 +249,22 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
           </ol>
         </DialogHeader>
 
-        <div className="max-h-[62vh] min-h-[19rem] overflow-y-auto px-6 pb-1">
+        {tab === 'wizard' ? (
+          <div className="-mt-2 pb-2">
+            <WizardPanel
+              onCreate={onCreate}
+              footerExtra={
+                firstAccess ? (
+                  <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                    Usar o chalé de exemplo
+                  </Button>
+                ) : null
+              }
+            />
+          </div>
+        ) : null}
+
+        <div className={cn('max-h-[62vh] min-h-[19rem] overflow-y-auto px-6 pb-1', tab === 'wizard' && 'hidden')}>
           {tab === 'models' ? (
             <div className="space-y-4">
               <div role="radiogroup" aria-label="Modelos prontos" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -384,7 +405,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
           ) : null}
         </div>
 
-        <DialogFooter className="border-t border-border px-6 py-4">
+        <DialogFooter className={cn('border-t border-border px-6 py-4', tab === 'wizard' && 'hidden')}>
           {firstAccess && (tab === 'models' || step === 0) ? (
             <Button variant="ghost" className="mr-auto" onClick={() => onOpenChange(false)}>
               Usar o chalé de exemplo

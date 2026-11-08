@@ -3,6 +3,7 @@ import { Copy } from 'lucide-react';
 import { Button } from '@chalecad/ui';
 import type { Extra, Project } from '@chalecad/engine';
 import { toast } from 'sonner';
+import { planBounds } from '@/lib/project/geometry';
 import { duplicateExtra, extraLabel, extraSummary, findExtra, patchExtra, sideLength, SIDE_LABELS, type Side } from '@/lib/project/extras';
 import { fmt } from '@/lib/project/format';
 import { useEditor } from '@/lib/store/editor';
@@ -32,6 +33,11 @@ const MESHES: Option<Of<'fence'>['mesh']>[] = [
   { value: 'welded', label: 'Tela soldada' },
   { value: 'chain_link', label: 'Alambrado' },
   { value: 'barbed', label: 'Arame farpado' },
+];
+const TOWER_ROOFS: Option<Of<'water_tower'>['roof']>[] = [
+  { value: 'gable', label: 'Duas águas' },
+  { value: 'shed', label: 'Uma água' },
+  { value: 'flat', label: 'Plano' },
 ];
 const RETAINING_TYPES: Option<Of<'retaining'>['type']>[] = [
   { value: 'block', label: 'Bloco de concreto' },
@@ -109,7 +115,38 @@ export function ExtraInspector({ id, project }: { id: string; project: Project }
           </>
         ) : null}
 
+        {e.kind === 'water_tower' ? <TowerFields e={e} project={project} set={set} slider={slider} /> : null}
       </Body>
+    </>
+  );
+}
+
+function TowerFields({
+  e,
+  project,
+  set,
+  slider,
+}: {
+  e: Of<'water_tower'>;
+  project: Project;
+  set: (label: string, patch: Record<string, unknown>, coalesce?: boolean) => void;
+  slider: (what: string, key: string) => (v: number, c: boolean) => void;
+}) {
+  const b = planBounds(project.typology);
+  const upper = project.levels.filter((l) => l.elevation > 0).reduce((m, l) => Math.max(m, l.elevation), 0);
+  const minHead = upper + 2.1 + 1;
+  const low = e.platformZ < minHead - 1e-6;
+  const move = (axis: 0 | 1) => (v: number, c: boolean) => set(`Mover torre (${axis === 0 ? 'x' : 'y'})`, { position: axis === 0 ? [v, e.position[1]] : [e.position[0], v] }, c);
+  return (
+    <>
+      <Notice>Precisa ficar ~1 m acima do chuveiro mais alto. Chuveiro a 2,1 m do piso do banheiro de cima: a caixa deve começar a pelo menos {fmt(minHead, 1)} m.</Notice>
+      <SliderField label="Posição x" value={e.position[0]} min={b.x0 - 2} max={b.x1 + 2} step={0.05} unit="m" hint="da esquerda para a direita" onChange={move(0)} />
+      <SliderField label="Posição y" value={e.position[1]} min={b.y0 - 2} max={b.y1 + 2} step={0.05} unit="m" hint="da frente para os fundos" onChange={move(1)} />
+      <SliderField label="Largura" value={e.width} min={1} max={3} step={0.1} unit="m" onChange={slider('Alterar largura', 'width')} />
+      <SliderField label="Profundidade" value={e.depth} min={1} max={3} step={0.1} unit="m" onChange={slider('Alterar profundidade', 'depth')} />
+      <SliderField label="Altura do piso da caixa" value={e.platformZ} min={2} max={10} step={0.1} unit="m" hint="a partir do térreo" onChange={slider('Alterar altura da caixa', 'platformZ')} />
+      {low && upper > 0 ? <Notice>A caixa está a menos de 1 m acima do chuveiro do mezanino: a pressão pode ficar fraca. Suba a caixa.</Notice> : null}
+      <Segmented<Of<'water_tower'>['roof']> label="Telhado da torre" value={e.roof} options={TOWER_ROOFS} onChange={(v) => set('Alterar telhado da torre', { roof: v })} />
     </>
   );
 }

@@ -79,6 +79,38 @@ function centroid(pts: Vec2[]): Vec2 {
 
 const polyArea = (pts: Vec2[]) => Math.abs(pts.reduce((s, p, i) => s + (p[0] * pts[(i + 1) % pts.length]![1] - pts[(i + 1) % pts.length]![0] * p[1]), 0)) / 2;
 
+/** Contorno tracejado (azul) da torre da caixa d'água com o rótulo "Caixa d'água". Só no nível em que ela se apoia. */
+export function towerOutlines(model: BuildingModel, level: PlanLevel, isGround: boolean, P: (p: Vec2) => [number, number]): string[] {
+  const out: string[] = [];
+  for (const x of model.extras ?? []) {
+    if (x.kind !== 'water_tower' || x.segments.length < 3) continue;
+    const contour = x.segments.map((sg) => sg.from);
+    const c = centroid(contour);
+    const over = model.slabs.find((sl) => sl.kind === 'mezzanine' && pointIn(c, sl.polygon));
+    const supportLevel = over ? over.level : undefined;
+    if (supportLevel ? supportLevel !== level.id : !isGround) continue;
+    const [cx, cy] = P(c);
+    out.push(
+      group(
+        poly(contour.map(P), { fill: 'rgba(59,130,246,0.10)', stroke: '#2563eb', 'stroke-width': 1.3, 'stroke-dasharray': '6 3' }) +
+          text(cx, cy + 3, "Caixa d'água", { 'font-size': 7.5, fill: '#1d4ed8', stroke: '#fff', 'stroke-width': 2.5, 'paint-order': 'stroke', 'font-weight': 700 }),
+        { 'data-role': 'water-tower', 'data-id': x.id },
+      ),
+    );
+  }
+  return out;
+}
+
+function pointIn(p: Vec2, poly2: Vec2[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly2.length - 1; i < poly2.length; j = i++) {
+    const [xi, yi] = poly2[i]!;
+    const [xj, yj] = poly2[j]!;
+    if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
 export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
   const S = UNITS_PER_METER;
   const pid = opts.idPrefix ?? 'p';
@@ -156,6 +188,9 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
       );
     }
   }
+
+  // Torre da caixa d'água: contorno tracejado no nível em que ela se apoia (laje do mezanino sob o centro, ou o térreo).
+  layers.push(...towerOutlines(model, level, isGround, P));
 
   // Cômodos: preenchimento suave por uso (sob as paredes) e rótulo "Nome · área" no ponto mais interno.
   const roomLayers: string[] = [];
