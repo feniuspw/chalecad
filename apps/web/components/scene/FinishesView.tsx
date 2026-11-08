@@ -5,12 +5,12 @@ import type { BuildingModel, Finishes, Room, RoomModel, RoofPlane } from '@chale
 import * as THREE from 'three';
 import { roofSlabParams } from '@/lib/three/convert';
 import { FLOOR_PLATE, roomFloorZ, roomWallMesh } from '@/lib/three/finishes';
-import { getTexture } from '@/lib/three/textures';
 import { explodeGap } from '@/lib/three/views';
 import type { ViewMode } from '@/lib/store/types';
 import { ExplodeGroup } from './ExplodeGroup';
 import { basisTransform, makeShape } from './geometry';
 import { COLORS } from './materials';
+import { usePbrProps, type PbrProps } from './usePbr';
 
 export interface FinishesViewProps {
   model: BuildingModel;
@@ -34,8 +34,8 @@ function RoomFloor({ rm, room, z, clip, hoverable, selected, onSelect }: { rm: R
     if (!rm.polygon || rm.polygon.length < 3) return undefined;
     return new THREE.ExtrudeGeometry(makeShape(rm.polygon as [number, number][], []), { depth: FLOOR_PLATE, bevelEnabled: false });
   }, [rm.polygon]);
-  const map = useMemo(() => getTexture(room.floor), [room.floor]);
-  if (!geometry || !map) return <Dispose geometry={geometry} />;
+  const pbr = usePbrProps(room.floor);
+  if (!geometry || !pbr) return <Dispose geometry={geometry} />;
   return (
     <>
       <Dispose geometry={geometry} />
@@ -53,7 +53,7 @@ function RoomFloor({ rm, room, z, clip, hoverable, selected, onSelect }: { rm: R
             : undefined
         }
       >
-        <meshStandardMaterial map={map} roughness={0.7} emissive={selected ? COLORS.accent : '#000000'} emissiveIntensity={selected ? 0.22 : 0} clippingPlanes={clip} />
+        <meshStandardMaterial {...pbr} emissive={selected ? COLORS.accent : '#000000'} emissiveIntensity={selected ? 0.22 : 0} clippingPlanes={clip} />
       </mesh>
     </>
   );
@@ -72,20 +72,20 @@ function RoomWalls({ rm, room, model, clip }: { rm: RoomModel; room: Room; model
     g.computeVertexNormals();
     return g;
   }, [rm, room.walls, model.walls, model.openings]);
-  const map = useMemo(() => getTexture(room.walls), [room.walls]);
-  if (!geometry || !map) return <Dispose geometry={geometry} />;
+  const pbr = usePbrProps(room.walls);
+  if (!geometry || !pbr) return <Dispose geometry={geometry} />;
   return (
     <>
       <Dispose geometry={geometry} />
       <mesh geometry={geometry} receiveShadow>
-        <meshStandardMaterial map={map} roughness={0.85} side={THREE.DoubleSide} clippingPlanes={clip} />
+        <meshStandardMaterial {...pbr} side={THREE.DoubleSide} clippingPlanes={clip} />
       </mesh>
     </>
   );
 }
 
 /** Forro sob a água que também é parede (A-frame), 2 mm para dentro do plano da água. */
-function RoofLining({ plane, model, map, clip }: { plane: RoofPlane; model: BuildingModel; map: THREE.Texture; clip?: THREE.Plane[] }) {
+function RoofLining({ plane, model, pbr, clip }: { plane: RoofPlane; model: BuildingModel; pbr: PbrProps; clip?: THREE.Plane[] }) {
   const built = useMemo(() => {
     const p = roofSlabParams(plane, model.openings);
     return { geometry: new THREE.ShapeGeometry(makeShape(p.outline, p.holes)), ...basisTransform(p.basis) };
@@ -96,7 +96,7 @@ function RoofLining({ plane, model, map, clip }: { plane: RoofPlane; model: Buil
       <group position={built.position} quaternion={built.quaternion}>
         <mesh geometry={built.geometry} position={[0, 0, -0.002]} receiveShadow>
           {/* a face do forro olha para dentro (contra a normal externa da água) */}
-          <meshStandardMaterial map={map} roughness={0.8} side={THREE.BackSide} clippingPlanes={clip} />
+          <meshStandardMaterial {...pbr} side={THREE.BackSide} clippingPlanes={clip} />
         </mesh>
       </group>
     </>
@@ -110,7 +110,7 @@ function RoofLining({ plane, model, map, clip }: { plane: RoofPlane; model: Buil
 export function FinishesView({ model, rooms, finishes, mode = 'finished', clip, hoverable = true, selectedRoomId = null, onSelectRoom }: FinishesViewProps) {
   const gap = explodeGap(model.ridgeHeight);
   const exploded = mode === 'exploded';
-  const lining = useMemo(() => getTexture(finishes.interiorRoof), [finishes.interiorRoof]);
+  const lining = usePbrProps(finishes.interiorRoof);
   const linedPlanes = useMemo(() => model.roofPlanes.filter((p) => p.isWall), [model.roofPlanes]);
   const pairs = useMemo(
     () =>
@@ -144,7 +144,7 @@ export function FinishesView({ model, rooms, finishes, mode = 'finished', clip, 
       {lining && linedPlanes.length > 0
         ? layer(
             'roof',
-            linedPlanes.map((p) => <RoofLining key={p.id} plane={p} model={model} map={lining} clip={clip} />),
+            linedPlanes.map((p) => <RoofLining key={p.id} plane={p} model={model} pbr={lining} clip={clip} />),
           )
         : null}
     </>

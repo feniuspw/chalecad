@@ -8,6 +8,7 @@ import { ROOF_COLORS } from '@/lib/project/rooms';
 import { useEditor } from '@/lib/store/editor';
 import { makeRoofGeometry } from './geometry';
 import { COLORS } from './materials';
+import { usePbrProps } from './usePbr';
 
 type Seg = ExtraModel['segments'][number];
 
@@ -183,6 +184,9 @@ function Extra({ extra, tex, lit, selected, hoverable, plain, tower, onSelect }:
     return t;
   }, [tex.wood]);
   useEffect(() => () => woodTex.dispose(), [woodTex]);
+  // piso do deck com réguas em PBR e telha do deck coberto em sanduíche (as texturas leem UV em metros)
+  const deckPbr = usePbrProps(extra.kind === 'deck' ? 'deck_wood' : undefined);
+  const roofPbr = usePbrProps(extra.roof ? 'roof_sandwich' : undefined);
 
   const postBase = extra.kind === 'deck' ? (extra.topZ ?? 0) : 0;
   const seg0 = extra.segments[0];
@@ -233,13 +237,13 @@ function Extra({ extra, tex, lit, selected, hoverable, plain, tower, onSelect }:
       ))}
       {deckGeo && extra.topZ !== undefined ? (
         <mesh geometry={deckGeo} position={[0, 0, extra.topZ - 0.1]} castShadow receiveShadow>
-          <meshStandardMaterial map={woodTex} color="#ffffff" roughness={0.8} emissive={emissive} emissiveIntensity={ei} />
+          <meshStandardMaterial {...(deckPbr ?? { map: woodTex, roughness: 0.8 })} color="#ffffff" emissive={emissive} emissiveIntensity={ei} />
           {selected ? <Edges color={COLORS.accent} lineWidth={2.5} raycast={() => null} /> : plain ? null : <Edges threshold={25} color={COLORS.edge} transparent opacity={0.35} raycast={() => null} />}
         </mesh>
       ) : null}
       {roof ? (
         <mesh geometry={roof.geometry} position={roof.position} quaternion={roof.quaternion} castShadow receiveShadow>
-          <meshStandardMaterial color={COLORS.roof} roughness={0.95} emissive={emissive} emissiveIntensity={ei} />
+          <meshStandardMaterial color={COLORS.roof} {...(roofPbr ?? { roughness: 0.95 })} emissive={emissive} emissiveIntensity={ei} />
           {plain ? null : <Edges threshold={25} color="#78716c" transparent opacity={0.4} raycast={() => null} />}
         </mesh>
       ) : null}

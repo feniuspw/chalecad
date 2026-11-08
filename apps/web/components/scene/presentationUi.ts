@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ScenarioId } from '@/lib/three/foliage';
 
 export type QualityChoice = 'auto' | 'high' | 'light';
 
@@ -11,6 +12,10 @@ interface PresentationUi {
   lamps: boolean;
   /** Mostra as instalações (elétrica e hidráulica) na apresentação. Desligado por padrão. */
   installations: boolean;
+  /** Cenário em volta da casa (chão, vegetação, morros e névoa). */
+  scenario: ScenarioId;
+  /** Mostra a vegetação (árvores, arbustos, capim) do cenário. */
+  vegetation: boolean;
   /** Animação do dia em andamento. */
   playing: boolean;
   /** Quadros por segundo medidos (null fora do modo apresentação). */
@@ -20,6 +25,8 @@ interface PresentationUi {
   setLamps(v: boolean): void;
   setInstallations(v: boolean): void;
   setPlaying(v: boolean): void;
+  setScenario(v: ScenarioId): void;
+  setVegetation(v: boolean): void;
 }
 
 /** Estado efêmero do modo apresentação (não vai para o projeto). */
@@ -28,6 +35,8 @@ export const usePresentationUi = create<PresentationUi>()((set) => ({
   degraded: false,
   lamps: false,
   installations: false,
+  scenario: 'field',
+  vegetation: true,
   playing: false,
   fps: null,
   setQuality: (quality) => set({ quality, degraded: false }),
@@ -35,6 +44,8 @@ export const usePresentationUi = create<PresentationUi>()((set) => ({
   setLamps: (lamps) => set({ lamps }),
   setInstallations: (installations) => set({ installations }),
   setPlaying: (playing) => set({ playing }),
+  setScenario: (scenario) => set({ scenario }),
+  setVegetation: (vegetation) => set({ vegetation }),
 }));
 
 /** Qualidade efetiva depois do rebaixamento automático. */

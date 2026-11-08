@@ -1,23 +1,28 @@
 'use client';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { Environment, Lightformer, Sky } from '@react-three/drei';
+import { Environment, Lightformer } from '@react-three/drei';
 import * as THREE from 'three';
 import type { BuildingModel } from '@chalecad/engine';
 import { MIN_SHADOW_ELEVATION, mixHex, sunLight, sunVector } from '@/lib/sun';
 import type { ThreeBounds } from '@/lib/three/convert';
 import { boxCorners, fitShadowFrustum, type Vec3 } from '@/lib/three/shadow';
+import { SCENARIOS } from '@/lib/three/foliage';
 import { GRASS_TILE, getGrassTexture } from '@/lib/three/textures';
 import { polygonCentroid } from '@/lib/three/walk';
 import { roomFloorZ } from '@/lib/three/finishes';
 import { effectiveQuality, usePresentationUi } from './presentationUi';
+import { HouseContactShadows, Landscape } from './Landscape';
 import { NightSky, nightAmount } from './NightSky';
+import { SkyDome } from './SkyDome';
 import { useSunState } from './useSunState';
+import { useEditor } from '@/lib/store/editor';
 
 /** Motor (z para cima) para cena (y para cima). */
 const toScene = (v: [number, number, number]): Vec3 => [v[0], v[2], -v[1] + 0];
 
 const GROUND_RADIUS = 400;
 const MAX_LAMPS = 10;
+const BULB = new THREE.Color(9, 5.6, 2.6);
 
 export interface PresentationLightsProps {
   model: BuildingModel;
@@ -34,6 +39,9 @@ export function PresentationLights({ model, bounds, hasTerrain }: PresentationLi
   const sun = useSunState();
   const quality = effectiveQuality(usePresentationUi((s) => s.quality), usePresentationUi((s) => s.degraded));
   const lamps = usePresentationUi((s) => s.lamps);
+  const scenario = usePresentationUi((s) => s.scenario);
+  const vegetation = usePresentationUi((s) => s.vegetation);
+  const projectName = useEditor((s) => s.project.meta.name);
   const light = useMemo(() => sunLight(sun.elevationDeg), [sun.elevationDeg]);
   const night = nightAmount(sun.elevationDeg);
 
@@ -79,7 +87,7 @@ export function PresentationLights({ model, bounds, hasTerrain }: PresentationLi
   const mapSize = quality === 'high' ? 4096 : 2048;
 
   const horizon = useMemo(() => {
-    const day = mixHex('#2a3350', '#cfe1f3', light.daylight);
+    const day = mixHex('#2a3350', '#bdd6ec', light.daylight);
     return mixHex(day, '#f3b27a', Math.max(0, 1 - Math.abs(sun.elevationDeg - 2) / 12) * 0.6);
   }, [light.daylight, sun.elevationDeg]);
 
@@ -113,7 +121,7 @@ export function PresentationLights({ model, bounds, hasTerrain }: PresentationLi
         />
       ) : null}
 
-      {night < 1 ? <Sky distance={1000} sunPosition={dir} turbidity={sun.elevationDeg < 10 ? 7 : 4} rayleigh={sun.elevationDeg < 6 ? 2.4 : 1.2} mieCoefficient={0.005} mieDirectionalG={0.82} /> : null}
+      {night < 1 ? <SkyDome sunDir={dir} elevationDeg={sun.elevationDeg} horizon={horizon} /> : null}
       <NightSky amount={night} />
       <Environment resolution={128} environmentIntensity={light.env}>
         <Lightformer form="rect" intensity={2.4} color="#ffffff" position={[0, 8, 0]} rotation-x={Math.PI / 2} scale={[24, 24, 1]} />
@@ -122,9 +130,19 @@ export function PresentationLights({ model, bounds, hasTerrain }: PresentationLi
         <Lightformer form="rect" intensity={0.8} color="#e6efff" position={[0, 3, -10]} scale={[14, 5, 1]} />
         <Lightformer form="rect" intensity={0.8} color="#fff1dd" position={[0, 3, 10]} rotation-y={Math.PI} scale={[14, 5, 1]} />
       </Environment>
-      <fog attach="fog" args={[horizon, Math.max(80, bounds.radius * 6), GROUND_RADIUS - 20]} />
+      {scenario === 'none' ? (
+        <fog attach="fog" args={[horizon, Math.max(80, bounds.radius * 6), GROUND_RADIUS - 20]} />
+      ) : (
+        // névoa exponencial: mais densa com o sol baixo (neblina de amanhecer e entardecer)
+        <fogExp2 attach="fog" args={[horizon, SCENARIOS[scenario].fogDensity * (1 + 0.5 * (1 - light.daylight) + 0.25 * Math.max(0, 1 - sun.elevationDeg / 25) * light.daylight)]} />
+      )}
 
-      <GrassGround y={hasTerrain ? bounds.min[1] - 8 : bounds.min[1] - 0.002} night={light.daylight} />
+      {scenario === 'none' || hasTerrain ? (
+        <GrassGround y={hasTerrain ? bounds.min[1] - 8 : bounds.min[1] - 0.002} night={light.daylight} />
+      ) : (
+        <Landscape model={model} bounds={bounds} scenario={scenario} vegetation={vegetation} quality={quality} daylight={light.daylight} projectName={projectName} />
+      )}
+      {quality === 'high' && !hasTerrain ? <HouseContactShadows model={model} bounds={bounds} /> : null}
       {lamps ? <RoomLamps model={model} /> : null}
     </>
   );
@@ -162,7 +180,14 @@ function RoomLamps({ model }: { model: BuildingModel }) {
   return (
     <>
       {lamps.map((l) => (
-        <pointLight key={l.id} position={l.pos} color="#ffb673" intensity={16} distance={9} decay={2} />
+        <group key={l.id} position={l.pos}>
+          <pointLight color="#ffb673" intensity={16} distance={9} decay={2} />
+          {/* lâmpada: cor acima de 1 (HDR), só ela passa do limiar do bloom */}
+          <mesh raycast={() => null}>
+            <sphereGeometry args={[0.07, 12, 8]} />
+            <meshBasicMaterial color={BULB} toneMapped={false} />
+          </mesh>
+        </group>
       ))}
     </>
   );

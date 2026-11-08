@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three';
 
-export type PatternKind = 'planks' | 'grid' | 'bricks' | 'siding' | 'plain';
+export type PatternKind = 'planks' | 'grid' | 'bricks' | 'siding' | 'plain' | 'ribs' | 'concrete' | 'grass' | 'gravel' | 'sand';
 
 export interface TextureSpec {
   id: string;
@@ -42,16 +42,16 @@ const plain = (id: string, color: string): TextureSpec => ({
 });
 
 const SPECS: Record<string, TextureSpec> = {
-  finish_floor_wood: planks('finish_floor_wood', '#a9743f', 0.12, 1.2, 0.18),
+  finish_floor_wood: planks('finish_floor_wood', '#a9743f', 0.12, 1.2, 0.12),
   finish_floor_vinyl: planks('finish_floor_vinyl', '#cfae80', 0.18, 1.2, 0.1),
   finish_floor_laminate: planks('finish_floor_laminate', '#c9a674', 0.19, 1.2, 0.12),
   finish_floor_porcelain: grid('finish_floor_porcelain', '#d8d5ce', 0.6, 0.6, '#b9b5ac', 0.05),
   finish_floor_ceramic: grid('finish_floor_ceramic', '#c4b4a0', 0.45, 0.45, '#a89a88', 0.07),
   finish_wall_paint: plain('finish_wall_paint', '#f7f4ee'),
-  finish_wall_wood: planks('finish_wall_wood', '#c08e57', 0.12, 1.2, 0.16),
+  finish_wall_wood: planks('finish_wall_wood', '#c08e57', 0.12, 1.2, 0.1),
   finish_wall_tile: grid('finish_wall_tile', '#eef1f0', 0.3, 0.6, '#c9cfcd', 0.03),
   finish_facade_texture: plain('finish_facade_texture', '#e9dfcf'),
-  finish_facade_wood: planks('finish_facade_wood', '#8f6238', 0.12, 1.2, 0.2),
+  finish_facade_wood: planks('finish_facade_wood', '#93673c', 0.12, 1.2, 0.1),
   finish_facade_siding: {
     id: 'finish_facade_siding', kind: 'siding', color: '#e2ded3', joint: '#8c877b', module: [1, 0.2], jointWidth: 0.012, variation: 0.03, grain: false, tile: [0.5, 0.4],
   },
