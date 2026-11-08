@@ -8,7 +8,7 @@ import { resolveStyle, STYLE_NAMES } from '@/lib/project/wizard/style';
 import { Notice, SelectField, Segmented, SwitchField } from '../editor/properties/fields';
 import { UF_OPTIONS } from '../editor/properties/SystemSections';
 import { OptionIcon } from './icons';
-import { Term } from './Term';
+import { Term } from '@/components/glossary/Term';
 
 type Patch = (p: Partial<WizardAnswers>) => void;
 
@@ -149,12 +149,12 @@ export function QuestionStep({ q, a, patch, onBedroomsEdited }: { q: Question; a
       {q.id === 'style' && a.style === 'auto' ? <Notice>Vamos recomendar na hora de montar: {STYLE_NAMES[resolveStyle(a).kind]} para {a.bedrooms} {a.bedrooms === 1 ? 'quarto' : 'quartos'}. {resolveStyle(a).why}</Notice> : null}
       {q.id === 'mezzanine' ? (
         <Notice>
-          <Term term="mezanino">Mezanino</Term> é o andar parcial no alto. Se escolher dormir lá em cima, esse é um dos seus quartos.
+          <Term id="mezanino">Mezanino</Term> é o andar parcial no alto. Se escolher dormir lá em cima, esse é um dos seus quartos.
         </Notice>
       ) : null}
       {q.id === 'structure' ? (
         <Notice>
-          <Term term="steel frame">Steel frame</Term> e <Term term="wood frame">wood frame</Term> são formas de montar o esqueleto da casa. Aço: preciso e não dá cupim. Madeira: mais acolhedor, pede manutenção.
+          <Term id="lsf">Steel frame</Term> e <Term id="wood_frame">wood frame</Term> são formas de montar o esqueleto da casa. Aço: preciso e não dá cupim. Madeira: mais acolhedor, pede manutenção.
         </Notice>
       ) : null}
 
