@@ -3,6 +3,7 @@ import { useEffect, useMemo, type RefObject } from 'react';
 import { ContactShadows, Grid } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { getCatalog } from '@chalecad/catalog';
 import type { BuildingModel } from '@chalecad/engine';
 import type { ThreeBounds } from '@/lib/three/convert';
 import { buildHeatIndex } from '@/lib/three/heatmap';
@@ -18,6 +19,7 @@ import { FinishesView } from './FinishesView';
 import { useFurnitureAlertLevels, useFurnitureModels } from './furnitureData';
 import { FurnitureView } from './FurnitureView';
 import { InstallationsView } from './InstallationsView';
+import { RainTankView, SolarPanelsView } from './PerformanceView';
 import { MotorGroup } from './MotorGroup';
 import { PresentationFx } from './PresentationFx';
 import { PresentationLights } from './PresentationLights';
@@ -102,6 +104,10 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const toolEnv = useToolEnv(model);
   const installationsReport = project.installations.enabled ? (results?.installations ?? null) : null;
   const showInstallations = !!installationsReport && !plan && !structural && (presentation ? presentationInstallations && !walking : true);
+  const performance = results?.performance ?? null;
+  const showPerformance = !plan && (viewMode === 'finished' || presentation);
+  const solarReport = showPerformance && project.performance.solar ? (performance?.solar ?? null) : null;
+  const rainReport = showPerformance && project.performance.rainwater ? (performance?.rain ?? null) : null;
   const levelElevations = useMemo(() => Object.fromEntries(project.levels.map((l) => [l.id, l.elevation])), [project.levels]);
   const showFurniture = furniture.length > 0 && !plan && (viewMode === 'finished' || viewMode === 'presentation' || exploded);
 
@@ -261,6 +267,13 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
       {showInstallations && installationsReport ? (
         <MotorGroup>
           <InstallationsView model={model} report={installationsReport} elevations={levelElevations} exploded={exploded} interactive={selectingEnabled} />
+        </MotorGroup>
+      ) : null}
+
+      {solarReport || rainReport ? (
+        <MotorGroup>
+          {solarReport ? <SolarPanelsView model={model} solar={solarReport} moduleArea={getCatalog().constants.performance.solar.moduleArea} /> : null}
+          {rainReport ? <RainTankView footprint={model.footprint} rain={rainReport} /> : null}
         </MotorGroup>
       ) : null}
 
