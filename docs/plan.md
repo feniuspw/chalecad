@@ -54,8 +54,17 @@ Fluxos paralelos: motor (E) e editor (W).
 - [x] F9-E1/W1 térmico (NBR 15575), solar fotovoltaico e água de chuva
 
 ## Fase 10 — compartilhar e qualidade
-- [ ] F10-W1 página Ver projeto (somente leitura)
-- [ ] F10-W2 e2e dos fluxos novos
+- [x] F10-W1 página Ver projeto (somente leitura)
+- [x] F10-W2 e2e dos fluxos novos
+
+## Fase 11 — assistente para leigos
+- [x] F11-E1 torre da caixa d'água e pressão (NBR 5626)
+- [x] F11-W1 assistente "Me ajude a montar" e torre no editor
+
+## Fase 12 — usabilidade e realismo
+- [x] F12-W2 glossário, alertas explicados, busca nas propriedades
+- [x] painéis recolhíveis, mão de obra regional
+- [ ] F12-W1 renderização realista procedural
 
 ## Fechamento (2026-11-07)
 - Critérios de saída verificados: JSON válido carrega e renderiza (F0); chalé 6,5 x 8,5 calcula tudo em ~3 ms (< 300 ms) (F1); verificações estruturais com taxas e cores, extras, meia-água, telhado plano e comparação de variantes (F2); IA com tool use citando ferramentas, gambrel e L/T, roteiro e pacote do engenheiro (F3); terreno com corte/aterro testado contra cálculo manual (F4).
