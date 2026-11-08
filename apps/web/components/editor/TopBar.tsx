@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
-import { ChevronDown, Download, FileJson, FileText, FolderKanban, FolderOpen, History, ClipboardList, ShieldCheck, Plus, Redo2, Undo2 } from 'lucide-react';
+import { ChevronDown, Download, FileJson, FileText, FolderKanban, FolderOpen, History, ClipboardList, Link2, Presentation, ShieldCheck, Plus, Redo2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
@@ -89,6 +89,32 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       success: (file) => `Arquivo ${file} baixado.`,
       error: (e) => (e instanceof Error ? e.message : 'Não foi possível gerar o PDF.'),
     });
+  };
+
+  const viewPath = () => {
+    const id = useEditor.getState().projectId;
+    if (!id) {
+      toast.info('Aguarde o projeto ser salvo para abrir a apresentação.');
+      return null;
+    }
+    return `/ver?id=${encodeURIComponent(id)}`;
+  };
+  const onPresent = () => {
+    const path = viewPath();
+    if (path) window.open(path, '_blank', 'noopener');
+  };
+  const onCopyLink = async () => {
+    const path = viewPath();
+    if (!path) return;
+    const { origin, hostname } = window.location;
+    const local = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+    try {
+      await navigator.clipboard.writeText(`${origin}${path}`);
+      if (local) toast.success('Link copiado.', { description: 'Para abrir no celular, troque “localhost” pelo IP da rede (aparece em “Network” no terminal).' });
+      else toast.success('Link copiado.', { description: 'Funciona para quem estiver na mesma rede.' });
+    } catch {
+      toast.error('Não foi possível copiar o link.');
+    }
   };
 
   const loadRecent = async (open: boolean) => {
@@ -187,6 +213,13 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setReport('engineer')}>
               <ShieldCheck /> Pacote do engenheiro
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onPresent}>
+              <Presentation /> Ver como apresentação
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void onCopyLink()}>
+              <Link2 /> Copiar link da rede local
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
