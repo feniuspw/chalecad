@@ -48,9 +48,29 @@ export const GROUP_COLORS: Record<RoleGroup, string> = {
   other: '#78716c',
 };
 
+/** Wood frame: tons de pinus (cor base #d9b77e), levemente variados por função para a leitura do esqueleto. */
+export const WOOD_COLOR = '#d9b77e';
+export const WOOD_GROUP_COLORS: Record<RoleGroup, string> = {
+  stud: WOOD_COLOR,
+  track: '#c9a46a',
+  header: '#e3c795',
+  joist: '#d2ac70',
+  rafter: '#cfa66a',
+  purlin: '#e8d2a6',
+  other: '#b8945c',
+};
+export const WOOD_GROUP_LABELS: Record<RoleGroup, string> = {
+  ...GROUP_LABELS,
+  stud: 'Montantes de madeira',
+  track: 'Guias de madeira',
+  joist: 'Vigas de madeira do mezanino',
+  rafter: 'Caibros e cumeeira de madeira',
+  purlin: 'Terças e sarrafos',
+};
+
 export const GROUP_ORDER: RoleGroup[] = ['stud', 'track', 'header', 'joist', 'rafter', 'purlin', 'other'];
 
-export const roleColor = (role: PieceRole) => GROUP_COLORS[ROLE_GROUP[role]];
+export const roleColor = (role: PieceRole, wood = false) => (wood ? WOOD_GROUP_COLORS : GROUP_COLORS)[ROLE_GROUP[role]];
 
 /** Camada de explosão: estrutura de cobertura sobe junto com a cobertura. */
 export type PieceLayer = 'structure' | 'roof';
@@ -156,6 +176,10 @@ export function sectionOutline(d: SectionDims): [number, number][] {
   const h = d.web / 1000;
   const b = d.flange / 1000;
   const t = Math.min(d.thickness / 1000, h / 3);
+  if (d.lip === 0 && d.flange === d.thickness) {
+    // madeira serrada: retângulo cheio (largura = flange)
+    return [[-b / 2, -h / 2], [b / 2, -h / 2], [b / 2, h / 2], [-b / 2, h / 2]];
+  }
   if (b <= t * 1.5) {
     // fita/chapa: retângulo (largura = alma, espessura t)
     return [[-t / 2, -h / 2], [t / 2, -h / 2], [t / 2, h / 2], [-t / 2, h / 2]];

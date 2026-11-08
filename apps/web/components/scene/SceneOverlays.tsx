@@ -3,13 +3,16 @@ import { Eye, Info } from 'lucide-react';
 import { useEditor } from '@/lib/store/editor';
 import { HEAT, HEAT_LEGEND } from '@/lib/three/heatmap';
 import { EXPLODE_LABELS, EXPLODE_ORDER } from '@/lib/three/views';
-import { GROUP_COLORS, GROUP_LABELS, GROUP_ORDER } from '@/lib/three/skeleton';
+import { GROUP_COLORS, GROUP_LABELS, GROUP_ORDER, WOOD_GROUP_COLORS, WOOD_GROUP_LABELS } from '@/lib/three/skeleton';
 import { useSceneInfo } from './sceneInfo';
 
 const chip = 'rounded-lg border border-border bg-white/90 px-2.5 py-1.5 text-[11px] text-stone-600 shadow-float backdrop-blur';
 
 function Legend() {
   const mode = useEditor((s) => s.viewMode);
+  const wood = useEditor((s) => s.project.system.structure === 'wood');
+  const colors = wood ? WOOD_GROUP_COLORS : GROUP_COLORS;
+  const labels = wood ? WOOD_GROUP_LABELS : GROUP_LABELS;
   if (mode === 'skeleton' || mode === 'exploded') {
     return (
       <div className={`${chip}`} aria-label="Legenda do esqueleto">
@@ -17,8 +20,8 @@ function Legend() {
         <ul className="space-y-0.5">
           {GROUP_ORDER.map((g) => (
             <li key={g} className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm" style={{ background: GROUP_COLORS[g] }} />
-              {GROUP_LABELS[g]}
+              <span className="size-2.5 rounded-sm" style={{ background: colors[g] }} />
+              {labels[g]}
             </li>
           ))}
         </ul>

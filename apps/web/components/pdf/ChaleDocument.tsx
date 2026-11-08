@@ -226,7 +226,7 @@ export function ChaleDocument({ data, plans, elevations }: ChaleDocumentProps) {
           <Text style={s.eyebrow}>PROJETO · PLANTAS · LISTA DE MATERIAIS · ORÇAMENTO</Text>
           <Text style={s.coverTitle}>{data.title}</Text>
           <Text style={s.coverSub}>
-            {data.typologyLabel} · Light Steel Frame · {data.region}
+            {data.typologyLabel} · {data.systemLabel} · {data.region}
           </Text>
           <Text style={s.coverDate}>Gerado em {data.dateLabel}</Text>
         </View>

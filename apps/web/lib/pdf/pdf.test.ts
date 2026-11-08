@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { getCatalog } from '@chalecad/catalog';
 import { computeAll } from '@chalecad/engine';
+import { produce } from 'immer';
+import { setStructure } from '../project/system';
 import { createProject } from '../project/templates';
 import { buildPdfData, buildPdfImages } from './index';
 
@@ -117,4 +119,18 @@ describe('seção de instalações', () => {
     expect(buildPdfData(project, withInst).installations?.circuits).toHaveLength(3);
     expect(buildPdfData(project, results).installations).toBeNull();
   }, 60_000);
+});
+
+describe('PDF em wood frame', () => {
+  it('premissas, indicador e etapa falam de madeira', () => {
+    const base = createProject('gable_mezzanine');
+    const project = produce(base, (d) => setStructure(d, 'wood'));
+    const r = computeAll(project, getCatalog());
+    const data = buildPdfData(project, r);
+    expect(data.systemLabel).toBe('Wood frame');
+    expect(data.premises.flatMap((g) => g.items).find((i) => i.label === 'Sistema')?.value).toBe('Wood frame (pinus tratado C25, NBR 7190)');
+    expect(data.kpis.map((k) => k.label)).toContain('Madeira por m²');
+    expect(data.kpis.map((k) => k.label)).not.toContain('Aço por m²');
+    expect(data.materials.map((s) => s.title)).toContain('Estrutura em wood frame (madeira)');
+  });
 });

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { getCatalog } from '@chalecad/catalog';
 import type { Highlight } from '@/lib/store/types';
 import type { Piece, StructuralCheck } from '@chalecad/engine';
-import { buildPieceBatches, GROUP_LABELS, ROLE_GROUP, roleColor, sectionOutline, type PieceBatch, type SectionDims } from '@/lib/three/skeleton';
+import { buildPieceBatches, GROUP_LABELS, WOOD_GROUP_LABELS, ROLE_GROUP, roleColor, sectionOutline, type PieceBatch, type SectionDims } from '@/lib/three/skeleton';
 import { heatColor, pieceHeat, type HeatIndex } from '@/lib/three/heatmap';
 import { ExplodeGroup } from './ExplodeGroup';
 import { useSceneInfo } from './sceneInfo';
@@ -67,10 +67,12 @@ export interface SkeletonViewProps {
   gap?: number;
   /** Desenha por cima de tudo (peças destacadas sobre o modo acabado). */
   overlay?: boolean;
+  /** Wood frame: material de madeira (pinus, rugoso, sem metal) e tons de madeira no modo `role`. */
+  wood?: boolean;
 }
 
-function roleLabel(p: Piece) {
-  return GROUP_LABELS[ROLE_GROUP[p.role]];
+function roleLabel(p: Piece, wood = false) {
+  return (wood ? WOOD_GROUP_LABELS : GROUP_LABELS)[ROLE_GROUP[p.role]];
 }
 
 interface BatchProps {
@@ -155,6 +157,7 @@ export function SkeletonView({
   exploded = false,
   gap = 2,
   overlay = false,
+  wood = false,
 }: SkeletonViewProps) {
   const batches = useMemo(() => buildPieceBatches(pieces), [pieces]);
   const byId = useMemo(() => new Map(pieces.map((p) => [p.id, p])), [pieces]);
@@ -162,14 +165,14 @@ export function SkeletonView({
     () =>
       new THREE.MeshStandardMaterial({
         color: '#ffffff',
-        roughness: 0.5,
-        metalness: 0.35,
+        roughness: wood ? 0.85 : 0.5,
+        metalness: wood ? 0 : 0.35,
         transparent: overlay,
         depthTest: !overlay,
         depthWrite: !overlay,
         side: THREE.DoubleSide,
       }),
-    [overlay],
+    [overlay, wood],
   );
   useEffect(() => () => material.dispose(), [material]);
   useEffect(() => {
@@ -192,7 +195,7 @@ export function SkeletonView({
     if (colorBy === 'heat') {
       const h = heat ? pieceHeat({ id, hostId: batch.hostIds[i]! }, heat) : null;
       base = col(heatColor(h?.ratio));
-    } else base = col(roleColor(batch.roles[i]!));
+    } else base = col(roleColor(batch.roles[i]!, wood));
     if (hasHighlight) return base.clone().lerp(FADE_TO, 0.78);
     return base;
   };
@@ -206,12 +209,12 @@ export function SkeletonView({
         lines.push(`Taxa de uso: ${Math.round(h.ratio * 100)}%`);
       } else lines.push('Sem verificação estrutural');
     } else lines.push(`Host: ${p.hostId}`);
-    useSceneInfo.getState().setTooltip({ x, y, title: roleLabel(p), lines });
+    useSceneInfo.getState().setTooltip({ x, y, title: roleLabel(p, wood), lines });
   };
 
   useEffect(() => () => useSceneInfo.getState().setTooltip(null), []);
 
-  const colorKey = useMemo(() => ({}), [colorBy, heat, highlight, selectedPieceId]);
+  const colorKey = useMemo(() => ({}), [colorBy, heat, highlight, selectedPieceId, wood]);
   return (
     <>
       {batches.map((b) => (

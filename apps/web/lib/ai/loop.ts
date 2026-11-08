@@ -1,7 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { computeAll, type Project } from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
-import { SYSTEM_PROMPT } from './prompt';
+import { buildSystemPrompt } from './prompt';
 import { TOOL_DEFS, runTool, type ToolContext } from './tools';
 import type { AnalystResponse, ChatMessage, ToolCallInfo } from './types';
 
@@ -35,7 +35,7 @@ export async function runAnalyst({ client, model, project, messages }: RunOption
     const res = await client.messages.create({
       model,
       max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(project.system.structure),
       tools: TOOL_DEFS as Anthropic.Tool[],
       messages: convo,
     });

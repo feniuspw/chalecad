@@ -222,12 +222,13 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
             clip={clip}
             exploded={exploded}
             gap={gap}
+            wood={project.system.structure === 'wood'}
           />
         </MotorGroup>
       ) : null}
       {overlayPieces ? (
         <MotorGroup>
-          <SkeletonView pieces={overlayPieces} colorBy="role" highlight={highlight} hoverable={false} overlay />
+          <SkeletonView pieces={overlayPieces} colorBy="role" highlight={highlight} hoverable={false} overlay wood={project.system.structure === 'wood'} />
         </MotorGroup>
       ) : null}
 

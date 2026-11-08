@@ -90,6 +90,7 @@ export function ResultsPanel() {
   const computing = useEditor((s) => s.computing);
   const stale = useEditor((s) => s.revision !== s.computedRevision);
   const computeError = useEditor((s) => s.computeError);
+  const system = useEditor((s) => s.project.system.structure);
   const installationsOn = useEditor((s) => s.project.installations.enabled);
   const [tab, setTab] = useState('summary');
   const activeTab = tab === 'installations' && !installationsOn ? 'summary' : tab;
@@ -122,7 +123,7 @@ export function ResultsPanel() {
         </p>
       ) : null}
 
-      {results ? <Kpis results={results} /> : <KpisSkeleton />}
+      {results ? <Kpis results={results} structure={system} /> : <KpisSkeleton />}
 
       {results ? (
         <Tabs value={activeTab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">

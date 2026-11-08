@@ -117,6 +117,7 @@ function Terrain({ results }: { results: Results }) {
 export function SummaryTab({ results }: { results: Results }) {
   const setHighlight = useEditor((s) => s.setHighlight);
   const active = useEditor((s) => s.highlight?.source);
+  const wood = useEditor((s) => s.project.system.structure === 'wood');
   const a = results.quantities.areas;
   const w = results.weight;
   const top = [...w.byElement].sort((x, y) => y.kg - x.kg).slice(0, 5);
@@ -194,7 +195,7 @@ export function SummaryTab({ results }: { results: Results }) {
         <SectionTitle>Cálculo</SectionTitle>
         <dl className="mt-1 divide-y divide-border">
           <KV label="Peças de estrutura" value={formatNumber(results.pieces.length, 0)} />
-          <KV label="Barras de aço a comprar" value={formatNumber(bars, 0)} />
+          <KV label={wood ? 'Peças de madeira a comprar' : 'Barras de aço a comprar'} value={formatNumber(bars, 0)} />
           <KV label="Itens da lista de compra" value={formatNumber(results.quantities.lines.length, 0)} />
           <KV label="Tempo de cálculo" value={ms !== undefined ? `${formatNumber(ms, ms < 10 ? 1 : 0)} ms` : '—'} />
         </dl>

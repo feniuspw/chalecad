@@ -62,3 +62,14 @@ describe('cores e seção', () => {
     expect(sectionOutline({ web: 90, flange: 40, lip: 0, thickness: 0.95 })).toHaveLength(8);
   });
 });
+
+describe('madeira', () => {
+  it('seção retangular cheia e cores de pinus', async () => {
+    const { WOOD_COLOR } = await import('./skeleton');
+    const pts = sectionOutline({ web: 89, flange: 38, lip: 0, thickness: 38 });
+    expect(pts).toHaveLength(4);
+    expect(Math.max(...pts.map((p) => p[0])) * 2).toBeCloseTo(0.038);
+    expect(roleColor('stud', true)).toBe(WOOD_COLOR);
+    expect(roleColor('stud')).not.toBe(WOOD_COLOR);
+  });
+});

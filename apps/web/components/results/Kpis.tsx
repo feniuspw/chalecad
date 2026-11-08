@@ -1,12 +1,12 @@
 'use client';
-import { constants } from '@chalecad/catalog';
 import { cn } from '@chalecad/ui';
 import type { Results } from '@chalecad/engine';
+import { materialKpi } from './kpi';
 import { formatArea, formatBRL, formatBRLRange, formatKg, formatNumber } from '@/lib/format';
 
-/** Mini-barra do índice de aço: faixa usual em verde, marcador verde dentro / âmbar fora. */
-export function SteelBar({ value }: { value: number }) {
-  const [lo, hi] = constants.steelIndexRange;
+/** Mini-barra do índice do material (aço ou madeira): faixa usual em verde, marcador verde dentro / âmbar fora. */
+export function MaterialBar({ value, range, unit, label, digits }: { value: number; range: readonly [number, number]; unit: string; label: string; digits: number }) {
+  const [lo, hi] = range;
   const min = lo * 0.6;
   const max = hi * 1.4;
   const pos = (v: number) => `${Math.min(100, Math.max(0, ((v - min) / (max - min)) * 100))}%`;
@@ -14,7 +14,7 @@ export function SteelBar({ value }: { value: number }) {
   return (
     <div
       role="img"
-      aria-label={`Aço ${formatNumber(value, 1)} kg/m². Faixa usual de ${formatNumber(lo, 1)} a ${formatNumber(hi, 1)}: ${inside ? 'dentro' : 'fora'}.`}
+      aria-label={`${label} ${formatNumber(value, digits)} ${unit}. Faixa usual de ${formatNumber(lo, digits)} a ${formatNumber(hi, digits)}: ${inside ? 'dentro' : 'fora'}.`}
       className="relative mt-1.5 h-1.5 w-full rounded-full bg-stone-200"
     >
       <span className="absolute inset-y-0 rounded-full bg-emerald-200" style={{ left: pos(lo), width: `calc(${pos(hi)} - ${pos(lo)})` }} />
@@ -37,11 +37,9 @@ function Small({ label, value, children, title }: { label: string; value: string
 }
 
 /** Cabeçalho fixo: custo total em destaque e indicadores principais. */
-export function Kpis({ results }: { results: Results }) {
+export function Kpis({ results, structure = 'lsf' }: { results: Results; structure?: 'lsf' | 'wood' }) {
   const b = results.budget;
-  const steel = results.quantities.steelKgPerM2;
-  const [lo, hi] = constants.steelIndexRange;
-  const inside = steel >= lo && steel <= hi;
+  const mat = materialKpi(results, structure);
   return (
     <div className="space-y-3 border-b border-border bg-gradient-to-b from-amber-50/60 to-white px-4 pt-3 pb-3.5">
       <div className="flex items-end justify-between gap-3">
@@ -58,12 +56,8 @@ export function Kpis({ results }: { results: Results }) {
       <div className="grid grid-cols-3 gap-3 border-t border-border pt-3">
         <Small label="Área construída" value={formatArea(results.model.builtArea)} />
         <Small label="Peso (sem fund.)" value={formatKg(results.weight.superstructureKg)} title="Peso total sem a fundação" />
-        <Small
-          label="Aço"
-          value={`${formatNumber(steel, 1)} kg/m²`}
-          title={`Faixa usual ${formatNumber(lo, 1)} a ${formatNumber(hi, 1)} kg/m²: ${inside ? 'dentro' : 'fora da faixa'}`}
-        >
-          <SteelBar value={steel} />
+        <Small label={mat.label} value={mat.value} title={mat.title}>
+          {mat.index !== null ? <MaterialBar value={mat.index} range={mat.range} unit={mat.unit} label={mat.label} digits={structure === 'wood' ? 3 : 1} /> : null}
         </Small>
       </div>
     </div>

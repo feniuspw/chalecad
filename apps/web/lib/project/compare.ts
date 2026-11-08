@@ -39,6 +39,8 @@ export interface Metrics {
   builtArea: number;
   weightKg: number;
   steelKgPerM2: number;
+  /** Volume de madeira por m² construído (null quando não há madeira estrutural ou o motor não calcula). */
+  woodM3PerM2: number | null;
   pieces: number;
   /** Pior taxa de uso estrutural (null sem verificações). */
   worstRatio: number | null;
@@ -53,6 +55,7 @@ export function metricsOf(r: Results): Metrics {
     builtArea: r.model.builtArea,
     weightKg: r.weight.totalKg,
     steelKgPerM2: r.quantities.steelKgPerM2,
+    woodM3PerM2: r.quantities.woodM3 > 0 ? r.quantities.woodM3PerM2 : null,
     pieces: r.pieces.length,
     worstRatio: r.structure && r.structure.checks.length ? r.structure.summary.maxRatio : null,
     alerts: r.warnings.filter((w) => w.severity !== 'info').length,

@@ -56,7 +56,7 @@ describe('ferramentas da IA', () => {
     const r = o.result as { diffs: Record<string, { delta: number | null }> };
     expect(r.diffs.total!.delta).toBeGreaterThan(0);
     expect(r.diffs.weightKg!.delta).toBeGreaterThan(0);
-    expect(Object.keys(r.diffs)).toEqual(['total', 'perM2', 'weightKg', 'steelKgPerM2', 'worstRatio', 'warnings']);
+    expect(Object.keys(r.diffs)).toEqual(['total', 'perM2', 'weightKg', 'steelKgPerM2', 'woodM3PerM2', 'worstRatio', 'warnings']);
   });
 
   it('simulateVariant rejeita patch inválido sem lançar', () => {

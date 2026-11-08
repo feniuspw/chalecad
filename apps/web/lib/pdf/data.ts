@@ -6,7 +6,7 @@ import { getAssembly, getCatalog, getPriceBook, getProfile, type Catalog } from 
 import { DISCLAIMER, buildEngineerPackage, type BudgetLine, type EngineerPackage, type Project, type QuantityLine, type Results, type Stage } from '@chalecad/engine';
 import { finishName, ROOM_USES } from '../project/rooms';
 import { circuitRows, INSTALLATIONS_NOTICE, pipeTotals, wireTotals } from '../three/installations';
-import { BRACING_LABELS, STAGE_LABELS, STAGE_ORDER, TYPOLOGY_LABELS } from './labels';
+import { BRACING_LABELS, STAGE_ORDER, SYSTEM_LABELS, SYSTEM_PREMISES, TYPOLOGY_LABELS, stageLabel } from './labels';
 import { brl, brl0, dateBR, isoToBR, num, qty } from './format';
 
 export interface Kpi {
@@ -69,6 +69,8 @@ export interface PdfData {
   fileName: string;
   dateLabel: string;
   typologyLabel: string;
+  /** Sistema construtivo (capa): "Light Steel Frame" ou "Wood frame". */
+  systemLabel: string;
   region: string;
   disclaimer: string;
   artNotice: string;
@@ -220,13 +222,17 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
   const now = opts.now ?? new Date();
   const pkg: EngineerPackage = buildEngineerPackage(project, results, catalog);
   const { quantities, budget, weight, model } = results;
+  const structure = project.system.structure;
+  const wood = structure === 'wood';
 
   // --- Resumo -----------------------------------------------------------------
   const kpis: Kpi[] = [
     { label: 'Área construída', value: `${num(model.builtArea, 2)} m²`, hint: `Térreo ${num(model.footprintArea, 2)} m²` },
     { label: 'Custo total estimado', value: brl0(budget.total), hint: `Até ${brl0(budget.totalMax)} · ${brl0(budget.perM2)}/m²` },
-    { label: 'Peso total', value: `${num(weight.totalKg, 0)} kg`, hint: `Estrutura de aço ${num(quantities.steelKg, 0)} kg` },
-    { label: 'Aço por m²', value: `${num(quantities.steelKgPerM2, 1)} kg/m²`, hint: 'Índice de sanidade LSF' },
+    { label: 'Peso total', value: `${num(weight.totalKg, 0)} kg`, hint: wood ? `Estrutura de madeira ${num(quantities.woodM3, 2)} m³` : `Estrutura de aço ${num(quantities.steelKg, 0)} kg` },
+    wood
+      ? { label: 'Madeira por m²', value: quantities.woodM3 > 0 ? `${num(quantities.woodM3PerM2, 3)} m³/m²` : '—', hint: 'Índice de sanidade wood frame' }
+      : { label: 'Aço por m²', value: `${num(quantities.steelKgPerM2, 1)} kg/m²`, hint: 'Índice de sanidade LSF' },
   ];
 
   const a = quantities.areas;
@@ -267,13 +273,13 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
         ...(l.note ? { note: l.note } : {}),
       };
     });
-    return { stage, title: STAGE_LABELS[stage], rows, subtotal: brl(sub), weight: `${num(kg, 0)} kg` };
+    return { stage, title: stageLabel(stage, structure), rows, subtotal: brl(sub), weight: `${num(kg, 0)} kg` };
   });
 
   // --- Orçamento ---------------------------------------------------------------
   const diy = new Set(project.budget.diyStages);
   const rows: BudgetRow[] = budget.byStage.map((s) => ({
-    title: STAGE_LABELS[s.stage],
+    title: stageLabel(s.stage, structure),
     material: brl(s.material),
     labor: diy.has(s.stage) ? 'você executa' : brl(s.labor),
     freight: brl(s.freight),
@@ -322,7 +328,7 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
     {
       group: 'Sistema construtivo',
       items: [
-        { label: 'Estrutura', value: 'Light Steel Frame (LSF), perfis de aço galvanizado' },
+        { label: 'Sistema', value: SYSTEM_PREMISES[structure] },
         { label: 'Montantes', value: profileName(catalog, sys.profiles.wallStud) },
         ...(sys.profiles.gableStud ? [{ label: 'Montantes das empenas', value: profileName(catalog, sys.profiles.gableStud) }] : []),
         { label: 'Guias', value: profileName(catalog, sys.profiles.wallTrack) },
@@ -368,7 +374,7 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
         { label: 'Preços editados no projeto', value: overrides ? `${overrides} item(ns)` : 'nenhum' },
         { label: 'Contingência', value: `${num(project.budget.contingencyPct, 0)}%` },
         { label: 'Frete', value: `${num(project.budget.freight.distanceKm, 0)} km a ${brl(project.budget.freight.pricePerTonKm)} por t·km` },
-        { label: 'Etapas executadas por você', value: project.budget.diyStages.length ? project.budget.diyStages.map((s) => STAGE_LABELS[s]).join(', ') : 'nenhuma (mão de obra contratada)' },
+        { label: 'Etapas executadas por você', value: project.budget.diyStages.length ? project.budget.diyStages.map((s) => stageLabel(s, structure)).join(', ') : 'nenhuma (mão de obra contratada)' },
         { label: 'Norte', value: 'Indicativo: o topo da planta corresponde aos fundos do lote' },
       ],
     },
@@ -380,6 +386,7 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
     fileName: `${slugForFile(project.meta.name)}.pdf`,
     dateLabel: dateBR(now),
     typologyLabel: TYPOLOGY_LABELS[project.typology.kind],
+    systemLabel: SYSTEM_LABELS[structure],
     region: project.meta.region,
     disclaimer: DISCLAIMER,
     artNotice: pkg.artNotice,

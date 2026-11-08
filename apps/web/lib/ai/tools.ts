@@ -107,6 +107,8 @@ function quantities(results: Results) {
     areas: Object.fromEntries(Object.entries(q.areas).map(([k, v]) => [k, r(v)])),
     steelKg: r(q.steelKg, 1),
     steelKgPerM2: r(q.steelKgPerM2),
+    woodM3: r(q.woodM3, 3),
+    woodM3PerM2: r(q.woodM3PerM2, 4),
   };
 }
 
@@ -148,7 +150,7 @@ export function runTool(name: string, input: unknown, ctx: ToolContext): ToolOut
         return { result: ctx.project, summary: `Projeto “${ctx.project.meta.name}”` };
       case 'getQuantities': {
         const q = quantities(ctx.results);
-        return { result: q, summary: `${ctx.results.quantities.lines.length} linhas, aço ${r(q.steelKgPerM2)} kg/m²` };
+        return { result: q, summary: `${ctx.results.quantities.lines.length} linhas, aço ${r(q.steelKgPerM2)} kg/m², madeira ${r(q.woodM3PerM2, 4)} m³/m²` };
       }
       case 'getStructuralReport': {
         const s = structural(ctx.results);

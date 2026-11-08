@@ -1,7 +1,7 @@
 /** Tipos compartilhados entre o servidor (`/api/ai`) e o painel Analista. */
 import type { JsonPatchOp } from './patch';
 
-export type MetricKey = 'total' | 'perM2' | 'weightKg' | 'steelKgPerM2' | 'worstRatio' | 'warnings';
+export type MetricKey = 'total' | 'perM2' | 'weightKg' | 'steelKgPerM2' | 'woodM3PerM2' | 'worstRatio' | 'warnings';
 
 export interface MetricDiff {
   before: number | null;

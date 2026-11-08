@@ -2,7 +2,9 @@
 import { useMemo } from 'react';
 import type { Project, UF } from '@chalecad/engine';
 import { getCatalog, type Catalog, type Profile } from '@chalecad/catalog';
+import { toast } from 'sonner';
 import { hasRidgeAxis } from '@/lib/project/edit';
+import { STRUCTURE_HINTS, profileLabel, profilesForStructure, setStructure, structureToast, type Structure } from '@/lib/project/system';
 import { fmt } from '@/lib/project/format';
 import { useEditor } from '@/lib/store/editor';
 import { LocationFields } from './LocationFields';
@@ -18,21 +20,22 @@ function useSection(id: SectionId) {
 
 const useCatalog = (): Catalog => useMemo(() => getCatalog(), []);
 
-const dec = (n: number) => String(n).replace('.', ',');
 const profileOption = (p: Profile): Option<string> => ({
   value: p.id,
-  label: p.family === 'Cr' ? `Cartola ${p.web}×${p.flange}×${dec(p.thickness)}` : `${p.family} ${p.web}×${p.flange}×${dec(p.thickness)}`,
+  label: profileLabel(p),
   hint: `${fmt(p.massPerM, 2)} kg/m`,
 });
 
-// Faixas de alma por uso (mm): montante de parede, viga de piso e caibro.
+// Faixas de alma por uso (mm), só no aço: montante de parede, viga de piso e caibro.
 /** Opção "igual às paredes" do montante das empenas (sem perfil próprio). */
 const SAME = '__same__';
 const WEB_RANGE = { wallStud: [90, 140], joist: [140, 250], rafter: [90, 200] } as const;
 
-function options(cat: Catalog, family: Profile['family'], range?: readonly [number, number], keep?: string): Option<string>[] {
-  return cat.profiles
-    .filter((p) => p.family === family && (!range || (p.web >= range[0] && p.web <= range[1]) || p.id === keep))
+/** Perfis do material do sistema; no aço filtra por família e faixa de alma, na madeira lista todas as seções. */
+function options(cat: Catalog, structure: Structure, family: Profile['family'], range?: readonly [number, number], keep?: string): Option<string>[] {
+  const wood = structure === 'wood';
+  return profilesForStructure(cat.profiles, structure, wood ? undefined : family)
+    .filter((p) => wood || !range || (p.web >= range[0] && p.web <= range[1]) || p.id === keep)
     .map(profileOption);
 }
 
@@ -47,8 +50,26 @@ export function SystemSection({ project }: { project: Project }) {
   const sys = project.system;
   const asm = (kind: string): Option<string>[] => cat.assemblies.filter((a) => a.kind === kind).map((a) => ({ value: a.id, label: a.name.replace(/^[^:]+:\s*/, '') }));
 
+  const structure = sys.structure;
+  const wood = structure === 'wood';
+  const track = cat.profiles.find((p) => p.id === sys.profiles.wallTrack);
+  const trackLabel = track ? profileLabel(track) : sys.profiles.wallTrack;
   return (
     <Section title="Sistema construtivo" {...section}>
+      <Segmented<Structure>
+        label="Sistema"
+        value={structure}
+        options={[
+          { value: 'lsf', label: 'Steel frame' },
+          { value: 'wood', label: 'Wood frame' },
+        ]}
+        onChange={(v) => {
+          if (v === structure) return;
+          update('Trocar sistema construtivo', (d) => setStructure(d, v, cat));
+          toast.success(structureToast(v));
+        }}
+        hint={STRUCTURE_HINTS[structure]}
+      />
       <Segmented<0.4 | 0.6>
         label="Espaçamento dos montantes"
         value={sys.studSpacing}
@@ -57,7 +78,7 @@ export function SystemSection({ project }: { project: Project }) {
           { value: 0.6, label: '60 cm' },
         ]}
         onChange={(v) => update('Alterar espaçamento dos montantes', (d) => void (d.system.studSpacing = v))}
-        hint={sys.studSpacing === 0.4 ? 'mais rígido, mais aço' : 'mais econômico'}
+        hint={sys.studSpacing === 0.4 ? `mais rígido, mais ${wood ? 'madeira' : 'aço'}` : 'mais econômico'}
       />
       {project.typology.kind === 'a_frame' ? (
         <Segmented<0.4 | 0.6>
@@ -74,23 +95,24 @@ export function SystemSection({ project }: { project: Project }) {
       <SelectField
         label="Perfil do montante"
         value={sys.profiles.wallStud}
-        options={options(cat, 'Ue', WEB_RANGE.wallStud, sys.profiles.wallStud)}
+        options={options(cat, structure, 'Ue', WEB_RANGE.wallStud, sys.profiles.wallStud)}
         onChange={(id) =>
           update('Alterar perfil do montante', (d) => {
             d.system.profiles.wallStud = id;
-            // A guia acompanha o montante (mesma alma e espessura).
+            // A guia acompanha o montante (aço: mesma alma e espessura; madeira: mesma seção).
+            if (wood) return void (d.system.profiles.wallTrack = id);
             const stud = cat.profiles.find((p) => p.id === id);
             const track = stud && cat.profiles.find((p) => p.family === 'U' && p.web === stud.web && p.thickness === stud.thickness);
             if (track) d.system.profiles.wallTrack = track.id;
           })
         }
       />
-      <p className="-mt-2 text-[11px] text-stone-500">Guia: {sys.profiles.wallTrack} (acompanha o montante)</p>
+      <p className="-mt-2 text-[11px] text-stone-500">Guia: {trackLabel} (acompanha o montante)</p>
       {project.typology.kind === 'a_frame' || project.typology.kind === 'combined' ? (
         <SelectField
           label="Montante das empenas"
           value={sys.profiles.gableStud ?? SAME}
-          options={[{ value: SAME, label: 'Igual às paredes' }, ...options(cat, 'Ue', [90, 250], sys.profiles.gableStud)]}
+          options={[{ value: SAME, label: 'Igual às paredes' }, ...options(cat, structure, 'Ue', [90, 250], sys.profiles.gableStud)]}
           onChange={(id) =>
             update('Alterar montante das empenas', (d) => {
               if (id === SAME) delete d.system.profiles.gableStud;
@@ -102,19 +124,19 @@ export function SystemSection({ project }: { project: Project }) {
       <SelectField
         label="Perfil da viga do mezanino"
         value={sys.profiles.joist}
-        options={options(cat, 'Ue', WEB_RANGE.joist, sys.profiles.joist)}
+        options={options(cat, structure, 'Ue', WEB_RANGE.joist, sys.profiles.joist)}
         onChange={(id) => update('Alterar perfil da viga', (d) => void (d.system.profiles.joist = id))}
       />
       <SelectField
         label="Perfil do caibro"
         value={sys.profiles.rafter}
-        options={options(cat, 'Ue', WEB_RANGE.rafter, sys.profiles.rafter)}
+        options={options(cat, structure, 'Ue', WEB_RANGE.rafter, sys.profiles.rafter)}
         onChange={(id) => update('Alterar perfil do caibro', (d) => void (d.system.profiles.rafter = id))}
       />
       <SelectField
-        label="Terça / cartola"
+        label={wood ? 'Terça / sarrafo' : 'Terça / cartola'}
         value={sys.profiles.purlin}
-        options={options(cat, 'Cr', undefined, sys.profiles.purlin)}
+        options={options(cat, structure, 'Cr', undefined, sys.profiles.purlin)}
         onChange={(id) => update('Alterar terça', (d) => void (d.system.profiles.purlin = id))}
       />
       <Segmented<'osb' | 'strap'>
