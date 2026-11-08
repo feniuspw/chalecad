@@ -56,7 +56,8 @@ function pressureWarnings(project: Project, placed: ReturnType<typeof placePoint
     const where = elevOf(p.level) > 0 ? 'do mezanino' : `(${room?.name ?? 'térreo'})`;
     out.push({
       code: 'install.pressure',
-      severity: 'warn',
+      // No térreo, caixa no forro com pouca coluna é o caso comum (resolve com pressurizador): só informa.
+      severity: elevOf(p.level) > 0 ? 'warn' : 'info',
       message:
         `${shower ? 'Chuveiro' : 'Ponto de água'} ${where} com só ${fmt1(Math.max(0, head))} m de coluna d'água ` +
         `(mínimo ${fmt1(min)} m, NBR 5626): eleve a caixa (torre) ou use pressurizador`,
