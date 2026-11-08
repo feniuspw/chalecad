@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { Footprints, ImageDown, Lightbulb, Pause, Play, Plug } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, Slider, Switch } from '@chalecad/ui';
+import { Button, Slider, Switch, cn } from '@chalecad/ui';
 import { compassLabel, formatMinutes } from '@/lib/sun';
 import { captureImage } from '@/lib/three/capture';
 import { useEditor } from '@/lib/store/editor';
@@ -22,7 +22,17 @@ const DAY_SECONDS = 14;
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
 /** Painel do sol do modo apresentação: data, hora, animação, atalhos, compasso, andar por dentro, salvar imagem. */
-export function SunPanel() {
+export interface SunPanelProps {
+  /** Mostra "Andar por dentro" (padrão: sim). Falso em telas de toque, sem PointerLock. */
+  allowWalk?: boolean;
+  /** Mostra "Salvar imagem" (padrão: sim). */
+  allowSave?: boolean;
+  /** Versão enxuta (celular): sem compasso, qualidade e fps. */
+  compact?: boolean;
+  className?: string;
+}
+
+export function SunPanel({ allowWalk = true, allowSave = true, compact = false, className }: SunPanelProps = {}) {
   const sun = useSunState();
   const setSun = useEditor((s) => s.setSun);
   const setWalk = useEditor((s) => s.setWalk);
@@ -95,7 +105,7 @@ export function SunPanel() {
   }
 
   return (
-    <div className="pointer-events-auto absolute bottom-14 left-3 w-[22rem] max-w-[calc(100%-1.5rem)] rounded-xl border border-border bg-white/92 p-3 shadow-float backdrop-blur" aria-label="Painel do sol">
+    <div className={cn('pointer-events-auto absolute bottom-14 left-3 w-[22rem] max-w-[calc(100%-1.5rem)] rounded-xl border border-border bg-white/92 p-3 shadow-float backdrop-blur', className)} aria-label="Painel do sol">
       <div className="flex gap-3">
         <div className="min-w-0 flex-1 space-y-2.5">
           <div className="flex items-center gap-2">
@@ -137,7 +147,7 @@ export function SunPanel() {
             ))}
           </div>
         </div>
-        <div className="flex flex-col items-center gap-1">
+        <div className={cn('flex flex-col items-center gap-1', compact && 'hidden')}>
           <Compass northDeg={sun.northDeg} sunAzimuthDeg={sun.azimuthDeg} sunUp={sunUp} />
           <div className="text-center text-[11px] leading-tight text-stone-500 tabular-nums">
             <div>
@@ -154,7 +164,7 @@ export function SunPanel() {
           Luzes acesas
           <Switch checked={lamps} onCheckedChange={setLamps} aria-label="Luzes acesas" />
         </label>
-        <div role="group" aria-label="Qualidade" className="flex items-center rounded-md bg-stone-100 p-0.5">
+        <div role="group" aria-label="Qualidade" className={cn('flex items-center rounded-md bg-stone-100 p-0.5', compact && 'hidden')}>
           {QUALITY.map((q) => (
             <button
               key={q.id}
@@ -178,14 +188,20 @@ export function SunPanel() {
         </label>
       ) : null}
 
-      <div className="mt-2.5 flex items-center gap-2">
-        <Button size="sm" className="flex-1" onClick={startWalk} disabled={!hasModel}>
-          <Footprints /> Andar por dentro
-        </Button>
-        <Button size="sm" variant="outline" className="flex-1" onClick={save} disabled={!hasModel}>
-          <ImageDown /> Salvar imagem
-        </Button>
-      </div>
+      {allowWalk || allowSave ? (
+        <div className="mt-2.5 flex items-center gap-2">
+          {allowWalk ? (
+            <Button size="sm" className="flex-1" onClick={startWalk} disabled={!hasModel}>
+              <Footprints /> Andar por dentro
+            </Button>
+          ) : null}
+          {allowSave ? (
+            <Button size="sm" variant="outline" className="flex-1" onClick={save} disabled={!hasModel}>
+              <ImageDown /> Salvar imagem
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="mt-1.5 flex justify-between text-[10px] text-stone-400 tabular-nums">
         <span>
           {sun.location.city ?? `${sun.location.lat.toFixed(2)}°, ${sun.location.lon.toFixed(2)}°`} · norte a {Math.round(sun.northDeg)}°
