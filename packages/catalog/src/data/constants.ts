@@ -135,7 +135,7 @@ export const constants: TechnicalConstants = {
     gammaC: 1.4,
     gammaT: 1.8,
     gammaV: 1.8,
-    indexRange: [0.06, 0.12],
+    indexRange: [0.035, 0.12],
     nailKgPerM: 0.02,
     nailKgPerM2Board: 0.08,
   },

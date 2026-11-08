@@ -31,7 +31,7 @@ describe('wood frame: peças', () => {
   test('verga: duas peças de altura lado a lado', () => {
     const h = wood.pieces.filter((p) => p.hostId === 'ext-left' && p.role === 'header');
     expect(h).toHaveLength(2);
-    expect(h.every((p) => p.profileId === 'W38x89')).toBe(true);
+    expect(h.every((p) => p.profileId === WOOD_PROFILES.wallStud)).toBe(true);
   });
 });
 

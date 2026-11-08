@@ -79,7 +79,8 @@ export function computeBudget(
       case 'radier_area':
         return a.radier;
       case 'steel_kg':
-        return q.steelKg;
+        // Wood frame: a mão de obra da estrutura segue a massa de madeira (mesma tabela R$/kg; ~R$ 250/m² no 6,5 x 8,5).
+        return q.steelKg + q.woodM3 * catalog.constants.wood.density;
       case 'material_pct':
         return 0;
     }

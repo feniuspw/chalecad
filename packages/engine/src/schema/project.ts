@@ -216,10 +216,11 @@ const DEFAULT_PROFILES = {
 };
 /** Perfis padrão do wood frame (pinus autoclavado C25). O editor troca para estes ao mudar o sistema. */
 export const WOOD_PROFILES = {
-  wallStud: 'W38x89',
-  wallTrack: 'W38x89',
-  joist: 'W38x184',
-  rafter: 'W38x140',
+  // 38 x 140 nas paredes (usual no wood frame brasileiro para paredes externas e pé-direito de chalé).
+  wallStud: 'W38x140',
+  wallTrack: 'W38x140',
+  joist: 'W38x235',
+  rafter: 'W38x184',
   purlin: 'W25x50',
 };
 const DEFAULT_ASSEMBLIES = {
