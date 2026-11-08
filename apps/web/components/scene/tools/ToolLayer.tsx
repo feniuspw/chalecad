@@ -8,6 +8,7 @@ import { FurnitureKeys, FurnitureTool } from './FurnitureTool';
 import { MeasureTool } from './MeasureTool';
 import { MezzanineTool } from './MezzanineTool';
 import { OpeningTool } from './OpeningTool';
+import { RectTool } from './RectTool';
 import { RoomTool } from './RoomTool';
 import { SelectOverlays } from './SelectOverlays';
 import { StairTool } from './StairTool';
@@ -42,6 +43,8 @@ export function ToolLayer({ model }: { model: BuildingModel }) {
   switch (tool) {
     case 'wall':
       return <WallTool env={env} />;
+    case 'rect':
+      return <RectTool env={env} />;
     case 'opening':
       return <OpeningTool env={env} />;
     case 'stair':

@@ -17,7 +17,7 @@ export interface SunState {
 /** Câmera: 3D orbital ou ortográficas 2D. `plan` mostra o nível ativo em planta. */
 export type CameraView = '3d' | 'plan' | 'front' | 'back' | 'left' | 'right';
 
-export type Tool = 'select' | 'wall' | 'opening' | 'stair' | 'mezzanine' | 'measure' | 'dimension' | 'room' | 'furniture';
+export type Tool = 'select' | 'wall' | 'rect' | 'opening' | 'stair' | 'mezzanine' | 'measure' | 'dimension' | 'room' | 'furniture';
 
 export type SelectionKind = 'host' | 'opening' | 'wall' | 'stair' | 'level' | 'extra' | 'piece' | 'roof' | 'slab' | 'room' | 'furniture';
 export interface Selection {
@@ -103,6 +103,8 @@ export interface EditorActions {
   updateCoalesced(label: string, recipe: (draft: Project) => void): void;
   /** Aplica patches JSON (Immer) vindos da IA, com histórico. */
   applyPatches(label: string, patches: Patch[]): void;
+  /** Move pontas de várias paredes de uma vez (parede arrastada + ligadas): um único passo de desfazer. */
+  moveWalls(label: string, changes: { id: string; from: [number, number]; to: [number, number] }[]): void;
   undo(): void;
   redo(): void;
 

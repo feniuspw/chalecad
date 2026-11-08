@@ -1,6 +1,6 @@
 'use client';
 import { useMemo } from 'react';
-import { DoorOpen, MousePointerClick, Plus } from 'lucide-react';
+import { DoorOpen, Merge, MousePointerClick, Plus, Scissors } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge, Button } from '@chalecad/ui';
 import type { Project } from '@chalecad/engine';
@@ -13,6 +13,8 @@ import {
   setWallLength,
 } from '@/lib/project/edit';
 import { fmt } from '@/lib/project/format';
+import { newId } from '@/lib/project/ids';
+import { findJoinPartner, joinWalls, splitWall } from '@/lib/tools/walls';
 import { hostLength, wallLength } from '@/lib/project/geometry';
 import { hostLabel, OPENING_LABELS, openingLabel, STAIR_LABELS } from '@/lib/project/labels';
 import { useEditor, useSelectedObject, type SelectedObject } from '@/lib/store/editor';
@@ -161,11 +163,38 @@ function WallInspector({ obj, project }: { obj: Obj<'wall'>; project: Project })
     ...cat.assemblies.filter((a) => a.kind === 'wall_interior' || a.kind === 'wall_wet').map((a) => ({ value: a.id, label: a.name.replace(/^[^:]+:\s*/, '') })),
   ];
   const diag = Math.hypot(project.typology.width, project.typology.depth);
+  const canJoin = findJoinPartner(project, w.id) !== null;
+
+  const split = () => {
+    const res: { r: ReturnType<typeof splitWall> | null; id: string } = { r: null, id: newId('w') };
+    update('Dividir parede', (d) => {
+      const m: [number, number] = [(w.from[0]! + w.to[0]!) / 2, (w.from[1]! + w.to[1]!) / 2];
+      res.r = splitWall(d, w.id, m, res.id);
+    });
+    if (res.r && !res.r.ok) toast.info(res.r.message);
+  };
+  const join = () => {
+    const partner = findJoinPartner(useEditor.getState().project, w.id);
+    if (!partner) return;
+    const res: { r: ReturnType<typeof joinWalls> | null } = { r: null };
+    update('Juntar paredes colineares', (d) => {
+      res.r = joinWalls(d, w.id, partner);
+    });
+    if (res.r && !res.r.ok) toast.info(res.r.message);
+  };
 
   return (
     <>
       <Header title={name} subtitle={`${fmt(len)} m de comprimento`} onDelete={remove} />
       <Body>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={split} title="Divide a parede ao meio em duas paredes ligadas">
+            <Scissors className="size-3.5" /> Dividir parede
+          </Button>
+          <Button variant="outline" size="sm" onClick={join} disabled={!canJoin} title={canJoin ? 'Une esta parede à colinear ligada a ela' : 'Nenhuma parede colinear ligada a esta'}>
+            <Merge className="size-3.5" /> Juntar colineares
+          </Button>
+        </div>
         <SliderField
           label="Comprimento"
           value={len}

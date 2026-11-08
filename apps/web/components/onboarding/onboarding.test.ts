@@ -13,7 +13,7 @@ describe('SHORTCUTS', () => {
     expect(duplicateKeys(dup)).toHaveLength(1);
   });
 
-  it('o mesmo atalho pode existir em contextos diferentes (R mede no editor e gira o móvel)', () => {
+  it('o mesmo atalho pode existir em contextos diferentes (R desenha retângulo no editor e gira o móvel)', () => {
     const r = SHORTCUTS.filter((s) => s.keys.includes('R'));
     expect(r.map((s) => s.context).sort()).toEqual(['editor', 'furniture']);
   });

@@ -213,3 +213,26 @@ describe('resultados e salvamento', () => {
     expect(s().toolOptions.snapGrid).toBe(true);
   });
 });
+
+describe('moveWalls (mover ponta com paredes ligadas)', () => {
+  it('é um único passo de desfazer e refazer', () => {
+    const s = useEditor.getState();
+    const level = s.project.levels[0]!.id;
+    s.update('Desenhar', (d) => {
+      d.walls.push({ id: 'w1', level, from: [1, 1], to: [4, 1] }, { id: 'w2', level, from: [4, 1], to: [4, 4] });
+    });
+    const before = useEditor.getState().past.length;
+    useEditor.getState().moveWalls('Mover ponta', [
+      { id: 'w1', from: [1, 1], to: [5, 1] },
+      { id: 'w2', from: [5, 1], to: [4, 4] },
+    ]);
+    const st = useEditor.getState();
+    expect(st.past.length).toBe(before + 1);
+    expect(st.project.walls.find((w) => w.id === 'w2')!.from).toEqual([5, 1]);
+    useEditor.getState().undo();
+    expect(useEditor.getState().project.walls.find((w) => w.id === 'w1')!.to).toEqual([4, 1]);
+    expect(useEditor.getState().project.walls.find((w) => w.id === 'w2')!.from).toEqual([4, 1]);
+    useEditor.getState().redo();
+    expect(useEditor.getState().project.walls.find((w) => w.id === 'w1')!.to).toEqual([5, 1]);
+  });
+});

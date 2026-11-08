@@ -5,7 +5,7 @@
  */
 import { closestOnSegment, dist, lerp, mid, round, sub, type V2 } from './geom';
 
-export type SnapKind = 'corner' | 'endpoint' | 'midpoint' | 'modulation' | 'grid' | 'none';
+export type SnapKind = 'corner' | 'endpoint' | 'midpoint' | 'intersection' | 'perpendicular' | 'aligned' | 'modulation' | 'grid' | 'none';
 
 export interface SnapSegment {
   id: string;
@@ -39,8 +39,11 @@ export const DEFAULT_SNAP_RADIUS = 0.25;
 
 export const SNAP_LABELS: Record<SnapKind, string> = {
   corner: 'Canto',
-  endpoint: 'Extremidade',
-  midpoint: 'Ponto médio',
+  endpoint: 'Ponta',
+  midpoint: 'Meio',
+  intersection: 'Interseção',
+  perpendicular: 'Perpendicular',
+  aligned: 'Alinhado',
   modulation: 'Modulação dos montantes',
   grid: 'Grade',
   none: '',

@@ -29,23 +29,27 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = ['Ferramentas', 'Edição', 'Vis
 export const SHORTCUTS: readonly Shortcut[] = [
   // Ferramentas
   { id: 'tool-select', group: 'Ferramentas', context: 'editor', keys: ['V'], label: 'Selecionar', tool: 'select' },
-  { id: 'tool-wall', group: 'Ferramentas', context: 'editor', keys: ['W'], label: 'Parede interna', tool: 'wall' },
+  { id: 'tool-wall', group: 'Ferramentas', context: 'editor', keys: ['W'], label: 'Parede (digite a medida e Enter)', tool: 'wall' },
+  { id: 'tool-rect', group: 'Ferramentas', context: 'editor', keys: ['R'], label: 'Retângulo (4 paredes e cômodo)', tool: 'rect' },
   { id: 'tool-opening', group: 'Ferramentas', context: 'editor', keys: ['O'], label: 'Abertura (porta, janela, claraboia)', tool: 'opening' },
   { id: 'tool-stair', group: 'Ferramentas', context: 'editor', keys: ['E'], label: 'Escada', tool: 'stair' },
   { id: 'tool-mezzanine', group: 'Ferramentas', context: 'editor', keys: ['M'], label: 'Mezanino', tool: 'mezzanine' },
   { id: 'tool-room', group: 'Ferramentas', context: 'editor', keys: ['A'], label: 'Cômodo (ambiente)', tool: 'room' },
   { id: 'tool-furniture', group: 'Ferramentas', context: 'editor', keys: ['F'], label: 'Móveis', tool: 'furniture' },
   { id: 'tool-dimension', group: 'Ferramentas', context: 'editor', keys: ['C'], label: 'Cota', tool: 'dimension' },
-  { id: 'tool-measure', group: 'Ferramentas', context: 'editor', keys: ['R'], label: 'Medir', tool: 'measure' },
+  { id: 'tool-measure', group: 'Ferramentas', context: 'editor', keys: ['T'], label: 'Medir (trena)', tool: 'measure' },
 
   // Edição
   { id: 'undo', group: 'Edição', context: 'editor', keys: ['Mod+Z'], label: 'Desfazer' },
   { id: 'redo', group: 'Edição', context: 'editor', keys: ['Shift+Mod+Z', 'Mod+Y'], label: 'Refazer' },
   { id: 'delete', group: 'Edição', context: 'editor', keys: ['Delete', 'Backspace'], label: 'Excluir a seleção' },
   { id: 'escape', group: 'Edição', context: 'editor', keys: ['Esc'], label: 'Cancelar o desenho, limpar a seleção ou voltar a Selecionar' },
-  { id: 'ortho', group: 'Edição', context: 'editor', keys: ['Shift'], label: 'Trava ortogonal ao desenhar parede, caminho ou medida (segurar)' },
+  { id: 'ortho', group: 'Edição', context: 'editor', keys: ['Shift'], label: 'Trava o ângulo em múltiplos de 15° ao desenhar parede, retângulo (quadrado), caminho ou medida (segurar)' },
   { id: 'nosnap', group: 'Edição', context: 'editor', keys: ['Alt'], label: 'Desliga o encaixe (snap) ao desenhar ou arrastar (segurar)' },
-  { id: 'finish', group: 'Edição', context: 'editor', keys: ['Enter'], label: 'Concluir o caminho de cerca, muro ou arrimo' },
+  { id: 'finish', group: 'Edição', context: 'editor', keys: ['Enter'], label: 'Concluir o caminho de cerca/muro ou o encadeamento de paredes' },
+  { id: 'typed', group: 'Edição', context: 'editor', keys: ['3,5', '3,5;90', '3x4'], together: true, label: 'Desenhando parede ou retângulo: digite comprimento, comprimento;ângulo ou LxA e Enter', mouse: true },
+  { id: 'draw-close', group: 'Edição', context: 'editor', keys: ['Clique no ponto inicial'], label: 'Fecha o contorno de paredes e pergunta o uso do cômodo', mouse: true },
+  { id: 'draw-drag', group: 'Edição', context: 'editor', keys: ['Arrastar alça'], label: 'Selecionar + parede: arrasta a ponta (ligadas acompanham) ou o meio (desloca em paralelo)', mouse: true },
   { id: 'help', group: 'Edição', context: 'editor', keys: ['?'], label: 'Mostrar esta lista de atalhos' },
 
   // Vista

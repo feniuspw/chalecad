@@ -1,6 +1,6 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, LayoutPanelTop, Loader2, LocateFixed, MousePointer2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Ruler, RulerDimensionLine, Sofa, Sun, Wrench } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, LayoutPanelTop, Loader2, LocateFixed, MousePointer2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RectangleHorizontal, Ruler, RulerDimensionLine, Sofa, Sun, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { IconButton, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@chalecad/ui';
 import { ArtNotice } from '@/components/ArtNotice';
@@ -33,19 +33,23 @@ import { useResizablePanel } from './useResizablePanel';
 import { usePanelVisibility } from './usePanelVisibility';
 import { ValidationBanner } from './ValidationBanner';
 
-const TOOLS: { id: Tool; label: string; shortcut: string; icon: typeof MousePointer2 }[] = (
+const TOOLS: { id: Tool; label: string; shortcut: string; icon: typeof MousePointer2; group: 'edit' | 'draw' | 'other' }[] = (
   [
-    { id: 'select', label: 'Selecionar', icon: MousePointer2 },
-    { id: 'wall', label: 'Parede interna', icon: BrickWall },
-    { id: 'opening', label: 'Abertura', icon: DoorOpen },
-    { id: 'stair', label: 'Escada', icon: Footprints },
-    { id: 'mezzanine', label: 'Mezanino', icon: Layers },
-    { id: 'room', label: 'Cômodo', icon: LayoutPanelTop },
-    { id: 'furniture', label: 'Móveis', icon: Sofa },
-    { id: 'dimension', label: 'Cota', icon: RulerDimensionLine },
-    { id: 'measure', label: 'Medir', icon: Ruler },
+    { id: 'select', label: 'Selecionar', icon: MousePointer2, group: 'edit' },
+    { id: 'wall', label: 'Parede', icon: BrickWall, group: 'draw' },
+    { id: 'rect', label: 'Retângulo (cômodo)', icon: RectangleHorizontal, group: 'draw' },
+    { id: 'opening', label: 'Porta e janela', icon: DoorOpen, group: 'draw' },
+    { id: 'room', label: 'Cômodo', icon: LayoutPanelTop, group: 'draw' },
+    { id: 'stair', label: 'Escada', icon: Footprints, group: 'draw' },
+    { id: 'mezzanine', label: 'Mezanino', icon: Layers, group: 'draw' },
+    { id: 'measure', label: 'Medir', icon: Ruler, group: 'draw' },
+    { id: 'furniture', label: 'Móveis', icon: Sofa, group: 'other' },
+    { id: 'dimension', label: 'Cota', icon: RulerDimensionLine, group: 'other' },
   ] as const
 ).map((t) => ({ ...t, shortcut: toolShortcut(t.id) }));
+
+/** Ferramentas que pedem a vista Planta (desenho preciso); na 3D a vista muda sozinha, com uma dica. */
+const PLAN_TOOLS: readonly Tool[] = ['wall', 'rect', 'room'];
 
 // Teclas de ferramenta que o EditorShell registra (as demais ficam em `useShortcuts`); a tabela é `SHORTCUTS`.
 const SHELL_TOOL_KEYS: Record<string, Tool> = Object.fromEntries(Object.entries(TOOL_KEY_MAP).filter(([k]) => !(k in TOOL_KEYS)));
@@ -137,7 +141,8 @@ export function EditorShell() {
 
   const toolPicked = useCallback((t: Tool) => {
     const hints: Partial<Record<Tool, string>> = {
-      wall: 'Clique para começar a parede, clique de novo para terminar. Shift trava ortogonal, Alt desliga o snap, Esc encerra.',
+      wall: 'Clique para começar e digite a medida (3,5 ou 3,5;90) + Enter. Clique no ponto inicial fecha. Shift trava 15°, Alt desliga o snap, Esc encerra.',
+      rect: 'Clique no canto, depois no canto oposto, ou digite 3x4 + Enter. Depois escolha o uso do cômodo.',
       opening: 'Passe o mouse sobre uma parede e clique para inserir. Tipo e tamanho ficam no painel à esquerda.',
       stair: 'Clique no térreo para posicionar. R gira 90°.',
       mezzanine: 'Arraste vértices e arestas do mezanino. Na planta fica mais fácil.',
@@ -147,8 +152,15 @@ export function EditorShell() {
       dimension: 'As cotas aparecem automaticamente na planta.',
     };
     const h = hints[t];
+    if (PLAN_TOOLS.includes(t) && useEditor.getState().cameraView === '3d') {
+      setView('top');
+      setCameraView('plan');
+      viewport.current?.setView('top');
+      toast.message('Vista Planta ativada', { description: 'Desenhar de cima é mais preciso. Volte ao 3D pelo seletor de vistas quando quiser.', id: 'tool-hint', duration: 4000 });
+      return;
+    }
     if (h) toast.message(TOOLS.find((x) => x.id === t)?.label ?? '', { description: h, id: 'tool-hint', duration: 3500 });
-  }, []);
+  }, [setCameraView]);
   useShortcuts(toolPicked);
   // "C" já é a Cota e "M" o Mezanino: Cômodo usa "A" (de ambiente) e Móveis usa "F" (ver SHORTCUTS).
   useEffect(() => {
@@ -259,20 +271,27 @@ export function EditorShell() {
         <div className="flex min-h-0 flex-1">
           {/* Trilho de ferramentas */}
           <nav aria-label="Ferramentas" data-tour="toolbar" className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-white py-2">
-            {TOOLS.map(({ id, label, shortcut, icon: Icon }) => (
-              <IconButton
-                key={id}
-                label={label}
-                shortcut={shortcut}
-                side="right"
-                active={tool === id}
-                onClick={() => {
-                  setTool(id);
-                  toolPicked(id);
-                }}
-              >
-                <Icon />
-              </IconButton>
+            {TOOLS.map(({ id, label, shortcut, icon: Icon, group }, i) => (
+              <Fragment key={id}>
+                {i > 0 && TOOLS[i - 1]!.group !== group ? <hr aria-hidden className="my-0.5 w-6 border-border" /> : null}
+                {group === 'draw' && TOOLS[i - 1]!.group !== 'draw' ? (
+                  <span aria-hidden className="text-[9px] font-semibold tracking-wide text-stone-400 uppercase">
+                    Desenho
+                  </span>
+                ) : null}
+                <IconButton
+                  label={label}
+                  shortcut={shortcut}
+                  side="right"
+                  active={tool === id}
+                  onClick={() => {
+                    setTool(id);
+                    toolPicked(id);
+                  }}
+                >
+                  <Icon />
+                </IconButton>
+              </Fragment>
             ))}
           </nav>
 

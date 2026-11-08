@@ -6,7 +6,7 @@ import { useEditor } from '@/lib/store/editor';
 import type { Tool } from '@/lib/store/types';
 
 /** Letra -> ferramenta (exibidas nos tooltips do trilho). */
-export const TOOL_KEYS: Record<string, Tool> = { v: 'select', w: 'wall', o: 'opening', e: 'stair', m: 'mezzanine', r: 'measure', c: 'dimension' };
+export const TOOL_KEYS: Record<string, Tool> = { v: 'select', w: 'wall', o: 'opening', e: 'stair', m: 'mezzanine', r: 'rect', t: 'measure', c: 'dimension' };
 
 export const isTyping = (t: EventTarget | null) => {
   if (!(t instanceof HTMLElement)) return false;

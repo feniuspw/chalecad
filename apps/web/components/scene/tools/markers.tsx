@@ -10,6 +10,9 @@ const KIND_COLOR: Record<SnapKind, string> = {
   corner: '#f59e0b',
   endpoint: '#f59e0b',
   midpoint: '#0ea5e9',
+  intersection: '#ef4444',
+  perpendicular: '#10b981',
+  aligned: '#d946ef',
   modulation: '#8b5cf6',
   grid: '#78716c',
   none: '#a8a29e',
@@ -27,7 +30,7 @@ export function SnapMarker({ point, kind, z, mpp, showLabel = true }: { point: V
   return (
     <group position={[point[0], point[1], z + 0.03]}>
       <group scale={r}>
-        {kind === 'midpoint' ? (
+        {kind === 'midpoint' || kind === 'intersection' ? (
           <mesh geometry={squareGeo} renderOrder={999}>
             <meshBasicMaterial color={color} transparent opacity={0.85} depthTest={false} toneMapped={false} />
           </mesh>
@@ -41,7 +44,8 @@ export function SnapMarker({ point, kind, z, mpp, showLabel = true }: { point: V
         </mesh>
       </group>
       {showLabel && label && kind !== 'grid' ? (
-        <SceneLabel position={[0, 0, 0]} tone="hint" offsetY={20}>
+        // deslocado na cena (não por CSS): o contêiner HTML do rótulo ficaria sob o cursor e engoliria o clique
+        <SceneLabel position={[0, -mpp * 26, 0]} tone="hint">
           {label}
         </SceneLabel>
       ) : null}
@@ -61,6 +65,35 @@ export function ElasticWall({ a, b, z, thickness = 0.1, color = '#f59e0b' }: { a
         <meshBasicMaterial color={color} transparent opacity={0.45} depthTest={false} toneMapped={false} side={THREE.DoubleSide} />
       </mesh>
       <Line points={[[a[0], a[1], z + 0.025], [b[0], b[1], z + 0.025]]} color={color} lineWidth={2} depthTest={false} renderOrder={991} />
+    </group>
+  );
+}
+
+/** Linhas-guia tracejadas do snap (alinhamento, perpendicular, ângulo). */
+export function SnapGuides({ guides, z, color = '#d946ef' }: { guides: { from: V2; to: V2 }[]; z: number; color?: string }) {
+  return (
+    <>
+      {guides.map((g, i) =>
+        Math.hypot(g.to[0] - g.from[0], g.to[1] - g.from[1]) > 1e-3 ? (
+          <Line key={i} points={[[g.from[0], g.from[1], z + 0.028], [g.to[0], g.to[1], z + 0.028]]} color={color} lineWidth={1.25} dashed dashSize={0.12} gapSize={0.08} depthTest={false} renderOrder={985} />
+        ) : null,
+      )}
+    </>
+  );
+}
+
+/** Destaque do ponto inicial quando o cursor passa por cima (fechar o contorno). */
+export function CloseMarker({ point, z, mpp }: { point: V2; z: number; mpp: number }) {
+  return (
+    <group position={[point[0], point[1], z + 0.035]}>
+      <group scale={mpp * 13}>
+        <mesh geometry={ringGeo} renderOrder={1000}>
+          <meshBasicMaterial color="#16a34a" depthTest={false} toneMapped={false} />
+        </mesh>
+      </group>
+      <SceneLabel position={[0, mpp * 30, 0]} tone="ok">
+        Fechar contorno
+      </SceneLabel>
     </group>
   );
 }
