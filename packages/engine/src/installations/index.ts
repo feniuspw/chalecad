@@ -31,48 +31,6 @@ export interface InstallationsResult {
 const fmt = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 const fmt1 = (n: number) => n.toFixed(1).replace('.', ',');
 
-/**
- * Pressão mínima nos pontos de água (NBR 5626, simplificada): coluna d'água = fundo da caixa − cota do ponto.
- * Faltam no catálogo (usados aqui com comentário): chuveiro a 2,10 m e demais pontos a 1,0 m do piso; coluna mínima
- * de 1,0 m no chuveiro e 0,5 m nos demais.
- */
-const SHOWER_POINT_HEIGHT = 2.1; // m acima do piso
-const OTHER_POINT_HEIGHT = 1.0; // m acima do piso
-const MIN_COLUMN_SHOWER = 1.0; // m.c.a.
-const MIN_COLUMN_OTHER = 0.5; // m.c.a.
-
-function pressureWarnings(project: Project, placed: ReturnType<typeof placePoints>): EngineWarning[] {
-  const tank = placed.tank;
-  if (!tank) return [];
-  const elevOf = (id: string) => project.levels.find((l) => l.id === id)?.elevation ?? 0;
-  const bottom = elevOf(tank.point.level) + tank.point.height;
-  const out: EngineWarning[] = [];
-  const seen = new Set<string>();
-  for (const p of placed.points) {
-    if (p.kind !== 'water_cold' && p.kind !== 'water_hot') continue;
-    const shower = p.height >= SHOWER_POINT_HEIGHT - 1e-9;
-    const key = `${p.furnitureId ?? p.id}:${shower}`;
-    if (seen.has(key)) continue; // água fria e quente do mesmo aparelho: um alerta só
-    seen.add(key);
-    const z = elevOf(p.level) + (shower ? SHOWER_POINT_HEIGHT : OTHER_POINT_HEIGHT);
-    const head = bottom - z;
-    const min = shower ? MIN_COLUMN_SHOWER : MIN_COLUMN_OTHER;
-    if (head >= min - 1e-9) continue;
-    const room = placed.rooms.find((r) => r.id === p.roomId);
-    const where = elevOf(p.level) > 0 ? 'do mezanino' : `(${room?.name ?? 'térreo'})`;
-    out.push({
-      code: 'install.pressure',
-      // No térreo, caixa no forro com pouca coluna é o caso comum (resolve com pressurizador): só informa.
-      severity: elevOf(p.level) > 0 ? 'warn' : 'info',
-      message:
-        `${shower ? 'Chuveiro' : 'Ponto de água'} ${where} com só ${fmt1(Math.max(0, head))} m de coluna d'água ` +
-        `(mínimo ${fmt1(min)} m, NBR 5626): eleve a caixa (torre) ou use pressurizador`,
-      refs: [p.id, tank.towerId ?? tank.point.id],
-    });
-  }
-  return out;
-}
-
 /** Instalações estimadas. `null` se `project.installations.enabled` for falso. */
 export function computeInstallations(project: Project, model: BuildingModel, catalog: Catalog): InstallationsResult | null {
   if (!project.installations.enabled) return null;
@@ -128,12 +86,11 @@ export function computeInstallations(project: Project, model: BuildingModel, cat
         : `Caixa d'água de ${fmt(tank.liters)} L pesa cerca de ${fmt(tank.fullKg)} kg cheia, sobre ${tank.roomName}: o engenheiro deve conferir o apoio.`,
       refs: [tank.towerId ?? tank.roomId],
     });
-    warnings.push(...pressureWarnings(project, placed));
   }
-  // Cálculo de engenharia (F16): quando disponível, substitui a estimativa de circuitos/pressão e seus itens.
-  let items = installationItems(project, report, placed, catalog);
+  // Cálculo de engenharia (F16): quando disponível, substitui a estimativa de circuitos, pressão e tubos.
   const elec = computeElectrical(project, model, catalog);
   const plumb = computePlumbing(project, model, catalog);
+  let items = installationItems(project, report, placed, catalog, { hydraulic: !plumb });
   if (elec) {
     report.electrical = elec.report;
     warnings.push(...elec.warnings);
@@ -141,6 +98,18 @@ export function computeInstallations(project: Project, model: BuildingModel, cat
   if (plumb) {
     report.plumbing = plumb.report;
     warnings.push(...plumb.warnings);
+    // comprimentos reais do traçado no lugar da estimativa Manhattan (esgoto: DN 100 ou mais x menores, com ventilação)
+    const len = { cold: 0, hot: 0, sewer40: 0, sewer100: 0 };
+    for (const p of plumb.report.water.pipes) len[p.system] += p.length;
+    const pipeById = new Map(plumb.report.layout.pipes.map((p) => [p.id, p]));
+    for (const r of plumb.report.sewer.pipes) {
+      const path = pipeById.get(r.pipeId)?.path ?? [];
+      let l = 0;
+      for (let i = 1; i < path.length; i++) l += Math.hypot(path[i]![0] - path[i - 1]![0], path[i]![1] - path[i - 1]![1], path[i]![2] - path[i - 1]![2]);
+      if (r.dn >= 100) len.sewer100 += l;
+      else len.sewer40 += l;
+    }
+    report.pipes = len;
   }
   if (elec || plumb) items = [...items, ...(elec?.items ?? []), ...(plumb?.items ?? [])];
   return {
