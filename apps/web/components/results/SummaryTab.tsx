@@ -5,6 +5,8 @@ import type { Results } from '@chalecad/engine';
 import { formatArea, formatBRL, formatKg, formatLength, formatNumber, formatPercent } from '@/lib/format';
 import { Block, Dot, KV, SectionTitle, STAGE_COLORS } from './shared';
 import { useEditor } from '@/lib/store/editor';
+import { GlossaryText } from '@/components/glossary/Term';
+import { plainSummary } from '@/lib/glossary/summary';
 
 export function StageDonut({ results }: { results: Results }) {
   const b = results.budget;
@@ -114,6 +116,23 @@ function Terrain({ results }: { results: Results }) {
   );
 }
 
+function PlainCard({ results }: { results: Results }) {
+  const project = useEditor((s) => s.project);
+  const s = plainSummary(project, results);
+  return (
+    <Block className="border-amber-200 bg-amber-50/50">
+      <SectionTitle>Seu chalé em 4 frases</SectionTitle>
+      <ol className="mt-2 space-y-1.5 text-sm leading-snug text-stone-800">
+        {[s.size, s.cost, s.structure, s.next].map((t) => (
+          <li key={t}>
+            <GlossaryText>{t}</GlossaryText>
+          </li>
+        ))}
+      </ol>
+    </Block>
+  );
+}
+
 export function SummaryTab({ results }: { results: Results }) {
   const setHighlight = useEditor((s) => s.setHighlight);
   const active = useEditor((s) => s.highlight?.source);
@@ -127,6 +146,7 @@ export function SummaryTab({ results }: { results: Results }) {
   const stageKg = STAGE_ORDER.flatMap((st) => (w.byStage[st] ? [{ st, kg: w.byStage[st]! }] : []));
   return (
     <div className="space-y-3 p-3">
+      <PlainCard results={results} />
       <StageDonut results={results} />
       <StageTable results={results} />
 

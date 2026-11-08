@@ -26,10 +26,14 @@ export function MaterialBar({ value, range, unit, label, digits }: { value: numb
   );
 }
 
+import { GlossaryText } from '@/components/glossary/Term';
+
 function Small({ label, value, children, title }: { label: string; value: string; children?: React.ReactNode; title?: string }) {
   return (
     <div className="min-w-0" title={title}>
-      <p className="truncate text-[11px] font-medium text-stone-500">{label}</p>
+      <p className="truncate text-[11px] font-medium text-stone-500">
+        <GlossaryText>{label}</GlossaryText>
+      </p>
       <p className="truncate text-sm font-semibold text-stone-900 tabular-nums">{value}</p>
       {children}
     </div>

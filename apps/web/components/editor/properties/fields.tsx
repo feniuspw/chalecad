@@ -1,7 +1,12 @@
 'use client';
-import { useId, type ReactNode } from 'react';
+import { createContext, useContext, useId, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { NumberInput, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Slider, Switch, cn } from '@chalecad/ui';
+
+import { GlossaryText } from '@/components/glossary/Term';
+
+/** Verdadeiro quando a busca das propriedades está ativa: as seções que sobraram ficam abertas. */
+export const SearchOpenContext = createContext(false);
 
 export function Section({
   title,
@@ -17,6 +22,8 @@ export function Section({
   children: ReactNode;
 }) {
   const id = useId();
+  const searching = useContext(SearchOpenContext);
+  open = open || searching;
   return (
     <section className="border-b border-border">
       <h3>
@@ -28,7 +35,7 @@ export function Section({
           className="flex h-10 w-full items-center gap-2 px-4 text-left text-xs font-semibold tracking-wide text-stone-700 uppercase outline-none hover:bg-stone-50 focus-visible:bg-stone-50 focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
         >
           <ChevronRight className={cn('size-3.5 text-stone-400 transition-transform', open && 'rotate-90')} />
-          <span className="flex-1">{title}</span>
+          <span className="flex-1">{<GlossaryText focusable={false}>{title}</GlossaryText>}</span>
           {badge}
         </button>
       </h3>
@@ -46,7 +53,7 @@ export function Field({ label, hint, children, htmlFor }: { label: string; hint?
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-2">
         <label htmlFor={htmlFor} className="text-xs font-medium text-stone-700">
-          {label}
+          <GlossaryText>{label}</GlossaryText>
         </label>
         {hint ? <span className="text-[11px] text-stone-500 tabular-nums">{hint}</span> : null}
       </div>
@@ -200,7 +207,9 @@ export function SwitchField({
   return (
     <div className="flex items-center justify-between gap-3">
       <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer">
-        <span className="block text-xs font-medium text-stone-700">{label}</span>
+        <span className="block text-xs font-medium text-stone-700">
+          <GlossaryText focusable={false}>{label}</GlossaryText>
+        </span>
         {description ? <span className="block text-[11px] text-stone-500">{description}</span> : null}
       </label>
       <Switch id={id} checked={checked} onCheckedChange={onChange} disabled={disabled} />

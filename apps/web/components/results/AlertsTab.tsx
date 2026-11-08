@@ -1,9 +1,12 @@
 'use client';
-import { CircleCheck, Info, OctagonAlert, TriangleAlert } from 'lucide-react';
+import { useState } from 'react';
+import { Box, ChevronDown, ChevronRight, CircleCheck, Info, OctagonAlert, TriangleAlert } from 'lucide-react';
 import { cn } from '@chalecad/ui';
 import type { EngineWarning, Severity } from '@chalecad/engine';
 import { PARTIAL_WARNING_CODE } from '@/lib/engine/compute';
 import { useEditor } from '@/lib/store/editor';
+import { GlossaryText } from '@/components/glossary/Term';
+import { explainAlert } from '@/lib/glossary/alerts';
 import { NormFixButton } from './NormFixButton';
 import { EmptyState } from './shared';
 
@@ -87,38 +90,64 @@ export function AlertsTab({ warnings }: { warnings: EngineWarning[] }) {
           const st = SEVERITY_STYLE[w.severity];
           const Icon = st.icon;
           const key = `${w.code}#${i}`;
-          const n = w.refs?.length ?? 0;
-          const on = active === key;
-          return (
-            <li key={key}>
-              <button
-                type="button"
-                onClick={() => click(w, key)}
-                disabled={n === 0}
-                aria-pressed={n > 0 ? on : undefined}
-                className={cn(
-                  'flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:cursor-default',
-                  st.box,
-                  on && 'ring-2 ring-accent/60',
-                )}
-              >
-                <Icon className={cn('mt-0.5 size-4 shrink-0', st.tint)} aria-label={st.label} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm text-stone-800">{w.message}</span>
-                  <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-stone-500">
-                    <span className="font-mono">{w.code}</span>
-                    {n > 0 ? (
-                      <span>
-                        {n} {n === 1 ? 'elemento' : 'elementos'}: clique para ver no 3D
-                      </span>
-                    ) : null}
-                  </span>
-                </span>
-              </button>
-            </li>
-          );
+          return <AlertItem key={key} w={w} st={st} Icon={Icon} on={active === key} onShow={() => click(w, key)} />;
         })}
       </ul>
     </div>
+  );
+}
+
+function AlertItem({ w, st, Icon, on, onShow }: { w: EngineWarning; st: (typeof SEVERITY_STYLE)[Severity]; Icon: typeof Info; on: boolean; onShow: () => void }) {
+  const [open, setOpen] = useState(false);
+  const n = w.refs?.length ?? 0;
+  const why = explainAlert(w.code);
+  return (
+    <li className={cn('rounded-lg border px-3 py-2.5', st.box.split(' ').filter((c) => !c.startsWith('hover:')).join(' '), on && 'ring-2 ring-accent/60')}>
+      <div className="flex items-start gap-2.5">
+        <Icon className={cn('mt-0.5 size-4 shrink-0', st.tint)} aria-label={st.label} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-stone-800">
+            <GlossaryText>{w.message}</GlossaryText>
+          </p>
+          <p className="mt-1 text-[11px] text-stone-500">
+            <span className="font-mono">{w.code}</span>
+          </p>
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-6.5">
+        {why ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen((o) => !o)}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-white px-2 text-xs font-medium text-stone-700 outline-none hover:bg-stone-50 focus-visible:ring-2 focus-visible:ring-accent/50"
+          >
+            {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />} Entender
+          </button>
+        ) : null}
+        {n > 0 ? (
+          <button
+            type="button"
+            aria-pressed={on}
+            onClick={onShow}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-white px-2 text-xs font-medium text-stone-700 outline-none hover:bg-stone-50 focus-visible:ring-2 focus-visible:ring-accent/50 aria-pressed:border-amber-300 aria-pressed:bg-accent-soft"
+          >
+            <Box className="size-3.5" /> {on ? 'Esconder no 3D' : 'Mostrar no 3D'}
+          </button>
+        ) : null}
+      </div>
+      {open && why ? (
+        <div className="mt-2 space-y-1.5 rounded-md bg-white/80 px-3 py-2 text-xs leading-relaxed text-stone-700">
+          <p>
+            <span className="font-semibold text-stone-900">O que quer dizer: </span>
+            <GlossaryText>{why.meaning}</GlossaryText>
+          </p>
+          <p>
+            <span className="font-semibold text-stone-900">O que fazer: </span>
+            <GlossaryText>{why.action}</GlossaryText>
+          </p>
+        </div>
+      ) : null}
+    </li>
   );
 }
