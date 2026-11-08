@@ -34,7 +34,8 @@ export function SafeHtml({ position, children, center = false, zIndexRange, styl
     const target = gl.domElement.parentNode;
     if (!target) return;
     const el = document.createElement('div');
-    Object.assign(el.style, { position: 'absolute', top: '0', left: '0', zIndex: String(z), willChange: 'transform', display: 'none' });
+    // o contêiner nunca captura o mouse (senão engole os cliques do canvas); quem precisa de clique liga no conteúdo
+    Object.assign(el.style, { position: 'absolute', top: '0', left: '0', zIndex: String(z), willChange: 'transform', display: 'none', pointerEvents: 'none' });
     target.appendChild(el);
     const m = { el, root: createRoot(el) };
     mount.current = m;

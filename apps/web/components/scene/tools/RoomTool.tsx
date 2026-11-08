@@ -49,7 +49,7 @@ function Pin({ p, z, mpp }: { p: Vec2; z: number; mpp: number }) {
 export function UseMenu({ p, z, onPick, onClose }: { p: Vec2; z: number; onPick: (use: RoomUse) => void; onClose: () => void }) {
   return (
     <Html position={[p[0], p[1], z + 0.05]} zIndexRange={[40, 30]} style={{ transform: 'translate(-50%, 12px)' }}>
-      <div role="menu" aria-label="Uso do cômodo" className="w-44 rounded-lg border border-border bg-white p-1 shadow-lg" onPointerDown={(e) => e.stopPropagation()}>
+      <div role="menu" aria-label="Uso do cômodo" className="pointer-events-auto w-44 rounded-lg border border-border bg-white p-1 shadow-lg" onPointerDown={(e) => e.stopPropagation()}>
         <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold tracking-wide text-stone-500 uppercase">Marcar cômodo como</p>
         {ROOM_USE_ORDER.map((use) => {
           const { label, icon: Icon } = ROOM_USES[use];
