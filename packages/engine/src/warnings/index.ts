@@ -120,15 +120,50 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
     }
   }
 
-  // Aço
-  const [steelMin, steelMax] = c.steelIndexRange;
-  const idx = quantities.steelKgPerM2;
-  if (idx < steelMin || idx > steelMax) {
-    out.push({
-      code: 'steel.index',
-      severity: 'warn',
-      message: `Índice de aço de ${fmt(idx, 1)} kg/m² fora da faixa usual (${fmt(steelMin, 1)} a ${fmt(steelMax, 1)} kg/m²). Revise perfis e espaçamentos.`,
+  // Sistema construtivo: perfis coerentes com `system.structure`
+  const wood = project.system.structure === 'wood';
+  const mismatched = Object.entries(project.system.profiles)
+    .filter((e): e is [string, string] => typeof e[1] === 'string')
+    .filter(([, id]) => {
+      const prof = catalog.profiles.find((p) => p.id === id);
+      return !!prof && (prof.material === 'wood') !== wood;
     });
+  if (mismatched.length > 0) {
+    out.push({
+      code: 'system.profile_mismatch',
+      severity: 'warn',
+      message: `O sistema é ${wood ? 'wood frame' : 'LSF'}, mas ${mismatched.map(([f, id]) => `system.profiles.${f} (${id})`).join(', ')} ${mismatched.length > 1 ? 'são perfis' : 'é perfil'} de ${wood ? 'aço' : 'madeira'}. Troque por perfis ${wood ? 'de madeira (W*)' : 'de aço (Ue/U/Cr)'}.`,
+      refs: mismatched.map(([f]) => `system.profiles.${f}`),
+    });
+  }
+
+  if (wood) {
+    // Madeira: índice em m³/m² e tratamento
+    const [woodMin, woodMax] = c.wood.indexRange;
+    const widx = quantities.woodM3PerM2;
+    if (widx < woodMin || widx > woodMax) {
+      out.push({
+        code: 'wood.index',
+        severity: 'warn',
+        message: `Índice de madeira de ${fmt(widx, 3)} m³/m² fora da faixa usual (${fmt(woodMin, 3)} a ${fmt(woodMax, 3)} m³/m²). Revise seções e espaçamentos.`,
+      });
+    }
+    out.push({
+      code: 'wood.treatment',
+      severity: 'info',
+      message: 'Use madeira tratada em autoclave (CCA/CCB) e afaste do solo: barreira de umidade entre o radier e a guia inferior.',
+    });
+  } else {
+    // Aço
+    const [steelMin, steelMax] = c.steelIndexRange;
+    const idx = quantities.steelKgPerM2;
+    if (idx < steelMin || idx > steelMax) {
+      out.push({
+        code: 'steel.index',
+        severity: 'warn',
+        message: `Índice de aço de ${fmt(idx, 1)} kg/m² fora da faixa usual (${fmt(steelMin, 1)} a ${fmt(steelMax, 1)} kg/m²). Revise perfis e espaçamentos.`,
+      });
+    }
   }
 
   // Preços

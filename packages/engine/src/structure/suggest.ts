@@ -48,6 +48,8 @@ export function suggest(spec: SuggestSpec, project: Project, catalog: Catalog): 
   const options: Option[] = [];
   for (const p of catalog.profiles) {
     if (p.family !== cur.family) continue;
+    // wood frame: só madeira (a família já garante), nunca aço
+    if (p.material !== cur.material) continue;
     for (const s of spacings) {
       if (p.id === cur.id && s === spec.spacing) continue;
       // Nunca propõe seção mais fraca que a atual; o espaçamento menor pode vir com o mesmo perfil.

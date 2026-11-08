@@ -95,6 +95,12 @@ export function buildEngineerPackage(project: Project, results: Results, catalog
     `Vento: V0 informado ${fmt(d.windV0, 0)} m/s, categoria de terreno ${d.terrainCategory}. Confirmar com as isopletas da NBR 6123 e com a topografia e o entorno do lote.`,
   );
   const f = sys.foundation;
+  if (sys.structure === 'wood') {
+    const cls = catalog.profiles.find((p) => p.id === sys.profiles.wallStud)?.woodClass ?? 'C25';
+    ask('wood-class', `Classe real da madeira do fornecedor: o pré-dimensionamento usa pinus tratado ${cls} (NBR 7190). O lote tem laudo de classificação (C20, C25 ou C30)?`);
+    ask('wood-joints', 'Ligações da estrutura de madeira: pregos ou parafusos? Definir diâmetro, comprimento, quantidade e padrão de pregação nas guias, vergas e placas de contraventamento.');
+    ask('wood-anchorage', 'Ancoragem da estrutura de madeira no radier: definir chumbadores, hold-downs e a barreira de umidade sob a guia inferior.');
+  }
   ask(
     'radier',
     `Radier de ${fmt(f.thickness * 100, 0)} cm com viga de borda de ${fmt(f.edgeBeamDepth * 100, 0)} cm: dimensionar armadura e verificar recalque para a carga total estimada de ${fmt(weight.totalKg, 0)} kg.`,
@@ -107,7 +113,7 @@ export function buildEngineerPackage(project: Project, results: Results, catalog
     ask(
       'mezzanine-span',
       `Validar vão de ${fmt(span, 1)} m das vigas do mezanino (${slab.id}, perfil ${sys.profiles.joist}, espaçamento ${fmt(sys.studSpacing, 1)} m)` +
-        `${span > LONG_JOIST_SPAN ? ': é um vão longo para LSF, avaliar vigas duplas ou apoio intermediário' : ''}.`,
+        `${span > LONG_JOIST_SPAN ? `: é um vão longo para ${sys.structure === 'wood' ? 'madeira' : 'LSF'}, avaliar vigas duplas ou apoio intermediário` : ''}.`,
     );
   }
 
@@ -185,6 +191,10 @@ export function buildEngineerPackage(project: Project, results: Results, catalog
         radier: quantities.areas.radier,
         mezzanine: quantities.areas.mezzanine,
       },
+      // só em wood: o pacote do LSF fica idêntico ao anterior
+      ...(sys.structure === 'wood'
+        ? { structure: `Wood frame, pinus tratado ${catalog.profiles.find((p) => p.id === sys.profiles.wallStud)?.woodClass ?? 'C25'}, NBR 7190` }
+        : {}),
       profiles: { ...sys.profiles },
       studSpacing: sys.studSpacing,
       bracing: sys.bracing,
