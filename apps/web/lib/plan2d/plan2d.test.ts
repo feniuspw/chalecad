@@ -167,4 +167,20 @@ describe('cômodos na planta', () => {
     expect(doc.svg).toContain('Quarto · 8,4 m²');
     expect(planSvg(results.model, { project }).svg).not.toContain('data-role="room"');
   });
+
+  it('móveis posicionados entram na planta com os traços do símbolo', () => {
+    const base = createProject('gable_mezzanine');
+    const level = base.levels[0]!.id;
+    const spec = getCatalog().furniture[0]!;
+    const withBed: Project = { ...base, furniture: [{ id: 'f-1', level, item: spec.id, position: [2, 2], rotation: 90 }] };
+    const doc = planSvg(build(withBed), { project: withBed, levelId: level });
+    assertWellFormed(doc.svg);
+    expect(doc.svg).toContain('data-role="furniture"');
+    expect(doc.svg).toContain(`data-item="${spec.id}"`);
+    expect(count(doc.svg, '<path')).toBeGreaterThan(0);
+    // sem móveis, ou móvel de outro nível, nada é desenhado
+    expect(planSvg(build(base), { project: base, levelId: level }).svg).not.toContain('data-role="furniture"');
+    const other = base.levels[1] ? base.levels[1].id : null;
+    if (other) expect(planSvg(build(withBed), { project: withBed, levelId: other }).svg).not.toContain(`data-id="f-1"`);
+  });
 });

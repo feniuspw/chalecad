@@ -35,6 +35,7 @@ const FurnitureItem = memo(function FurnitureItem({ f, spec, z, interactive, onD
   const tone = f.tone as Tone | undefined;
   return (
     <group
+      userData={{ furnitureId: f.id }}
       position={[f.position[0], f.position[1], z]}
       rotation={[0, 0, (f.rotation * Math.PI) / 180]}
       onPointerDown={interactive ? (e) => onDown(f, e) : undefined}

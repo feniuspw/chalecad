@@ -232,6 +232,7 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
             selectedId={!presentation && selection?.kind === 'extra' ? selection.id : null}
             highlightIds={presentation ? NO_IDS : extraHighlight}
             hoverable={selectingEnabled}
+            plain={presentation}
             onSelect={(id) => select({ kind: 'extra', id })}
           />
         </MotorGroup>

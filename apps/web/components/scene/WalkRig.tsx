@@ -4,11 +4,42 @@ import { PerspectiveCamera, PointerLockControls } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getCatalog } from '@chalecad/catalog';
-import type { BuildingModel } from '@chalecad/engine';
+import type { BuildingModel, ResolvedStair } from '@chalecad/engine';
 import { isTyping } from '@/hooks/useShortcuts';
 import { useEditor } from '@/lib/store/editor';
 import { useFurnitureModels } from './furnitureData';
-import { buildFurnitureWalkRects, buildWalkWalls, levelFloorZ, moveWithCollision, walkStart, WALK, yawFromHeading, type V2 } from '@/lib/three/walk';
+import {
+  buildFurnitureWalkRects,
+  buildSlabRailRects,
+  buildStairWalkRects,
+  buildWalkWalls,
+  levelFloorZ,
+  moveWithCollision,
+  onStairFootprint,
+  stairEdges,
+  stairHeightAt,
+  walkStart,
+  WALK,
+  yawFromHeading,
+  type V2,
+  type WallRect,
+} from '@/lib/three/walk';
+
+type Rig = { stairs: { stair: ResolvedStair; lo: string; hi: string }[]; base: Map<string, WallRect[]> };
+
+/**
+ * Obstáculos do instante: os do nível atual mais as escadas. No nível de baixo o topo da escada é fechado (fica sob a laje),
+ * no de cima o pé (só se chega pela chegada); sobre a escada, só as laterais.
+ */
+function collidersFor(rig: Rig, st: { pos: V2; level: string }): WallRect[] {
+  const out = [...(rig.base.get(st.level) ?? [])];
+  for (const x of rig.stairs) {
+    if (x.lo !== st.level && x.hi !== st.level) continue;
+    const where = onStairFootprint(x.stair, st.pos) ? 'on' : x.lo === st.level ? 'lower' : 'upper';
+    out.push(...buildStairWalkRects(x.stair, where));
+  }
+  return out;
+}
 
 type PLC = React.ComponentRef<typeof PointerLockControls>;
 
@@ -21,25 +52,48 @@ const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown
  */
 export function WalkRig({ model, levelId, far }: { model: BuildingModel; levelId: string; far: number }) {
   const gl = useThree((s) => s.gl);
-  const elevation = useEditor((s) => s.project.levels.find((l) => l.id === levelId)?.elevation ?? 0);
   const cam = useRef<THREE.PerspectiveCamera>(null);
   const controls = useRef<PLC>(null);
   const [ready, setReady] = useState(false);
 
   const furniture = useFurnitureModels();
-  // paredes (com as portas recortadas) e móveis do nível como obstáculos; tapete não conta
-  const walls = useMemo(() => {
+  const levels = useEditor((s) => s.project.levels);
+  const projectStairs = useEditor((s) => s.project.stairs);
+
+  // obstáculos por nível: paredes (com as portas recortadas), móveis (tapete não conta) e guarda-corpo do mezanino
+  const rig = useMemo(() => {
     const catalog = getCatalog();
     const passable = (item: string) => catalog.furniture.find((f) => f.id === item)?.collides === false;
-    return [...buildWalkWalls(model.walls, model.openings, levelId), ...buildFurnitureWalkRects(furniture, levelId, passable)];
-  }, [model.walls, model.openings, levelId, furniture]);
-  const floorZ = levelFloorZ(model.walls, levelId, elevation);
-  const state = useRef<{ pos: V2 }>({ pos: [0, 0] });
+    const floorOf = (id: string) => levelFloorZ(model.walls, id, levels.find((l) => l.id === id)?.elevation ?? 0);
+    // escadas que ligam dois níveis: `lo` é o nível de baixo e `hi` o de cima (pela cota do piso)
+    const stairs = projectStairs.flatMap((ps) => {
+      const stair = model.stairs.find((s) => s.id === ps.id);
+      if (!stair || stair.treads.length === 0 || !stairEdges(stair)) return [];
+      const [lo, hi] = floorOf(ps.from) <= floorOf(ps.to) ? [ps.from, ps.to] : [ps.to, ps.from];
+      if (floorOf(lo) === floorOf(hi)) return [];
+      return [{ stair, lo, hi, loZ: floorOf(lo), hiZ: floorOf(hi) }];
+    });
+    const base = new Map<string, WallRect[]>();
+    for (const l of levels) {
+      const rails = model.slabs
+        .filter((sl) => sl.kind === 'mezzanine' && sl.level === l.id)
+        .flatMap((sl) =>
+          buildSlabRailRects(
+            sl,
+            model.walls,
+            stairs.filter((st) => st.hi === l.id).map((st) => stairEdges(st.stair)!.exit),
+          ),
+        );
+      base.set(l.id, [...buildWalkWalls(model.walls, model.openings, l.id), ...buildFurnitureWalkRects(furniture, l.id, passable), ...rails]);
+    }
+    return { stairs, base, floorOf };
+  }, [model.walls, model.openings, model.slabs, model.stairs, levels, projectStairs, furniture]);
+  const rigRef = useRef(rig);
+  rigRef.current = rig;
+  const elevation = levels.find((l) => l.id === levelId)?.elevation ?? 0;
+  const startFloor = levelFloorZ(model.walls, levelId, elevation);
+  const state = useRef<{ pos: V2; level: string; onStair: boolean; z: number; eye: number }>({ pos: [0, 0], level: levelId, onStair: false, z: startFloor, eye: startFloor + WALK.eyeHeight });
   const keys = useRef(new Set<string>());
-  const wallsRef = useRef(walls);
-  wallsRef.current = walls;
-  const floorRef = useRef(floorZ);
-  floorRef.current = floorZ;
 
   // posição inicial: porta de entrada (1 m para dentro) ou centro; só na montagem
   useLayoutEffect(() => {
@@ -48,7 +102,7 @@ export function WalkRig({ model, levelId, far }: { model: BuildingModel; levelId
     const start = walkStart({ walls: model.walls.filter((w) => w.level === levelId), openings: model.openings, footprint: model.footprint, bbox: model.bbox });
     state.current.pos = start.pos;
     c.rotation.order = 'YXZ';
-    c.position.set(start.pos[0], floorRef.current + WALK.eyeHeight, -start.pos[1]);
+    c.position.set(start.pos[0], state.current.eye, -start.pos[1]);
     c.rotation.set(0, yawFromHeading(start.heading), 0);
     setReady(true);
   }, []);
@@ -110,10 +164,23 @@ export function WalkRig({ model, levelId, far }: { model: BuildingModel; levelId
       const speed = WALK.speed * (k.has('ShiftLeft') || k.has('ShiftRight') ? WALK.runFactor : 1) * dt;
       mx = (mx / m) * speed;
       mz = (mz / m) * speed;
-      state.current.pos = moveWithCollision(state.current.pos, [mx, -mz], wallsRef.current);
+      state.current.pos = moveWithCollision(state.current.pos, [mx, -mz], collidersFor(rigRef.current, state.current));
     }
-    const [px, py] = state.current.pos;
-    c.position.set(px, floorRef.current + WALK.eyeHeight, -py);
+    // altura: sobre a escada segue a rampa dos degraus; ao sair dela fica no nível mais próximo (de cima ou de baixo)
+    const st = state.current;
+    const { stairs, floorOf } = rigRef.current;
+    const on = stairs.find((x) => (x.lo === st.level || x.hi === st.level) && onStairFootprint(x.stair, st.pos));
+    if (on) {
+      st.z = stairHeightAt(on.stair, st.pos) ?? st.z;
+      st.onStair = true;
+      st.level = st.z > (on.loZ + on.hiZ) / 2 ? on.hi : on.lo;
+    } else {
+      st.onStair = false;
+      st.z = floorOf(st.level);
+    }
+    st.eye += (st.z + WALK.eyeHeight - st.eye) * Math.min(1, dt * 12);
+    const [px, py] = st.pos;
+    c.position.set(px, st.eye, -py);
   });
 
   return (

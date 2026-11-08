@@ -2,7 +2,8 @@
  * Primeira pessoa (andar por dentro): colisão e ponto de partida. Puro, em planta (referencial do motor, x/y em m).
  * As paredes viram retângulos (comprimento x espessura); portas abrem passagem; o jogador é um círculo.
  */
-import type { BuildingModel, FurnitureModel, HostWall, ResolvedOpening } from '@chalecad/engine';
+import type { BuildingModel, FurnitureModel, HostWall, ResolvedOpening, ResolvedStair, SlabModel } from '@chalecad/engine';
+import { freeSlabEdges } from './convert';
 
 export type V2 = [number, number];
 
@@ -205,4 +206,120 @@ export function polygonCentroid(poly: V2[]): V2 {
     return [poly.reduce((s, p) => s + p[0], 0) / n, poly.reduce((s, p) => s + p[1], 0) / n];
   }
   return [cx / (3 * a), cy / (3 * a)];
+}
+
+// ---------------------------------------------------------------------------
+// Escadas
+// ---------------------------------------------------------------------------
+
+/** Metade da espessura das paredes virtuais (laterais da escada, guarda-corpo). */
+const RAIL_HALF = 0.03;
+
+/**
+ * Altura (cota absoluta do piso, em m) sob `point` quando ele está sobre um degrau da escada; `null` fora da escada.
+ * Em cada degrau a altura sobe linearmente, de meio espelho abaixo a meio espelho acima do topo do degrau (a rampa dos
+ * degraus): no centro do degrau vale o topo dele. O patamar da escada em L é plano.
+ */
+export function stairHeightAt(stair: Pick<ResolvedStair, 'treads' | 'riser' | 'going' | 'type'>, point: V2): number | null {
+  for (const t of stair.treads) {
+    const a = (t.rotationZDeg * Math.PI) / 180;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const dx = point[0] - t.center[0];
+    const dy = point[1] - t.center[1];
+    const lx = dx * c + dy * s; // largura
+    const ly = -dx * s + dy * c; // sentido da subida
+    const [w, g, th] = t.size;
+    if (Math.abs(lx) > w / 2 + 1e-9 || Math.abs(ly) > g / 2 + 1e-9) continue;
+    const top = t.center[2] + th / 2;
+    const landing = stair.type === 'l_shape' && Math.abs(g - stair.going) > 1e-6;
+    return landing ? top : top + (ly / g) * stair.riser;
+  }
+  return null;
+}
+
+/** O ponto está sobre a projeção da escada (o contorno inteiro, inclusive o que não tem degrau no fim)? */
+export function onStairFootprint(stair: Pick<ResolvedStair, 'footprint'>, point: V2): boolean {
+  return insidePolygon(point, stair.footprint as V2[]);
+}
+
+export interface StairEdges {
+  /** Pé da escada (onde se entra por baixo). */
+  entry: [V2, V2];
+  /** Topo (onde se chega ao nível de cima). */
+  exit: [V2, V2];
+  /** Laterais (e quinas do L): nunca atravessadas. */
+  sides: [V2, V2][];
+}
+
+/** Arestas do contorno da escada: pé, topo e laterais. Retângulo (reta/mão francesa) ou hexágono do L. */
+export function stairEdges(stair: Pick<ResolvedStair, 'footprint'>): StairEdges | null {
+  const f = stair.footprint as V2[];
+  if (f.length !== 4 && f.length !== 6) return null;
+  const exitIdx = f.length === 6 ? 3 : 2;
+  const edge = (i: number): [V2, V2] => [f[i]!, f[(i + 1) % f.length]!];
+  const sides: [V2, V2][] = [];
+  for (let i = 1; i < f.length; i++) if (i !== exitIdx) sides.push(edge(i));
+  return { entry: edge(0), exit: edge(exitIdx), sides };
+}
+
+const toRect = ([a, b]: [V2, V2], half = RAIL_HALF): WallRect | null => (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1e-6 ? null : { from: a, to: b, half });
+
+/**
+ * Obstáculos da escada conforme onde o jogador está:
+ * - `lower`: no nível de baixo, fora da escada: laterais + topo (não se entra pelo lado de cima, que é embaixo da laje);
+ * - `upper`: no nível de cima: laterais + pé (a escada só é acessada pela chegada, no topo);
+ * - `on`: sobre a escada: só as laterais.
+ */
+export function buildStairWalkRects(stair: Pick<ResolvedStair, 'footprint' | 'treads'>, where: 'lower' | 'upper' | 'on'): WallRect[] {
+  const e = stair.treads.length > 0 ? stairEdges(stair) : null;
+  if (!e) return [];
+  const segs = [...e.sides];
+  if (where === 'lower') segs.push(e.exit);
+  if (where === 'upper') segs.push(e.entry);
+  return segs.map((sg) => toRect(sg)).filter((r): r is WallRect => !!r);
+}
+
+const distPointSeg = (p: V2, a: V2, b: V2): number => {
+  const abx = b[0] - a[0];
+  const aby = b[1] - a[1];
+  const l2 = abx * abx + aby * aby;
+  const t = l2 < 1e-12 ? 0 : Math.min(1, Math.max(0, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / l2));
+  return Math.hypot(p[0] - (a[0] + abx * t), p[1] - (a[1] + aby * t));
+};
+
+/** Pedaços do segmento a-b que ficam a mais de `margin` do segmento `hole` (amostrado a ~2 cm). */
+export function cutSegmentNear(a: V2, b: V2, hole: [V2, V2], margin: number): [V2, V2][] {
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const n = Math.max(1, Math.ceil(len / 0.02));
+  const at = (k: number): V2 => [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n];
+  const out: [V2, V2][] = [];
+  let start = -1;
+  for (let k = 0; k <= n; k++) {
+    const keep = distPointSeg(at(k), hole[0], hole[1]) > margin;
+    if (keep && start < 0) start = k;
+    if ((!keep || k === n) && start >= 0) {
+      const end = keep ? k : k - 1;
+      if (end > start) out.push([at(start), at(end)]);
+      start = -1;
+    }
+  }
+  return out;
+}
+
+/**
+ * Guarda-corpo do mezanino como obstáculo: as bordas livres da laje (sem parede por baixo), menos o trecho da chegada
+ * de cada escada (`arrivals` = arestas de topo das escadas que chegam neste nível).
+ */
+export function buildSlabRailRects(slab: Pick<SlabModel, 'polygon' | 'topZ'>, walls: HostWall[], arrivals: [V2, V2][] = [], margin = 0.2): WallRect[] {
+  const out: WallRect[] = [];
+  for (const [a, b] of freeSlabEdges(slab, walls)) {
+    let parts: [V2, V2][] = [[a, b]];
+    for (const hole of arrivals) parts = parts.flatMap(([p, q]) => cutSegmentNear(p, q, hole, margin));
+    for (const sg of parts) {
+      const r = toRect(sg, 0.05);
+      if (r) out.push(r);
+    }
+  }
+  return out;
 }

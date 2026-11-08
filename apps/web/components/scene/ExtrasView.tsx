@@ -76,7 +76,7 @@ interface Tex {
   wood: THREE.Texture;
 }
 
-function SegmentMesh({ seg, tex, lit, selected, hover }: { seg: Seg; tex: Tex; lit: boolean; selected: boolean; hover: boolean }) {
+function SegmentMesh({ seg, tex, lit, selected, hover, plain }: { seg: Seg; tex: Tex; lit: boolean; selected: boolean; hover: boolean; plain: boolean }) {
   const length = Math.hypot(seg.to[0] - seg.from[0], seg.to[1] - seg.from[1]);
   const angle = Math.atan2(seg.to[1] - seg.from[1], seg.to[0] - seg.from[0]);
   const geometry = useMemo(() => makeScaledBox(Math.max(0.01, length), Math.max(0.01, seg.thickness), Math.max(0.01, seg.height)), [length, seg.thickness, seg.height]);
@@ -111,7 +111,7 @@ function SegmentMesh({ seg, tex, lit, selected, hover }: { seg: Seg; tex: Tex; l
     <group>
       <mesh geometry={geometry} position={pos} rotation={[0, 0, angle]} castShadow={solid} receiveShadow renderOrder={solid ? 0 : 2}>
         {material}
-        {selected ? <Edges color={COLORS.accent} lineWidth={2.5} raycast={() => null} /> : solid ? <Edges threshold={25} color={COLORS.edge} transparent opacity={0.35} raycast={() => null} /> : null}
+        {selected ? <Edges color={COLORS.accent} lineWidth={2.5} raycast={() => null} /> : solid && !plain ? <Edges threshold={25} color={COLORS.edge} transparent opacity={0.35} raycast={() => null} /> : null}
       </mesh>
       {seg.material === 'rail' ? (
         <mesh position={[pos[0], pos[1], seg.baseZ + seg.height - 0.025]} rotation={[0, 0, angle]} castShadow>
@@ -131,10 +131,11 @@ interface ExtraProps {
   lit: boolean;
   selected: boolean;
   hoverable: boolean;
+  plain: boolean;
   onSelect?: (id: string) => void;
 }
 
-function Extra({ extra, tex, lit, selected, hoverable, onSelect }: ExtraProps) {
+function Extra({ extra, tex, lit, selected, hoverable, plain, onSelect }: ExtraProps) {
   const [hover, setHover] = useState(false);
   useEffect(() => {
     if (!hover) return;
@@ -185,7 +186,7 @@ function Extra({ extra, tex, lit, selected, hoverable, onSelect }: ExtraProps) {
   return (
     <group {...handlers}>
       {extra.segments.map((s, i) => (
-        <SegmentMesh key={i} seg={s} tex={tex} lit={lit} selected={selected} hover={hover} />
+        <SegmentMesh key={i} seg={s} tex={tex} lit={lit} selected={selected} hover={hover} plain={plain} />
       ))}
       {extra.posts.map((p, i) => (
         <mesh key={`p${i}`} position={[p.position[0], p.position[1], postBase + p.height / 2]} castShadow>
@@ -196,13 +197,13 @@ function Extra({ extra, tex, lit, selected, hoverable, onSelect }: ExtraProps) {
       {deckGeo && extra.topZ !== undefined ? (
         <mesh geometry={deckGeo} position={[0, 0, extra.topZ - 0.1]} castShadow receiveShadow>
           <meshStandardMaterial map={woodTex} color="#ffffff" roughness={0.8} emissive={emissive} emissiveIntensity={ei} />
-          {selected ? <Edges color={COLORS.accent} lineWidth={2.5} raycast={() => null} /> : <Edges threshold={25} color={COLORS.edge} transparent opacity={0.35} raycast={() => null} />}
+          {selected ? <Edges color={COLORS.accent} lineWidth={2.5} raycast={() => null} /> : plain ? null : <Edges threshold={25} color={COLORS.edge} transparent opacity={0.35} raycast={() => null} />}
         </mesh>
       ) : null}
       {roof ? (
         <mesh geometry={roof.geometry} position={roof.position} quaternion={roof.quaternion} castShadow receiveShadow>
           <meshStandardMaterial color={COLORS.roof} roughness={0.95} emissive={emissive} emissiveIntensity={ei} />
-          <Edges threshold={25} color="#78716c" transparent opacity={0.4} raycast={() => null} />
+          {plain ? null : <Edges threshold={25} color="#78716c" transparent opacity={0.4} raycast={() => null} />}
         </mesh>
       ) : null}
     </group>
@@ -214,11 +215,13 @@ export interface ExtrasViewProps {
   selectedId?: string | null;
   highlightIds?: string[];
   hoverable?: boolean;
+  /** Modo apresentação: sem arestas técnicas. */
+  plain?: boolean;
   onSelect?: (id: string) => void;
 }
 
 /** Muro, cerca, deck e arrimo (`results.model.extras`), selecionáveis. */
-export function ExtrasView({ extras, selectedId = null, highlightIds = [], hoverable = true, onSelect }: ExtrasViewProps) {
+export function ExtrasView({ extras, selectedId = null, highlightIds = [], hoverable = true, plain = false, onSelect }: ExtrasViewProps) {
   const tex = useMemo<Tex>(() => ({ block: makeBlockTexture(), wood: makeWoodTexture() }), []);
   useEffect(
     () => () => {
@@ -231,7 +234,7 @@ export function ExtrasView({ extras, selectedId = null, highlightIds = [], hover
   return (
     <>
       {extras.map((x) => (
-        <Extra key={x.id} extra={x} tex={tex} lit={lit.has(x.id)} selected={selectedId === x.id} hoverable={hoverable} onSelect={onSelect} />
+        <Extra key={x.id} extra={x} tex={tex} lit={lit.has(x.id)} selected={selectedId === x.id} hoverable={hoverable} plain={plain} onSelect={onSelect} />
       ))}
     </>
   );

@@ -4,6 +4,7 @@ import { Edges } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { BuildingModel, Finishes, HostWall, ResolvedOpening, ResolvedStair, SlabModel, RoofPlane, Vec3 } from '@chalecad/engine';
 import * as THREE from 'three';
+import { cutSegmentNear, stairEdges, type V2 as WalkV2 } from '@/lib/three/walk';
 import { freeSlabEdges, glazingBars, guardrailLayout, guardrailSpan, openingPlacement, roofZAt, type V2 } from '@/lib/three/convert';
 import { getTexture } from '@/lib/three/textures';
 import { ROOF_COLORS } from '@/lib/project/rooms';
@@ -68,10 +69,20 @@ interface HostGroupProps {
   onHover?: (id: string | null) => void;
   position?: THREE.Vector3;
   quaternion?: THREE.Quaternion;
+  /** Telhado: se o raio também acerta um móvel (atrás da água), o clique e o hover ficam com o móvel. */
+  yieldToFurniture?: boolean;
   children: ReactNode;
 }
 
-function HostGroup({ id, hoverable, active, onSelect, externalHover = false, faded = false, onHover, children, position, quaternion }: HostGroupProps) {
+/** O raio do evento atravessa algum móvel (grupo com `userData.furnitureId`)? */
+export function hitsFurniture(intersections: { object: THREE.Object3D }[]): boolean {
+  return intersections.some(({ object }) => {
+    for (let o: THREE.Object3D | null = object; o; o = o.parent) if (o.userData?.furnitureId) return true;
+    return false;
+  });
+}
+
+function HostGroup({ id, hoverable, active, onSelect, externalHover = false, faded = false, onHover, children, position, quaternion, yieldToFurniture = false }: HostGroupProps) {
   const [hovered, setHovered] = useState(false);
   useEffect(() => {
     if (!hovered) return;
@@ -86,6 +97,7 @@ function HostGroup({ id, hoverable, active, onSelect, externalHover = false, fad
   const handlers = hoverable
     ? {
         onPointerOver: (e: ThreeEvent<PointerEvent>) => {
+          if (yieldToFurniture && hitsFurniture(e.intersections)) return;
           e.stopPropagation();
           setHovered(true);
           onHover?.(id);
@@ -96,6 +108,7 @@ function HostGroup({ id, hoverable, active, onSelect, externalHover = false, fad
         },
         onClick: (e: ThreeEvent<MouseEvent>) => {
           if (e.delta > 4) return; // foi arrasto de câmera, não clique
+          if (yieldToFurniture && hitsFurniture(e.intersections)) return;
           e.stopPropagation();
           onSelect?.(id);
         },
@@ -159,6 +172,55 @@ function Surface({ geometry, size, color, map, roughness = 0.85, metalness = 0, 
     </mesh>
   );
 }
+
+interface FaceStyle {
+  color: string;
+  map?: THREE.Texture;
+}
+
+/**
+ * Malha com material por grupo de `splitCaps` (0 = tampa em -w, 1 = tampa em +w, 2 = laterais): cada face com a sua cor/textura.
+ * Reage ao hover/seleção do HostGroup como o `Surface`.
+ */
+function FaceSurface({ geometry, faces, roughness = 0.92, edgeColor = COLORS.edge }: { geometry: THREE.BufferGeometry; faces: [FaceStyle, FaceStyle, FaceStyle]; roughness?: number; edgeColor?: string }) {
+  const { hovered, active, faded } = useContext(StyleCtx);
+  const { clip, ghost, plain } = useContext(ViewCtx);
+  const opacity = ghost ? 0.22 : faded ? 0.16 : 1;
+  const emissive = active ? COLORS.accent : hovered ? COLORS.hover : '#000000';
+  const intensity = active ? 0.1 : hovered ? 0.14 : 0;
+  return (
+    <mesh geometry={geometry} castShadow={opacity === 1} receiveShadow={opacity === 1} renderOrder={opacity < 1 ? 1 : 0}>
+      {faces.map((f, i) => (
+        <meshStandardMaterial
+          key={`${i}-${opacity < 1 ? 'translucent' : 'opaque'}${f.map ? '-map' : ''}`}
+          attach={`material-${i}`}
+          color={f.map ? '#ffffff' : f.color}
+          map={f.map ?? null}
+          roughness={roughness}
+          emissive={emissive}
+          emissiveIntensity={intensity}
+          transparent={opacity < 1}
+          opacity={opacity}
+          depthWrite={opacity === 1}
+          clippingPlanes={clip}
+        />
+      ))}
+      {!ghost && !plain ? (
+        <Edges threshold={25} color={active ? COLORS.accent : edgeColor} lineWidth={active ? 2.5 : 1} transparent opacity={faded ? 0.15 : active ? 1 : 0.4} raycast={() => null} />
+      ) : null}
+    </mesh>
+  );
+}
+
+/** Parede: a fachada (ou a cor externa) só na face de fora, a cor de parede interna na de dentro e a externa nas laterais. */
+function wallFaces(exteriorSide: 'left' | 'right', facade?: THREE.Texture): [FaceStyle, FaceStyle, FaceStyle] {
+  const outer: FaceStyle = { color: COLORS.wallExterior, map: facade };
+  const inner: FaceStyle = { color: COLORS.wallInterior };
+  return [exteriorSide === 'left' ? outer : inner, exteriorSide === 'left' ? inner : outer, { color: COLORS.wallExterior }];
+}
+
+/** Água do telhado: face de baixo clara (placa/OSB, para a luz interna), de cima e bordas na cor da telha. */
+const ROOF_UNDERSIDE = '#e9dfc8';
 
 // ---------------------------------------------------------------------------
 // Aberturas
@@ -304,13 +366,16 @@ function Wall({ wall, openings, ...common }: { wall: HostWall; openings: Resolve
   const interior = wall.kind === 'interior';
   const glazed = wall.assemblyId === 'gable_glazed';
   const { facadeMap } = useContext(ViewCtx);
-  const facade = !interior && wall.exteriorSide !== null && !glazed ? facadeMap : undefined;
+  const faced = !interior && wall.exteriorSide !== null && !glazed;
+  const facade = faced ? facadeMap : undefined;
   return (
     <HostGroup id={wall.id} position={built.position} quaternion={built.quaternion} {...common}>
       {glazed ? (
         <GlazedWall geometry={built.geometry} outline={wall.outline as V2[]} openings={built.openings} depth={wall.thickness} />
+      ) : faced && wall.exteriorSide ? (
+        <FaceSurface geometry={built.geometry} faces={wallFaces(wall.exteriorSide, facade)} />
       ) : (
-        <Surface geometry={built.geometry} color={interior ? COLORS.wallInterior : COLORS.wallExterior} map={facade} roughness={0.92} />
+        <Surface geometry={built.geometry} color={interior ? COLORS.wallInterior : COLORS.wallExterior} roughness={0.92} />
       )}
       {built.openings.map((op) => (
         <OpeningMesh key={op.id} op={op} depth={wall.thickness} />
@@ -325,8 +390,8 @@ function Roof({ plane, openings, ...common }: { plane: RoofPlane; openings: Reso
   const { roofColor } = useContext(ViewCtx);
   const skylights = openings.filter((o) => o.valid && o.hostKind === 'roof' && o.hostId === plane.id);
   return (
-    <HostGroup id={plane.id} position={built.position} quaternion={built.quaternion} {...common}>
-      <Surface geometry={built.geometry} color={roofColor} roughness={0.95} edgeColor="#78716c" />
+    <HostGroup id={plane.id} position={built.position} quaternion={built.quaternion} yieldToFurniture {...common}>
+      <FaceSurface geometry={built.geometry} faces={[{ color: ROOF_UNDERSIDE }, { color: roofColor }, { color: roofColor }]} roughness={0.95} edgeColor="#78716c" />
       {skylights.map((op) => {
         const { center, size } = openingPlacement(op);
         return (
@@ -440,10 +505,17 @@ function Slab({ slab, model, ...common }: { slab: SlabModel; model: BuildingMode
     if (slab.kind !== 'mezzanine') return [];
     // só onde há altura para o guarda-corpo (bordas que encostam na água do A-frame não levam)
     const clearance = (x: number, y: number) => roofZAt(model.roofPlanes, x, y) - slab.topZ;
+    // a chegada de cada escada que sobe até esta laje fica sem guarda-corpo (mesma folga da colisão do andar por dentro)
+    const arrivals = model.stairs.flatMap((st) => {
+      const last = st.treads[st.treads.length - 1];
+      const e = stairEdges(st);
+      return last && e && Math.abs(last.center[2] + last.size[2] / 2 + st.riser - slab.topZ) < 0.02 ? [e.exit] : [];
+    });
     return freeSlabEdges(slab, model.walls)
+      .flatMap(([a, b]) => arrivals.reduce<[WalkV2, WalkV2][]>((parts, hole) => parts.flatMap(([p, q]) => cutSegmentNear(p, q, hole, 0.2)), [[a, b]]))
       .map(([a, b]) => guardrailSpan(a, b, clearance, RAIL_H))
       .filter((e): e is [V2, V2] => e !== null);
-  }, [slab, model.walls, model.roofPlanes]);
+  }, [slab, model.walls, model.roofPlanes, model.stairs]);
   const color = slab.kind === 'radier' ? COLORS.radier : COLORS.mezzanine;
   return (
     <HostGroup id={slab.id} {...common}>

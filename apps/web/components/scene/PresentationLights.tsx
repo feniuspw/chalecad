@@ -10,6 +10,7 @@ import { GRASS_TILE, getGrassTexture } from '@/lib/three/textures';
 import { polygonCentroid } from '@/lib/three/walk';
 import { roomFloorZ } from '@/lib/three/finishes';
 import { effectiveQuality, usePresentationUi } from './presentationUi';
+import { NightSky, nightAmount } from './NightSky';
 import { useSunState } from './useSunState';
 
 /** Motor (z para cima) para cena (y para cima). */
@@ -34,6 +35,7 @@ export function PresentationLights({ model, bounds, hasTerrain }: PresentationLi
   const quality = effectiveQuality(usePresentationUi((s) => s.quality), usePresentationUi((s) => s.degraded));
   const lamps = usePresentationUi((s) => s.lamps);
   const light = useMemo(() => sunLight(sun.elevationDeg), [sun.elevationDeg]);
+  const night = nightAmount(sun.elevationDeg);
 
   const dir = useMemo(() => toScene(sunVector(sun.azimuthDeg, sun.elevationDeg, sun.northDeg)), [sun.azimuthDeg, sun.elevationDeg, sun.northDeg]);
   // a luz que projeta sombra nunca fica mais baixa que MIN_SHADOW_ELEVATION (o frustum explodiria)
@@ -97,8 +99,8 @@ export function PresentationLights({ model, bounds, hasTerrain }: PresentationLi
           intensity={light.sun}
           castShadow
           shadow-mapSize={[mapSize, mapSize]}
-          shadow-bias={-0.0002}
-          shadow-normalBias={0.04}
+          shadow-bias={-0.0003}
+          shadow-normalBias={0.025}
           shadow-radius={2.5}
         />
       ) : null}
@@ -111,7 +113,8 @@ export function PresentationLights({ model, bounds, hasTerrain }: PresentationLi
         />
       ) : null}
 
-      <Sky distance={1000} sunPosition={dir} turbidity={sun.elevationDeg < 10 ? 7 : 4} rayleigh={sun.elevationDeg < 6 ? 2.4 : 1.2} mieCoefficient={0.005} mieDirectionalG={0.82} />
+      {night < 1 ? <Sky distance={1000} sunPosition={dir} turbidity={sun.elevationDeg < 10 ? 7 : 4} rayleigh={sun.elevationDeg < 6 ? 2.4 : 1.2} mieCoefficient={0.005} mieDirectionalG={0.82} /> : null}
+      <NightSky amount={night} />
       <Environment resolution={128} environmentIntensity={light.env}>
         <Lightformer form="rect" intensity={2.4} color="#ffffff" position={[0, 8, 0]} rotation-x={Math.PI / 2} scale={[24, 24, 1]} />
         <Lightformer form="rect" intensity={1.1} color="#cfe0ff" position={[-10, 3, 0]} rotation-y={Math.PI / 2} scale={[14, 5, 1]} />

@@ -1,6 +1,9 @@
 /** Planta baixa por nível em SVG, gerada a partir do `BuildingModel` (funções puras). */
-import type { BuildingModel, HostWall, Project, ResolvedOpening, ResolvedStair, Vec2 } from '@chalecad/engine';
+import { getCatalog } from '@chalecad/catalog';
+import type { BuildingModel, Furniture, HostWall, Project, ResolvedOpening, ResolvedStair, Vec2 } from '@chalecad/engine';
 import { fmt } from '../project/format';
+import { specOf } from '../project/furniture';
+import { furnitureSymbol, placeStrokes } from './furnitureSymbols';
 import { ROOM_FILL, roomLabel, roomLabelPoint } from './rooms';
 import { ACCENT, GUIDE, INK, MUTED, esc, group, hDim, line, meters, n2, northArrow, poly, rect, scaleBar, svgDocument, tag, text, vDim, type SvgDoc } from './svg';
 
@@ -16,7 +19,7 @@ export interface PlanOptions {
   /** Níveis do projeto (nomes e cotas). Sem isto são deduzidos do modelo. */
   levels?: PlanLevel[];
   /** Projeto, só para refinar nomes de níveis. */
-  project?: Pick<Project, 'levels'>;
+  project?: Pick<Project, 'levels'> & Partial<Pick<Project, 'furniture'>>;
   /** Prefixo dos ids internos do SVG (padrões), para vários SVGs na mesma página. */
   idPrefix?: string;
 }
@@ -173,6 +176,10 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
 
   // Escadas (sob as paredes).
   for (const st of model.stairs) layers.push(stairSvg(st, isGround, P, S));
+
+  // Móveis do nível: símbolo de arquitetura em traço fino (o mesmo da planta do editor).
+  const furn = (opts.project?.furniture ?? []).filter((f) => f.level === level.id);
+  if (furn.length > 0) layers.push(furnitureSvg(furn, P));
 
   // Paredes: contorno (traço) + preenchimento hachurado por cima, para unir os cantos.
   const wallPolys = cut.map((w) => wallPolygon(w).map(P));
@@ -344,4 +351,20 @@ function stairSvg(st: ResolvedStair, ground: boolean, P: (p: Vec2) => [number, n
   }
   void S;
   return group(parts.join(''), { 'data-role': 'stair', 'data-id': st.id, opacity: op });
+}
+
+/** Símbolos dos móveis: um grupo por móvel, traços do contorno em INK e detalhes internos mais leves. */
+function furnitureSvg(items: Furniture[], P: (p: Vec2) => [number, number]): string {
+  const catalog = getCatalog();
+  const groups: string[] = [];
+  for (const f of items) {
+    const spec = specOf(catalog, f.item);
+    if (!spec) continue;
+    const paths = placeStrokes(furnitureSymbol(spec.model, spec.size), f.position as [number, number], f.rotation).map((st) => {
+      const d = st.pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${n2(P(p)[0])} ${n2(P(p)[1])}`).join(' ') + (st.closed ? ' Z' : '');
+      return tag('path', { d, fill: 'none', stroke: st.light ? MUTED : INK, 'stroke-width': st.light ? 0.4 : 0.7, 'stroke-linejoin': 'round' });
+    });
+    groups.push(group(paths.join(''), { 'data-role': 'furniture', 'data-id': f.id, 'data-item': f.item }));
+  }
+  return group(groups.join(''), { 'data-role': 'furniture-layer' });
 }
