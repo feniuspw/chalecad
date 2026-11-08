@@ -9,7 +9,8 @@ import { Builder } from './builder';
 export function gableLoft(ids: IdGen): Project {
   const b = new Builder('gable_mezzanine', { name: 'Chalé duas águas 6,5 × 8,5', region: 'MG', width: 6.5, depth: 8.5, mezzanine: true }, ids);
   // Escada sob a cumeeira: junto à parede o telhado baixo não deixa os 2,10 m livres sobre os degraus.
-  b.mezzanine({ depth: 3.5, stairX: 2.85 });
+  // Borda do mezanino sobre as paredes do quarto e do banheiro (y = 5,6): as vigas vencem os 2,9 m do fundo, não os 6,5 m.
+  b.mezzanine({ depth: 2.9, stairX: 2.85 });
   b.p.walls = []; // refaz o banheiro do modelo inicial
   b.p.openings = [];
   b.finishes({ facade: 'finish_facade_wood', roofColor: 'terracotta' });

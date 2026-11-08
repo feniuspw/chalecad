@@ -3,7 +3,10 @@
  * Área e custo são constantes só para exibição nos cartões; o teste os confere com o motor (custo: tolerância de 15%).
  */
 import type { Project, TypologyKind } from '@chalecad/engine';
+import { getCatalog } from '@chalecad/catalog';
 import type { IdGen } from '../ids';
+import { planNormFixes } from '../normfix';
+import { ensureDaylight } from '../wizard/daylight';
 import { aframeCompact } from './aframe-compact';
 import { aframeWings } from './aframe-wings';
 import { gableLoft } from './gable-loft';
@@ -25,6 +28,24 @@ export interface Preset {
   build: () => Project;
 }
 
+/**
+ * Mesma conformidade do assistente: janelas pela área de cada cômodo (iluminação 1/6, ventilação 1/12) e o
+ * "Ajustar às normas" nos perfis. Os móveis já estão na geometria final do modelo.
+ */
+function conformPreset(p: Project, ids: IdGen): Project {
+  const catalog = getCatalog();
+  let out = planNormFixes(p, catalog, ids).project;
+  out = structuredClone(out);
+  ensureDaylight(out, catalog, ids);
+  return planNormFixes(out, catalog, ids).project;
+}
+
+/** IDs sequenciais por chamada: o mesmo modelo gera sempre o mesmo projeto. */
+function withIds(make: (ids: IdGen) => Project): Project {
+  const ids = seq();
+  return conformPreset(make(ids), ids);
+}
+
 const seq = (): IdGen => {
   const n: Record<string, number> = {};
   return (p) => `${p}-${(n[p] = (n[p] ?? 0) + 1)}`;
@@ -36,30 +57,30 @@ export const PRESETS: readonly Preset[] = [
     name: 'A-frame compacto 6 × 8',
     description: 'Fachada de vidro, mezanino com a cama, cozinha e banheiro sob ele e forro de lambri.',
     kind: 'a_frame',
-    area: 60.8,
+    area: 60.3,
     bedrooms: 1,
-    estimatedCost: 172000,
-    build: () => aframeCompact(seq()),
+    estimatedCost: 180000,
+    build: () => withIds(aframeCompact),
   },
   {
     id: 'aframe-wings',
     name: 'A-frame com cômodos laterais',
     description: 'Quarto de um lado, cozinha e banheiro do outro, sala no vão central e mezanino.',
     kind: 'a_frame',
-    area: 87.1,
+    area: 86.7,
     bedrooms: 2,
-    estimatedCost: 247000,
-    build: () => aframeWings(seq()),
+    estimatedCost: 262000,
+    build: () => withIds(aframeWings),
   },
   {
     id: 'gable-loft',
     name: 'Chalé duas águas 6,5 × 8,5',
     description: 'Sala e cozinha na frente, quarto e banheiro nos fundos, mezanino de estar e deck coberto.',
     kind: 'gable_mezzanine',
-    area: 78,
+    area: 74.1,
     bedrooms: 1,
-    estimatedCost: 189000,
-    build: () => gableLoft(seq()),
+    estimatedCost: 192000,
+    build: () => withIds(gableLoft),
   },
   {
     id: 'gambrel-cabin',
@@ -68,8 +89,8 @@ export const PRESETS: readonly Preset[] = [
     kind: 'gambrel',
     area: 57.6,
     bedrooms: 1,
-    estimatedCost: 147000,
-    build: () => gambrelCabin(seq()),
+    estimatedCost: 164000,
+    build: () => withIds(gambrelCabin),
   },
   {
     id: 'l-house',
@@ -78,8 +99,8 @@ export const PRESETS: readonly Preset[] = [
     kind: 'combined',
     area: 71.3,
     bedrooms: 2,
-    estimatedCost: 214000,
-    build: () => lHouse(seq()),
+    estimatedCost: 223000,
+    build: () => withIds(lHouse),
   },
 ];
 
