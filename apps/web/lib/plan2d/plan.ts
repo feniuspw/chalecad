@@ -1,9 +1,10 @@
 /** Planta baixa por nível em SVG, gerada a partir do `BuildingModel` (funções puras). */
 import { getCatalog } from '@chalecad/catalog';
-import type { BuildingModel, Furniture, HostWall, Project, ResolvedOpening, ResolvedStair, Vec2 } from '@chalecad/engine';
+import type { BuildingModel, Furniture, HostWall, InstallationPoint, Project, ResolvedOpening, ResolvedStair, Vec2 } from '@chalecad/engine';
 import { fmt } from '../project/format';
 import { specOf } from '../project/furniture';
 import { furnitureSymbol, placeStrokes } from './furnitureSymbols';
+import { installationLegend, installationSymbols, type InstallationSymbol } from './installationSymbols';
 import { ROOM_FILL, roomLabel, roomLabelPoint } from './rooms';
 import { ACCENT, GUIDE, INK, MUTED, esc, group, hDim, line, meters, n2, northArrow, poly, rect, scaleBar, svgDocument, tag, text, vDim, type SvgDoc } from './svg';
 
@@ -22,6 +23,8 @@ export interface PlanOptions {
   project?: Pick<Project, 'levels'> & Partial<Pick<Project, 'furniture'>>;
   /** Prefixo dos ids internos do SVG (padrões), para vários SVGs na mesma página. */
   idPrefix?: string;
+  /** Pontos de instalações elétricas e hidráulicas; desenha os símbolos do nível e a legenda. */
+  installations?: InstallationPoint[];
 }
 
 export const UNITS_PER_METER = 60;
@@ -104,10 +107,13 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
   const ML = 118;
   const MR = 80;
   const MT = 70;
-  const MB = 150;
+  const instPoints = (opts.installations ?? []).filter((p) => p.level === level.id);
+  const legendItems = installationLegend(instPoints);
+  const legendCols = 3;
+  const MB = 150 + (legendItems.length > 0 ? 24 + Math.ceil(legendItems.length / legendCols) * 16 : 0);
   const planW = (maxX - minX) * S;
   const planH = (maxY - minY) * S;
-  const width = Math.max(ML + planW + MR, 330);
+  const width = Math.max(ML + planW + MR, 330, legendItems.length > 0 ? ML + legendCols * 104 + 10 : 0);
   const height = MT + planH + MB;
   const X = (x: number) => ML + (x - minX) * S;
   const Y = (y: number) => MT + (maxY - y) * S;
@@ -181,12 +187,17 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
   const furn = (opts.project?.furniture ?? []).filter((f) => f.level === level.id);
   if (furn.length > 0) layers.push(furnitureSvg(furn, P));
 
+  // Instalações: símbolos elétricos e hidráulicos sobre as paredes (e sob as cotas).
+  const instLayer = instPoints.length > 0 ? installationsSvg(installationSymbols(instPoints), P) : '';
+
   // Paredes: contorno (traço) + preenchimento hachurado por cima, para unir os cantos.
   const wallPolys = cut.map((w) => wallPolygon(w).map(P));
   layers.push(
     group(wallPolys.map((p) => poly(p, { fill: INK, stroke: INK, 'stroke-width': 2.4, 'stroke-linejoin': 'miter' })).join(''), { 'data-role': 'wall-outline' }),
     group(wallPolys.map((p) => poly(p, { fill: `url(#${pid}-hatch)`, stroke: 'none' })).join(''), { 'data-role': 'wall-hatch' }),
   );
+
+  layers.push(instLayer);
 
   // Aberturas.
   const byId = new Map(cut.map((w) => [w.id, w]));
@@ -247,7 +258,8 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
     text(ML, 30, `PLANTA — ${level.name.toUpperCase()}`, { 'text-anchor': 'start', 'font-size': 13, 'font-weight': 700 }) +
     text(ML, 45, `Cota ${level.elevation >= 0 ? '+' : ''}${fmt(level.elevation, 2)} m · cotas em metros, faces externas`, { 'text-anchor': 'start', 'font-size': 8.5, fill: MUTED }) +
     northArrow(width - 40, 38) +
-    scaleBar(ML, MT + planH + 108, S);
+    scaleBar(ML, MT + planH + 108, S) +
+    (legendItems.length > 0 ? installationLegendSvg(legendItems, ML, MT + planH + 144, legendCols) : '');
 
   return {
     svg: svgDocument(width, height, `<title>${esc(`Planta ${level.name}`)}</title>` + layers.join('') + deco, defs),
@@ -368,3 +380,37 @@ function furnitureSvg(items: Furniture[], P: (p: Vec2) => [number, number]): str
   }
   return group(groups.join(''), { 'data-role': 'furniture-layer' });
 }
+
+function symbolPaths(sym: InstallationSymbol, P: (p: Vec2) => [number, number]): string {
+  return sym.strokes
+    .map((st) => {
+      const d = st.pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${n2(P(p)[0])} ${n2(P(p)[1])}`).join(' ') + (st.closed ? ' Z' : '');
+      return tag('path', { d, fill: sym.fill && !st.light && st.closed ? sym.color : '#fff', 'fill-opacity': sym.fill && !st.light && st.closed ? 0.85 : st.closed && !st.light ? 0.9 : 0, stroke: sym.color, 'stroke-width': st.light ? 0.6 : 1, 'stroke-linejoin': 'round' });
+    })
+    .join('');
+}
+
+/** Símbolos de instalações na planta: um grupo por ponto, com a cor do sistema. */
+function installationsSvg(syms: InstallationSymbol[], P: (p: Vec2) => [number, number]): string {
+  const groups = syms.map((sym) => {
+    const [cx, cy] = P(sym.point);
+    const label = sym.text ? text(cx, cy + (sym.text.length > 1 ? 2 : 2.5), sym.text, { 'font-size': sym.text.length > 1 ? 5 : 6, 'font-weight': 700, fill: sym.color }) : '';
+    return group(symbolPaths(sym, P) + label, { 'data-role': 'installation', 'data-id': sym.id, 'data-kind': sym.kind });
+  });
+  return group(groups.join(''), { 'data-role': 'installations' });
+}
+
+function installationLegendSvg(items: { kind: InstallationSymbol['kind']; label: string }[], x: number, y: number, cols: number): string {
+  const cell = 104;
+  const parts = items.map((it, i) => {
+    const sym = installationSymbols([{ id: 'lg', kind: it.kind, level: '', position: [0, 0], height: 0, roomId: null, hostId: null, furnitureId: null, circuitId: null, label: '' }])[0]!;
+    const k = 0.8; // símbolos da legenda em escala reduzida (cabe na linha de texto)
+    const scaled: InstallationSymbol = { ...sym, strokes: sym.strokes.map((st) => ({ ...st, pts: st.pts.map(([px, py]) => [px * k, py * k] as Vec2) })) };
+    const ox = x + (i % cols) * cell + 8;
+    const oy = y + Math.floor(i / cols) * 16;
+    return group(symbolPaths(scaled, ([px, py]) => [ox + px * S_LEGEND, oy - py * S_LEGEND]) + text(ox + 16, oy + 3, it.label, { 'font-size': 7.5, 'text-anchor': 'start', fill: MUTED }), { 'data-kind': it.kind });
+  });
+  return group(text(x, y - 12, 'LEGENDA — INSTALAÇÕES', { 'font-size': 7.5, 'text-anchor': 'start', fill: MUTED, 'letter-spacing': 0.6 }) + parts.join(''), { 'data-role': 'installations-legend' });
+}
+
+const S_LEGEND = UNITS_PER_METER;

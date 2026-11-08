@@ -12,6 +12,7 @@ import { basisTransform, makeShape } from './geometry';
 import { SceneLabel } from './labels';
 import { MotorGroup } from './MotorGroup';
 import { useFurnitureAlertLevels, useFurnitureModels } from './furnitureData';
+import { PlanInstallations } from './InstallationsView';
 import { PlanFurniture } from './PlanFurniture';
 import type { WallLike } from './tools/furnitureDrag';
 
@@ -99,6 +100,7 @@ export function PlanOverlay({ model, level, elevation }: { model: BuildingModel;
   const alerts = useFurnitureAlertLevels();
   const selectedFurniture = useEditor((s) => (s.selection?.kind === 'furniture' ? s.selection.id : null));
   const select = useEditor((s) => s.tool === 'select');
+  const installations = useEditor((s) => (s.project.installations.enabled ? s.results?.installations?.points : undefined));
   const levelWalls = useMemo(() => model.walls.filter((w) => w.level === level) as unknown as WallLike[], [model.walls, level]);
   return (
     <MotorGroup>
@@ -108,6 +110,7 @@ export function PlanOverlay({ model, level, elevation }: { model: BuildingModel;
       {furniture.some((f) => f.level === level) ? (
         <PlanFurniture models={furnitureModels} furniture={furniture} walls={levelWalls} level={level} selectedId={selectedFurniture} alerts={alerts} interactive={select} />
       ) : null}
+      {installations ? <PlanInstallations points={installations} level={level} elevation={elevation} /> : null}
       {walls.map((w) => (
         <WallPoche key={w.id} wall={w} openings={model.openings} />
       ))}

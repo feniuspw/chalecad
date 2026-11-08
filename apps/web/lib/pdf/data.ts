@@ -5,6 +5,7 @@
 import { getAssembly, getCatalog, getPriceBook, getProfile, type Catalog } from '@chalecad/catalog';
 import { DISCLAIMER, buildEngineerPackage, type BudgetLine, type EngineerPackage, type Project, type QuantityLine, type Results, type Stage } from '@chalecad/engine';
 import { finishName, ROOM_USES } from '../project/rooms';
+import { circuitRows, INSTALLATIONS_NOTICE, pipeTotals, wireTotals } from '../three/installations';
 import { BRACING_LABELS, STAGE_LABELS, STAGE_ORDER, TYPOLOGY_LABELS } from './labels';
 import { brl, brl0, dateBR, isoToBR, num, qty } from './format';
 
@@ -56,6 +57,13 @@ export interface RoomRow {
   walls: string;
 }
 
+export interface InstallationsPdf {
+  circuits: { n: string; kind: string; label: string; points: string; power: string; wire: string; breaker: string }[];
+  totals: { label: string; value: string }[];
+  cost: { label: string; value: string }[];
+  notice: string;
+}
+
 export interface PdfData {
   title: string;
   fileName: string;
@@ -69,6 +77,8 @@ export interface PdfData {
   dimensions: { label: string; value: string }[];
   /** Cômodos marcados (tabela "Cômodos"); vazio quando não há. */
   rooms: RoomRow[];
+  /** Seção "Instalações (estimativa)"; null quando não há relatório. */
+  installations: InstallationsPdf | null;
   materials: MaterialStage[];
   budget: {
     rows: BudgetRow[];
@@ -170,6 +180,39 @@ export function buildRoomRows(project: Project, results: Results, catalog: Catal
       walls: clean(room.walls ? finishName(room.walls, catalog) : 'Sem revestimento'),
     };
   });
+}
+
+/** Quadro de circuitos e totais das instalações (null sem relatório). */
+export function buildInstallationsPdf(results: Results): InstallationsPdf | null {
+  const rep = results.installations;
+  if (!rep) return null;
+  const stage = results.budget.byStage.find((s) => s.stage === 'installations');
+  return {
+    circuits: circuitRows(rep).map((r) => ({
+      n: String(r.n),
+      kind: clean(r.kind),
+      label: clean(r.label),
+      points: String(r.points),
+      power: `${num(r.powerVA, 0)} VA`,
+      wire: `${num(r.wire, 1)} mm²`,
+      breaker: `${r.breaker} A`,
+    })),
+    totals: [
+      { label: 'Demanda estimada', value: `${num(rep.demandKw, 1)} kW (${rep.voltage} V)` },
+      ...wireTotals(rep).map((w) => ({ label: `Cabo ${num(w.wire, 1)} mm²`, value: `${num(w.length, 1)} m` })),
+      { label: 'Eletroduto', value: `${num(rep.conduit, 1)} m` },
+      ...pipeTotals(rep).map((p) => ({ label: p.label, value: `${num(p.length, 1)} m` })),
+      { label: "Caixa d'água", value: `${num(rep.tankLiters, 0)} L (${rep.occupants} moradores)` },
+    ],
+    cost: stage
+      ? [
+          { label: 'Material', value: brl(stage.material) },
+          { label: 'Mão de obra', value: brl(stage.labor) },
+          { label: 'Total da etapa', value: brl(stage.material + stage.labor) },
+        ]
+      : [],
+    notice: INSTALLATIONS_NOTICE,
+  };
 }
 
 export function buildPdfData(project: Project, results: Results, opts: { catalog?: Catalog; now?: Date } = {}): PdfData {
@@ -344,6 +387,7 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
     areas,
     dimensions,
     rooms,
+    installations: buildInstallationsPdf(results),
     materials,
     budget: { rows, totals, schedule },
     alerts,

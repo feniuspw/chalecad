@@ -17,9 +17,11 @@ import { ExtrasView } from './ExtrasView';
 import { FinishesView } from './FinishesView';
 import { useFurnitureAlertLevels, useFurnitureModels } from './furnitureData';
 import { FurnitureView } from './FurnitureView';
+import { InstallationsView } from './InstallationsView';
 import { MotorGroup } from './MotorGroup';
 import { PresentationFx } from './PresentationFx';
 import { PresentationLights } from './PresentationLights';
+import { usePresentationUi } from './presentationUi';
 import { WalkRig } from './WalkRig';
 import { planClipPlane, PlanOverlay } from './PlanOverlay';
 import { useSceneInfo } from './sceneInfo';
@@ -78,6 +80,7 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const setHover = useEditor((s) => s.setHover);
   const walkOn = useEditor((s) => s.walk);
   const gl = useThree((s) => s.gl);
+  const presentationInstallations = usePresentationUi((s) => s.installations);
 
   const presentation = viewMode === 'presentation';
   const walking = presentation && walkOn;
@@ -97,6 +100,9 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const furnitureModels = useFurnitureModels();
   const furnitureAlerts = useFurnitureAlertLevels();
   const toolEnv = useToolEnv(model);
+  const installationsReport = project.installations.enabled ? (results?.installations ?? null) : null;
+  const showInstallations = !!installationsReport && !plan && !structural && (presentation ? presentationInstallations && !walking : true);
+  const levelElevations = useMemo(() => Object.fromEntries(project.levels.map((l) => [l.id, l.elevation])), [project.levels]);
   const showFurniture = furniture.length > 0 && !plan && (viewMode === 'finished' || viewMode === 'presentation' || exploded);
 
   useEffect(() => {
@@ -249,6 +255,12 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
           exploded={exploded}
           ridgeHeight={model.ridgeHeight}
         />
+      ) : null}
+
+      {showInstallations && installationsReport ? (
+        <MotorGroup>
+          <InstallationsView model={model} report={installationsReport} elevations={levelElevations} exploded={exploded} interactive={selectingEnabled} />
+        </MotorGroup>
       ) : null}
 
       {plan ? <PlanOverlay model={model} level={activeLevelId} elevation={elevation} /> : null}

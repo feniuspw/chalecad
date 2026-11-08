@@ -9,6 +9,8 @@ interface PresentationUi {
   degraded: boolean;
   /** Luzes internas acesas (uma por cômodo). */
   lamps: boolean;
+  /** Mostra as instalações (elétrica e hidráulica) na apresentação. Desligado por padrão. */
+  installations: boolean;
   /** Animação do dia em andamento. */
   playing: boolean;
   /** Quadros por segundo medidos (null fora do modo apresentação). */
@@ -16,6 +18,7 @@ interface PresentationUi {
   setQuality(q: QualityChoice): void;
   setDegraded(v: boolean): void;
   setLamps(v: boolean): void;
+  setInstallations(v: boolean): void;
   setPlaying(v: boolean): void;
 }
 
@@ -24,11 +27,13 @@ export const usePresentationUi = create<PresentationUi>()((set) => ({
   quality: 'auto',
   degraded: false,
   lamps: false,
+  installations: false,
   playing: false,
   fps: null,
   setQuality: (quality) => set({ quality, degraded: false }),
   setDegraded: (degraded) => set((s) => (s.degraded === degraded ? s : { degraded })),
   setLamps: (lamps) => set({ lamps }),
+  setInstallations: (installations) => set({ installations }),
   setPlaying: (playing) => set({ playing }),
 }));
 

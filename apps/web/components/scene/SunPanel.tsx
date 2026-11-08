@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { Footprints, ImageDown, Lightbulb, Pause, Play } from 'lucide-react';
+import { Footprints, ImageDown, Lightbulb, Pause, Play, Plug } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Slider, Switch } from '@chalecad/ui';
 import { compassLabel, formatMinutes } from '@/lib/sun';
@@ -29,7 +29,8 @@ export function SunPanel() {
   const setCameraView = useEditor((s) => s.setCameraView);
   const walk = useEditor((s) => s.walk);
   const hasModel = useEditor((s) => Boolean(s.results?.model));
-  const { quality, lamps, playing, fps, setQuality, setLamps, setPlaying } = usePresentationUi();
+  const { quality, lamps, installations, playing, fps, setQuality, setLamps, setInstallations, setPlaying } = usePresentationUi();
+  const installationsOn = useEditor((s) => s.project.installations.enabled);
 
   // a hora vai de um pouco antes do nascer a um pouco depois do pôr (crepúsculo, para as luzes acesas fazerem sentido)
   const lo = Math.max(0, Math.floor(sun.times.sunrise - 45));
@@ -168,6 +169,14 @@ export function SunPanel() {
           ))}
         </div>
       </div>
+
+      {installationsOn ? (
+        <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-stone-700">
+          <Plug className="size-3.5 text-amber-500" />
+          Mostrar instalações
+          <Switch checked={installations} onCheckedChange={setInstallations} aria-label="Mostrar instalações" />
+        </label>
+      ) : null}
 
       <div className="mt-2.5 flex items-center gap-2">
         <Button size="sm" className="flex-1" onClick={startWalk} disabled={!hasModel}>
