@@ -5,6 +5,7 @@ import { cn } from '@chalecad/ui';
 import type { ViewportProps } from './types';
 import type { ControlledViewportProps } from './ViewportCanvas';
 import { SceneOverlays } from './SceneOverlays';
+import { PresentationPrepCard, SceneMountingOverlay } from './PresentationPrepCard';
 
 export type { ViewportHandle, ViewportProps, ViewPreset } from './types';
 export { PathDrawer, type PathDrawerProps } from './PathDrawer';
@@ -27,6 +28,8 @@ export function Viewport({ className, ...props }: ViewportProps & ControlledView
     <div className={cn('scene-sky relative size-full overflow-hidden', className)}>
       <ViewportCanvas {...props} />
       {props.showcase ? null : <SceneOverlays />}
+      {props.showcase ? null : <PresentationPrepCard />}
+      {props.showcase ? null : <SceneMountingOverlay />}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-const PORT = 3110;
+const PORT = Number(process.env.E2E_PORT ?? 3110);
 const dbPath = join(tmpdir(), 'chalecad-e2e', 'e2e.sqlite');
 
 // Banco temporário limpo a cada execução. Fica fora do projeto: arquivos mudando dentro de apps/web

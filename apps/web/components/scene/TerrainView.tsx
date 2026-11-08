@@ -3,8 +3,15 @@ import { useEffect, useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import * as THREE from 'three';
 import type { TerrainReport } from '@chalecad/engine';
-import { buildTerrainBuffers, terrainZOffset } from '@/lib/three/terrain';
+import { mixHex, sunLight } from '@/lib/sun';
+import { SCENARIOS } from '@/lib/three/foliage';
+import { getTerrainBuffers } from '@/lib/three/presentationPrep';
+import { terrainZOffset, TERRAIN_COLORS } from '@/lib/three/terrain';
+import { useEditor } from '@/lib/store/editor';
 import { MotorGroup } from './MotorGroup';
+import { usePresentationUi } from './presentationUi';
+import { useSunState } from './useSunState';
+import { usePbrProps } from './usePbr';
 
 /** Granulado de grama/terra (multiplica a cor por vértice). Tile de 4 m (uv = metros / 4). */
 function makeGrainTexture() {
@@ -33,26 +40,51 @@ export interface TerrainViewProps {
 
 /** Malha do terreno: z do motor para cima; o platô fica em z = 0 (deslocada por `-platformZ`). */
 export function TerrainView({ terrain, plateau }: TerrainViewProps) {
+  const presentation = useEditor((s) => s.viewMode === 'presentation');
+  const scenario = usePresentationUi((s) => s.scenario);
+  const sc = SCENARIOS[scenario];
+  const elevation = useSunState().elevationDeg;
+  const daylight = sunLight(elevation).daylight;
+  // apresentação: a mesma grama (ou areia) procedural do cenário, tingida pelo cenário; o corte e o aterro entram como razão
+  // entre a cor do terreno e a da grama
+  const pbr = usePbrProps(presentation ? (sc.ground.texture === 'sand' ? 'sand' : 'grass') : undefined);
   const geometry = useMemo(() => {
-    const b = buildTerrainBuffers(terrain.mesh, 0.25);
+    const b = getTerrainBuffers(terrain.mesh, presentation ? 1 : 0.25);
+    const colors = presentation ? relativeColors(b.colors) : b.colors;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(b.positions, 3));
-    g.setAttribute('color', new THREE.BufferAttribute(b.colors, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     g.setAttribute('uv', new THREE.BufferAttribute(b.uvs, 2));
     g.setIndex(new THREE.BufferAttribute(b.indices, 1));
     g.computeVertexNormals();
     g.computeBoundingSphere();
     return g;
-  }, [terrain.mesh]);
+  }, [terrain.mesh, presentation]);
   useEffect(() => () => geometry.dispose(), [geometry]);
-  const tex = useMemo(() => makeGrainTexture(), []);
-  useEffect(() => () => tex.dispose(), [tex]);
+  const tex = useMemo(() => (presentation ? null : makeGrainTexture()), [presentation]);
+  useEffect(() => () => tex?.dispose(), [tex]);
   const z = terrainZOffset(terrain.platformZ);
+  const groundColor = mixHex(sc.ground.night, sc.ground.day, daylight);
 
   return (
     <MotorGroup position={[0, 0, z]}>
       <mesh geometry={geometry} receiveShadow>
-        <meshStandardMaterial vertexColors map={tex} roughness={1} metalness={0} side={THREE.DoubleSide} />
+        {presentation ? (
+          // polygonOffset: o chão da paisagem passa por baixo da malha do lote sem brigar de profundidade
+          <meshStandardMaterial
+            key={pbr ? 'p' : 'n'}
+            vertexColors
+            color={groundColor}
+            {...(pbr ?? { roughness: 1, metalness: 0 })}
+            normalScale={pbr ? new THREE.Vector2(0.6, 0.6) : undefined}
+            side={THREE.DoubleSide}
+            polygonOffset
+            polygonOffsetFactor={-2}
+            polygonOffsetUnits={-2}
+          />
+        ) : (
+          <meshStandardMaterial vertexColors map={tex} roughness={1} metalness={0} side={THREE.DoubleSide} />
+        )}
       </mesh>
       {plateau ? (
         <group position={[0, 0, -z - 0.03 + 0.012]}>
@@ -62,4 +94,16 @@ export function TerrainView({ terrain, plateau }: TerrainViewProps) {
       ) : null}
     </MotorGroup>
   );
+}
+
+/** Cores por vértice do terreno divididas pela cor da grama: grama = 1, corte mais terroso, aterro mais claro. */
+function relativeColors(colors: Float32Array): Float32Array {
+  const g = TERRAIN_COLORS.grass;
+  const out = new Float32Array(colors.length);
+  for (let i = 0; i < colors.length; i += 3) {
+    out[i] = Math.min(1.35, colors[i]! / g[0]);
+    out[i + 1] = Math.min(1.35, colors[i + 1]! / g[1]);
+    out[i + 2] = Math.min(1.35, colors[i + 2]! / g[2]);
+  }
+  return out;
 }
