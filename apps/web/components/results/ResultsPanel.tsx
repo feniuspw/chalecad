@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, Download, FileJson, FileSpreadsheet, Loader2, Sparkles, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tabs, TabsContent, TabsList, TabsTrigger, cn } from '@chalecad/ui';
@@ -13,6 +13,7 @@ import { slugify } from '@/lib/project/format';
 import { useEditor } from '@/lib/store/editor';
 import { AlertsTab, visibleWarnings, worstSeverity } from './AlertsTab';
 import { BudgetTab } from './BudgetTab';
+import { InstallationsTab } from './InstallationsTab';
 import { Kpis, KpisSkeleton } from './Kpis';
 import { MaterialsTab } from './MaterialsTab';
 import { PricesTab } from './PricesTab';
@@ -89,6 +90,9 @@ export function ResultsPanel() {
   const computing = useEditor((s) => s.computing);
   const stale = useEditor((s) => s.revision !== s.computedRevision);
   const computeError = useEditor((s) => s.computeError);
+  const installationsOn = useEditor((s) => s.project.installations.enabled);
+  const [tab, setTab] = useState('summary');
+  const activeTab = tab === 'installations' && !installationsOn ? 'summary' : tab;
   const busy = computing || stale;
 
   const warnings = useMemo(() => visibleWarnings(results?.warnings ?? []), [results]);
@@ -121,7 +125,7 @@ export function ResultsPanel() {
       {results ? <Kpis results={results} /> : <KpisSkeleton />}
 
       {results ? (
-        <Tabs defaultValue="summary" className="flex min-h-0 flex-1 flex-col">
+        <Tabs value={activeTab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
           <TabsList className="w-full shrink-0 justify-start gap-0 overflow-x-auto rounded-none border-b border-border bg-white px-1.5 py-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%-20px),transparent)]">
             <Tab value="summary">Resumo</Tab>
             <Tab value="materials">Materiais</Tab>
@@ -133,6 +137,7 @@ export function ResultsPanel() {
             <Tab value="structure" count={structureIssues} severity={structure && structure.summary.fail > 0 ? 'error' : 'warn'}>
               Estrutura
             </Tab>
+            {installationsOn ? <Tab value="installations">Instalações</Tab> : null}
             <Tab value="analyst">
               <Sparkles className="size-3.5 text-accent" /> Analista
             </Tab>
@@ -163,6 +168,13 @@ export function ResultsPanel() {
               <StructureTab report={structure} />
             </Scroll>
           </TabsContent>
+          {installationsOn ? (
+            <TabsContent value="installations" className="flex min-h-0 flex-1 flex-col">
+              <Scroll>
+                <InstallationsTab report={results.installations ?? null} results={results} />
+              </Scroll>
+            </TabsContent>
+          ) : null}
           <TabsContent value="analyst" className="flex min-h-0 flex-1 flex-col">
             <AnalystPanel />
           </TabsContent>

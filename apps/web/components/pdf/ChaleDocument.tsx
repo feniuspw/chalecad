@@ -188,6 +188,16 @@ const ROOM_COLS = [
   { key: 'walls', label: 'Paredes', flex: 3 },
 ] as const;
 
+const INST_COLS = [
+  { key: 'n', label: 'Nº', flex: 0.6 },
+  { key: 'kind', label: 'Tipo', flex: 2.4 },
+  { key: 'label', label: 'Rótulo', flex: 3 },
+  { key: 'points', label: 'Pontos', flex: 1, right: true },
+  { key: 'power', label: 'Potência', flex: 1.5, right: true },
+  { key: 'wire', label: 'Cabo', flex: 1.3, right: true },
+  { key: 'breaker', label: 'Disjuntor', flex: 1.3, right: true },
+] as const;
+
 function MatRow({ r, i }: { r: Record<(typeof MAT_COLS)[number]['key'], string>; i: number }) {
   return (
     <View style={[s.tr, i % 2 ? s.trAlt : {}]} wrap={false}>
@@ -374,6 +384,43 @@ export function ChaleDocument({ data, plans, elevations }: ChaleDocumentProps) {
           </View>
         ) : null}
       </Section>
+
+      {/* Instalações */}
+      {data.installations ? (
+        <Section title="Instalações (estimativa)" sub="Quadro de circuitos e totais pelos mínimos da NBR 5410/5626." data={data}>
+          <View style={s.table}>
+            <View style={s.thead}>
+              {INST_COLS.map((c) => (
+                <Text key={c.key} style={[s.th, { flex: c.flex }, 'right' in c ? s.right : {}]}>
+                  {c.label}
+                </Text>
+              ))}
+            </View>
+            {data.installations.circuits.map((r, i) => (
+              <View key={i} style={[s.tr, i % 2 ? s.trAlt : {}]} wrap={false}>
+                {INST_COLS.map((c) => (
+                  <Text key={c.key} style={[s.td, { flex: c.flex }, 'right' in c ? s.right : {}]}>
+                    {r[c.key]}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+          <View style={s.twoCol} wrap={false}>
+            <View style={s.col}>
+              <Text style={s.h2}>Totais</Text>
+              <KeyValues rows={data.installations.totals} />
+            </View>
+            {data.installations.cost.length > 0 ? (
+              <View style={s.col}>
+                <Text style={s.h2}>Custo da etapa</Text>
+                <KeyValues rows={data.installations.cost} />
+              </View>
+            ) : null}
+          </View>
+          <Text style={[s.caption, { textAlign: 'left', marginTop: 12 }]}>{data.installations.notice}</Text>
+        </Section>
+      ) : null}
 
       {/* Alertas */}
       <Section title="Alertas e pontos de atenção" sub="O que o motor identificou e o que vale conversar com o engenheiro." data={data}>

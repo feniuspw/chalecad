@@ -99,3 +99,22 @@ describe('tabela de cômodos', () => {
     expect(data.premises.some((g) => g.group === 'Cômodos')).toBe(false);
   });
 });
+
+describe('seção de instalações', () => {
+  it('entra no PDF com o relatório (planta com símbolos) e fica de fora sem ele', async () => {
+    const { handReport } = await import('../three/installations.fixture');
+    const { renderToBuffer } = await import('@react-pdf/renderer');
+    const { pdfElement } = await import('../../components/pdf/ChaleDocument');
+    const withInst = { ...results, installations: { ...handReport, points: handReport.points.map((p) => ({ ...p, level: project.levels[0]!.id })) } };
+    const svgs: string[] = [];
+    const images = await buildPdfImages(project, withInst, async (svg) => {
+      svgs.push(svg);
+      return PNG;
+    });
+    expect(svgs.some((s) => s.includes('data-role="installations-legend"'))).toBe(true);
+    const render = async (r: typeof results) => (await renderToBuffer(pdfElement({ data: buildPdfData(project, r), ...images }))).toString('latin1').match(/\/Type \/Page\b/g)?.length ?? 0;
+    expect(await render(withInst)).toBe((await render(results)) + 1);
+    expect(buildPdfData(project, withInst).installations?.circuits).toHaveLength(3);
+    expect(buildPdfData(project, results).installations).toBeNull();
+  }, 60_000);
+});

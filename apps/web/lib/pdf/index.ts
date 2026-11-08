@@ -8,7 +8,7 @@ import type { PdfImage } from '../../components/pdf/ChaleDocument';
 import { buildPdfData, type PdfData } from './data';
 import { svgToPng } from './images';
 
-export { buildPdfData, buildRoomRows, type PdfData, type RoomRow } from './data';
+export { buildInstallationsPdf, buildPdfData, buildRoomRows, type InstallationsPdf, type PdfData, type RoomRow } from './data';
 
 export const PDF_ELEVATIONS: ElevationSide[] = ['front', 'right'];
 
@@ -20,7 +20,7 @@ export async function buildPdfImages(project: Project, results: Results, raster:
   const levels = deriveLevels(model, project).filter((l) => model.walls.some((w) => w.level === l.id) || model.slabs.some((s) => s.level === l.id && s.kind !== 'radier'));
   const plans: PdfImage[] = [];
   for (const level of levels) {
-    const doc = planSvg(model, { project, levelId: level.id });
+    const doc = planSvg(model, { project, levelId: level.id, ...(results.installations ? { installations: results.installations.points } : {}) });
     plans.push({ title: `Planta — ${level.name}`, caption: `Planta baixa do nível ${level.name} (cota ${level.elevation.toFixed(2).replace('.', ',')} m)`, src: await raster(doc.svg, doc.width, doc.height), aspect: doc.width / doc.height });
   }
   const elevations: PdfImage[] = [];
