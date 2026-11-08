@@ -341,5 +341,11 @@ export function collectItems(model: BuildingModel, project: Project, catalog: Ca
     }
   }
 
+  // --- Móveis (só com `budget.includeFurniture`) ---------------------------------------------------
+  // Um item por móvel, com hostId = id do móvel (o relatório agrupa por material e guarda os ids em `hostIds`).
+  // Fora do peso próprio (`inWeight: false`): móvel é sobrecarga de uso, não estrutura.
+  if (project.budget.includeFurniture) {
+    for (const f of model.furniture) simple(out, catalog, f.id, 'finishing', f.item, 1);
+  }
   return out;
 }

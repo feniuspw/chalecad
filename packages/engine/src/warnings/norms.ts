@@ -1,7 +1,7 @@
 import type { Catalog } from '@chalecad/catalog';
 import { pointInPolygon, polygonArea, type Vec2 } from '../geometry';
 import { annexGeometry } from '../model/annex';
-import { roofBelowAt } from '../model/rooms';
+import { roofBelowAt, roomVentilation } from '../model/rooms';
 import type { Project } from '../schema/project';
 import type { BuildingModel, EngineWarning, ResolvedOpening, StructuralReport } from '../schema/results';
 
@@ -156,15 +156,20 @@ export function normWarnings(ctx: NormContext): EngineWarning[] {
           `(${fmt(r.area * nm.lightRatio)} m²) e ventilação 1/${fmt(1 / nm.ventRatio, 0)} (${fmt(r.area * nm.ventRatio)} m²), conforme o código de obras.`,
         refs: [r.id],
       });
-    } else if (!rule.light && rule.vent && r.glazing < r.area * nm.ventRatio - EPS) {
-      out.push({
-        code: 'room.ventilation',
-        severity: 'info',
-        message:
-          `${r.name}: sem abertura de ${fmt(r.area * nm.ventRatio)} m² (1/${fmt(1 / nm.ventRatio, 0)} da área) para ventilação. ` +
-          `Prever janela ou exaustão mecânica, se o código de obras do município permitir.`,
-        refs: [r.id],
-      });
+    } else if (rule.vent) {
+      // ventilação pela área que abre (vão × fração que abre), não pelo vão inteiro
+      const open = roomVentilation(r, model, catalog);
+      if (open < r.area * nm.ventRatio - EPS) {
+        out.push({
+          code: 'room.ventilation',
+          severity: rule.light ? 'warn' : 'info',
+          message:
+            `${r.name}: ${fmt(open)} m² de área que abre para ${fmt(r.area, 1)} m² de piso; ventilação pede 1/${fmt(1 / nm.ventRatio, 0)} da área ` +
+            `(${fmt(r.area * nm.ventRatio)} m²) e só conta a parte da janela que abre (fachada de vidro fixa não ventila). ` +
+            `Prever janela maior ou de abrir, ou exaustão mecânica, se o código de obras do município permitir.`,
+          refs: [r.id],
+        });
+      }
     }
     if (rule.minArea > 0 && r.area < rule.minArea - EPS) {
       out.push({

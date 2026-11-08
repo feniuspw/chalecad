@@ -29,6 +29,7 @@ import { slopedGeometry } from './sloped';
 import { gambrelGeometry } from './gambrel';
 import { combinedGeometry, type CombinedGeometry } from './combined';
 import { annexGeometry, type AnnexGeometry } from './annex';
+import { resolveFurniture } from './furniture';
 import { annexAxisPolygon, completeRooms, resolveRoomLayouts, wetInteriorWallIds } from './rooms';
 
 const DEG = Math.PI / 180;
@@ -395,10 +396,12 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     bbox: bbox3(pts),
   };
   model.rooms = completeRooms(roomLayouts, { project, catalog, model, roofZ });
+  model.furniture = resolveFurniture(project, catalog, model);
   return normalizeZero(model);
 }
 
 export { combinedGeometry, type CombinedGeometry, type Valley } from './combined';
 export { annexGeometry, type AnnexGeometry } from './annex';
 export { gambrelGeometry, type GambrelGeometry } from './gambrel';
-export { annexAxisPolygon, roofBelowAt } from './rooms';
+export { annexAxisPolygon, roofBelowAt, roomVentilation } from './rooms';
+export { resolveFurniture } from './furniture';
