@@ -43,10 +43,10 @@ describe('gerador: matriz de combinações', () => {
   it('opções de terreno, finalidade, estrutura, extras e lavanderia também geram projetos válidos', { timeout: 300_000 }, () => {
     const failures: string[] = [];
     for (const purpose of ['weekend', 'live', 'rent'] as const)
-      for (const terrain of ['flat', 'gentle', 'steep'] as const)
+      for (const terrain of ['flat', 'gentle', 'steep', 'custom'] as const)
         for (const structure of ['steel', 'wood', 'any'] as const)
           for (const style of ['aframe', 'gable', 'auto'] as const) {
-            const a: WizardAnswers = { ...DEFAULT_ANSWERS, purpose, terrain, structure, style, bedrooms: 2, people: 4, deck: 'covered', laundry: purpose === 'live' ? 'outside' : 'inside', solar: true, rainwater: true, mountain: terrain !== 'flat', uf: 'SC', bathUp: true };
+            const a: WizardAnswers = { ...DEFAULT_ANSWERS, purpose, terrain, ...(terrain === 'custom' ? { slopePct: ({ steel: 5, wood: 18, any: 35 } as const)[structure] } : {}), structure, style, bedrooms: 2, people: 4, deck: 'covered', laundry: purpose === 'live' ? 'outside' : 'inside', solar: true, rainwater: true, mountain: terrain !== 'flat', uf: 'SC', bathUp: true };
             const p = checkCombo(a);
             if (p.length) failures.push(`${purpose}/${terrain}/${structure}/${style}: ${p.slice(0, 2).join(' / ')}`);
           }

@@ -180,6 +180,7 @@ export const QUESTIONS: readonly Question[] = [
       { value: 'flat', label: 'Plano', hint: 'Quase sem desnível.', icon: 'flat' },
       { value: 'gentle', label: 'Leve declive', hint: 'Dá para perceber a descida, mas anda-se bem.', icon: 'gentle' },
       { value: 'steep', label: 'Bem inclinado', hint: 'Ladeira: precisa de corte, aterro e talvez arrimo.', icon: 'steep' },
+      { value: 'custom', label: 'Eu sei a inclinação', hint: 'Digite a inclinação do seu terreno, em % ou em graus.', icon: 'gentle' },
     ],
     applies: always,
   },

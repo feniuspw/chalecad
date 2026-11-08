@@ -1,11 +1,12 @@
 'use client';
+import { useState } from 'react';
 import { Check, Minus, Plus } from 'lucide-react';
 import { cn } from '@chalecad/ui';
 import type { UF } from '@chalecad/engine';
-import { MAX_BEDROOMS, suggestedBedrooms, type WizardAnswers } from '@/lib/project/wizard/answers';
+import { DEFAULT_CUSTOM_SLOPE_PCT, MAX_BEDROOMS, MAX_SLOPE_PCT, degToPct, pctToDeg, suggestedBedrooms, type WizardAnswers } from '@/lib/project/wizard/answers';
 import type { Question } from '@/lib/project/wizard/questions';
 import { resolveStyle, STYLE_NAMES } from '@/lib/project/wizard/style';
-import { Notice, SelectField, Segmented, SwitchField } from '../editor/properties/fields';
+import { NumberField, Notice, SelectField, Segmented, SwitchField } from '../editor/properties/fields';
 import { UF_OPTIONS } from '../editor/properties/SystemSections';
 import { OptionIcon } from './icons';
 import { Term } from '@/components/glossary/Term';
@@ -27,7 +28,7 @@ const READ: Record<string, (a: WizardAnswers) => string> = {
   structure: (a) => a.structure,
   budget: (a) => a.budget,
 };
-const WRITE: Record<string, (v: string) => Partial<WizardAnswers>> = {
+const WRITE: Record<string, (v: string, a: WizardAnswers) => Partial<WizardAnswers>> = {
   purpose: (v) => ({ purpose: v as WizardAnswers['purpose'], laundry: v === 'live' ? 'inside' : v === 'rent' ? 'inside' : 'none' }),
   style: (v) => ({ style: v as WizardAnswers['style'] }),
   mezzanine: (v) => ({ mezzanine: v as WizardAnswers['mezzanine'] }),
@@ -37,7 +38,7 @@ const WRITE: Record<string, (v: string) => Partial<WizardAnswers>> = {
   kitchen: (v) => ({ kitchen: v as WizardAnswers['kitchen'] }),
   laundry: (v) => ({ laundry: v as WizardAnswers['laundry'] }),
   deck: (v) => ({ deck: v as WizardAnswers['deck'] }),
-  terrain: (v) => ({ terrain: v as WizardAnswers['terrain'] }),
+  terrain: (v, a) => ({ terrain: v as WizardAnswers['terrain'], ...(v === 'custom' ? { slopePct: a.slopePct ?? DEFAULT_CUSTOM_SLOPE_PCT } : {}) }),
   structure: (v) => ({ structure: v as WizardAnswers['structure'] }),
   budget: (v) => ({ budget: v as WizardAnswers['budget'] }),
 };
@@ -59,6 +60,43 @@ function Counter({ value, min, max, onChange, unit }: { value: number; min: numb
   );
 }
 
+const r1 = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
+
+/** Inclinação própria: campo em % ou em graus, com o equivalente ao lado e uma frase para leigo. */
+function SlopeInput({ a, patch }: { a: WizardAnswers; patch: Patch }) {
+  const [unit, setUnit] = useState<'pct' | 'deg'>('pct');
+  const pct = a.slopePct ?? DEFAULT_CUSTOM_SLOPE_PCT;
+  const deg = pctToDeg(pct);
+  const maxDeg = Math.round(pctToDeg(MAX_SLOPE_PCT) * 10) / 10;
+  return (
+    <div className="space-y-3 rounded-2xl border border-border bg-white p-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        {unit === 'pct' ? (
+          <NumberField label="Inclinação" value={Math.round(pct * 10) / 10} min={0} max={MAX_SLOPE_PCT} step={1} unit="%" onChange={(v) => patch({ slopePct: Math.min(MAX_SLOPE_PCT, Math.max(0, v)) })} />
+        ) : (
+          <NumberField label="Inclinação" value={Math.round(deg * 10) / 10} min={0} max={maxDeg} step={0.5} unit="°" onChange={(v) => patch({ slopePct: Math.min(MAX_SLOPE_PCT, Math.max(0, Math.round(degToPct(v) * 10) / 10)) })} />
+        )}
+        <Segmented<'pct' | 'deg'>
+          label="Digitar em"
+          value={unit}
+          options={[
+            { value: 'pct', label: 'Porcentagem (%)' },
+            { value: 'deg', label: 'Graus (°)' },
+          ]}
+          onChange={setUnit}
+        />
+      </div>
+      <p className="text-sm text-stone-700" aria-live="polite">
+        <strong>
+          {r1(pct)}% ≈ {r1(deg)}°
+        </strong>
+        : o terreno sobe {r1(pct)} cm a cada 1 m.
+        {pct > 20 ? ' Acima de 20% incluímos muro de arrimo.' : pct < 1 ? ' Abaixo de 1% tratamos como terreno plano.' : ''}
+      </p>
+    </div>
+  );
+}
+
 function ChoiceGrid({ q, a, patch }: { q: Question; a: WizardAnswers; patch: Patch }) {
   const current = READ[q.id]?.(a);
   const opts = q.options ?? [];
@@ -72,7 +110,7 @@ function ChoiceGrid({ q, a, patch }: { q: Question; a: WizardAnswers; patch: Pat
             type="button"
             role="radio"
             aria-checked={selected}
-            onClick={() => patch(WRITE[q.id]!(o.value))}
+            onClick={() => patch(WRITE[q.id]!(o.value, a))}
             className={cn(
               'relative flex flex-col items-center gap-2 rounded-2xl border bg-white p-4 text-center outline-none transition-all focus-visible:ring-2 focus-visible:ring-accent/60',
               selected ? 'border-accent ring-2 ring-accent/30' : 'border-border hover:border-stone-300 hover:shadow-sm',
@@ -161,6 +199,7 @@ export function QuestionStep({ q, a, patch, onBedroomsEdited }: { q: Question; a
       {q.kind === 'terrain' ? (
         <>
           <ChoiceGrid q={q} a={a} patch={patch} />
+          {a.terrain === 'custom' ? <SlopeInput a={a} patch={patch} /> : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <SelectField label="Estado (UF)" value={a.uf} options={UF_OPTIONS} onChange={(uf: UF) => patch({ uf })} hint="define a base de preços" />
             <SwitchField label="Fica na serra ou na montanha?" description="Mais frio e mais vento: ajustamos o conforto térmico e a estrutura." checked={a.mountain} onChange={(v) => patch({ mountain: v })} />
