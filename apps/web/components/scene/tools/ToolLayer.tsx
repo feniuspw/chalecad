@@ -4,6 +4,7 @@ import type { BuildingModel } from '@chalecad/engine';
 import { useEditor } from '@/lib/store/editor';
 import { useToolEnv } from './env';
 import { useHint } from './hooks';
+import { FurnitureKeys, FurnitureTool } from './FurnitureTool';
 import { MeasureTool } from './MeasureTool';
 import { MezzanineTool } from './MezzanineTool';
 import { OpeningTool } from './OpeningTool';
@@ -29,7 +30,13 @@ export function ToolLayer({ model }: { model: BuildingModel }) {
     if (tool === 'dimension' && view !== 'plan') useEditor.getState().setCameraView('plan');
   }, [tool, view]);
 
-  if (tool === 'select') return <SelectOverlays env={env} view={view} />;
+  if (tool === 'select')
+    return (
+      <>
+        <SelectOverlays env={env} view={view} />
+        <FurnitureKeys />
+      </>
+    );
   if (tool === 'dimension') return <PlanOnlyHint text="Cotas automáticas das paredes externas e aberturas na vista Planta" />;
   if (!drawable) return <PlanOnlyHint text="Mude para Planta ou 3D para usar esta ferramenta" />;
   switch (tool) {
@@ -45,6 +52,8 @@ export function ToolLayer({ model }: { model: BuildingModel }) {
       return <MeasureTool env={env} />;
     case 'room':
       return <RoomTool env={env} />;
+    case 'furniture':
+      return <FurnitureTool env={env} />;
     default:
       return null;
   }

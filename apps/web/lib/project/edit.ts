@@ -9,6 +9,7 @@ import { buildModel, type Level, type Opening, type Project, type Stair, type Ty
 import { clamp, hostLength, planBounds, round } from './geometry';
 import { newId, type IdGen } from './ids';
 import { annexInfo, fitAnnexes } from './annex';
+import { reconcileFurniture } from './furniture';
 import { reconcileRooms } from './rooms';
 
 type T<K extends TypologyKind> = Extract<Typology, { kind: K }>;
@@ -332,6 +333,7 @@ export function reconcileProject(draft: Project): ReconcileReport {
   for (const u of draft.utilities) u.position = clampPoint(u.position, b);
   for (const s of draft.stairs) s.position = clampPoint(s.position, b);
   reconcileRooms(draft);
+  reconcileFurniture(draft, getCatalog());
   if (t.kind === 'a_frame') fitAFrameStairs(draft, t);
   // Hospedeiros que não existem na tipologia ativa.
   const hosts = generatedHosts(draft);

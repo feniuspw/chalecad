@@ -3,6 +3,8 @@ import type { BuildingModel, Project } from '@chalecad/engine';
 import type { Selection } from '../store/types';
 import { removeOpening, removeStair, removeWall } from './edit';
 import { extraLabel, removeExtra } from './extras';
+import { getCatalog } from '@chalecad/catalog';
+import { removeFurniture, specOf } from './furniture';
 import { removeRoom, roomDisplayName } from './rooms';
 import { hostLabel, openingLabel, STAIR_LABELS } from './labels';
 
@@ -62,7 +64,7 @@ export interface Deletion {
   message: string;
 }
 
-/** Exclui o objeto selecionado, com histórico. Só aberturas, paredes internas, escadas e extras são excluíveis. */
+/** Exclui o objeto selecionado, com histórico. Só aberturas, paredes internas, escadas, extras, cômodos e móveis são excluíveis. */
 export function deleteSelection(
   sel: Selection | null,
   project: Project,
@@ -95,6 +97,12 @@ export function deleteSelection(
       const room = project.rooms.find((r) => r.id === sel.id);
       const name = room ? roomDisplayName(project, room) : 'Cômodo';
       update(`Remover ${name.toLowerCase()}`, (d) => void removeRoom(d, sel.id));
+      return { ok: true, message: `${name} removido.` };
+    }
+    case 'furniture': {
+      const f = project.furniture.find((x) => x.id === sel.id);
+      const name = (f && specOf(getCatalog(), f.item)?.name) || 'Móvel';
+      update(`Remover ${name.toLowerCase()}`, (d) => void removeFurniture(d, sel.id));
       return { ok: true, message: `${name} removido.` };
     }
     default:

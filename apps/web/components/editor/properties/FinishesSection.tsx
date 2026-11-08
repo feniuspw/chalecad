@@ -2,10 +2,14 @@
 import { useMemo } from 'react';
 import { Badge, cn } from '@chalecad/ui';
 import type { Project } from '@chalecad/engine';
+import { getCatalog, getPriceBook } from '@chalecad/catalog';
+import { formatBRLRange } from '@/lib/format';
 import { fmt } from '@/lib/project/format';
+import { furnitureTotals } from '@/lib/project/furniture';
+import { furniturePrice } from '@/lib/project/furnitureInfo';
 import { finishOptions, ROOF_COLORS, ROOM_USES, roomDisplayName, setFinish } from '@/lib/project/rooms';
 import { useEditor } from '@/lib/store/editor';
-import { Field, Notice, Section } from './fields';
+import { Field, Notice, Section, SwitchField } from './fields';
 import { FinishSelect } from './FinishSelect';
 import { usePanelUi } from './ui-state';
 
@@ -21,6 +25,15 @@ export function FinishesSection({ project }: { project: Project }) {
   const ceilings = useMemo(() => finishOptions(project, 'finish_ceiling_'), [project]);
   const { finishes, rooms } = project;
   const aFrame = project.typology.kind === 'a_frame';
+  const totals = useMemo(() => {
+    let book = null;
+    try {
+      book = getPriceBook(getCatalog(), project.priceBookId);
+    } catch {
+      // base inexistente: sem preço
+    }
+    return furnitureTotals(project, (item) => furniturePrice(item, getCatalog(), book, project.priceOverrides));
+  }, [project]);
 
   return (
     <Section title="Acabamentos" open={open} onOpenChange={setOpen.bind(null, 'finishes')} badge={<Badge variant="neutral">{rooms.length === 0 ? 'sem cômodos' : `${rooms.length} cômodo${rooms.length > 1 ? 's' : ''}`}</Badge>}>
@@ -49,6 +62,15 @@ export function FinishesSection({ project }: { project: Project }) {
           })}
         </div>
       </Field>
+
+      <div className="space-y-1.5">
+        <SwitchField
+          label="Incluir móveis no orçamento"
+          description={totals.count === 0 ? 'Nenhum móvel no projeto ainda (ferramenta Móveis, F)' : `${totals.count} ${totals.count === 1 ? 'móvel' : 'móveis'} · ${formatBRLRange(totals.min, totals.max)}`}
+          checked={project.budget.includeFurniture}
+          onChange={(v) => update('Móveis no orçamento', (d) => void (d.budget.includeFurniture = v))}
+        />
+      </div>
 
       <div className="space-y-1.5">
         <h4 className="text-xs font-semibold tracking-wide text-stone-700 uppercase">Cômodos</h4>

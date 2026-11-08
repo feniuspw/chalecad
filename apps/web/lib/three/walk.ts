@@ -2,7 +2,7 @@
  * Primeira pessoa (andar por dentro): colisão e ponto de partida. Puro, em planta (referencial do motor, x/y em m).
  * As paredes viram retângulos (comprimento x espessura); portas abrem passagem; o jogador é um círculo.
  */
-import type { BuildingModel, HostWall, ResolvedOpening } from '@chalecad/engine';
+import type { BuildingModel, FurnitureModel, HostWall, ResolvedOpening } from '@chalecad/engine';
 
 export type V2 = [number, number];
 
@@ -56,6 +56,24 @@ export function buildWalkWalls(walls: HostWall[], openings: ResolvedOpening[], l
       cursor = Math.max(cursor, b);
     }
     push(cursor, len);
+  }
+  return out;
+}
+
+/**
+ * Móveis como obstáculos: cada contorno (retângulo de 4 cantos) vira um retângulo de colisão, com a mesma conta das paredes.
+ * Só os do nível; tapetes e afins (`passable`) não bloqueiam. `passable` recebe o ID do item do catálogo.
+ */
+export function buildFurnitureWalkRects(furniture: Pick<FurnitureModel, 'polygon' | 'item' | 'level'>[], levelId: string, passable: (item: string) => boolean = () => false): WallRect[] {
+  const out: WallRect[] = [];
+  for (const f of furniture) {
+    if (f.level !== levelId || f.polygon.length < 4 || passable(f.item)) continue;
+    const [p0, p1, p2, p3] = f.polygon as [V2, V2, V2, V2];
+    const from: V2 = [(p0[0] + p3[0]) / 2, (p0[1] + p3[1]) / 2];
+    const to: V2 = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+    const half = Math.hypot(p3[0] - p0[0], p3[1] - p0[1]) / 2;
+    if (Math.hypot(to[0] - from[0], to[1] - from[1]) < 1e-6 || half < 1e-6) continue;
+    out.push({ from, to, half });
   }
   return out;
 }

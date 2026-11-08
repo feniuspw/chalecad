@@ -11,6 +11,9 @@ import { wallBasis } from '@/lib/three/convert';
 import { basisTransform, makeShape } from './geometry';
 import { SceneLabel } from './labels';
 import { MotorGroup } from './MotorGroup';
+import { useFurnitureAlertLevels, useFurnitureModels } from './furnitureData';
+import { PlanFurniture } from './PlanFurniture';
+import type { WallLike } from './tools/furnitureDrag';
 
 const POCHE = '#3f3b37';
 
@@ -91,11 +94,20 @@ export function PlanOverlay({ model, level, elevation }: { model: BuildingModel;
   const dims = useMemo(() => wallDimensions(model.walls, model.openings, level), [model.walls, model.openings, level]);
   const z = elevation + PLAN_CUT_HEIGHT + 0.04;
   const rooms = useMemo(() => model.rooms.filter((r) => r.level === level && r.polygon && r.polygon.length >= 3), [model.rooms, level]);
+  const furniture = useEditor((s) => s.project.furniture);
+  const furnitureModels = useFurnitureModels();
+  const alerts = useFurnitureAlertLevels();
+  const selectedFurniture = useEditor((s) => (s.selection?.kind === 'furniture' ? s.selection.id : null));
+  const select = useEditor((s) => s.tool === 'select');
+  const levelWalls = useMemo(() => model.walls.filter((w) => w.level === level) as unknown as WallLike[], [model.walls, level]);
   return (
     <MotorGroup>
       {rooms.map((r) => (
         <PlanRoom key={r.id} room={r} z={elevation + 0.006} />
       ))}
+      {furniture.some((f) => f.level === level) ? (
+        <PlanFurniture models={furnitureModels} furniture={furniture} walls={levelWalls} level={level} selectedId={selectedFurniture} alerts={alerts} interactive={select} />
+      ) : null}
       {walls.map((w) => (
         <WallPoche key={w.id} wall={w} openings={model.openings} />
       ))}

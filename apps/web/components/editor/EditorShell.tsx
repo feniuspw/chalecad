@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, LayoutPanelTop, Loader2, LocateFixed, MousePointer2, Ruler, RulerDimensionLine, Sun, Wrench } from 'lucide-react';
+import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, LayoutPanelTop, Loader2, LocateFixed, MousePointer2, Ruler, RulerDimensionLine, Sofa, Sun, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { IconButton, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@chalecad/ui';
 import { ArtNotice } from '@/components/ArtNotice';
@@ -16,6 +16,7 @@ import { fmt } from '@/lib/project/format';
 import { selectionFromHost } from '@/lib/project/selection';
 import { selectionHostId, useEditor } from '@/lib/store/editor';
 import type { CameraView, Tool, ViewMode } from '@/lib/store/types';
+import { FurnitureLibrary } from './furniture/FurnitureLibrary';
 import { NewProjectDialog } from './NewProjectDialog';
 import { PropertiesPanel } from './properties/PropertiesPanel';
 // Painel de resultados (F1-W2).
@@ -31,6 +32,7 @@ const TOOLS: { id: Tool; label: string; shortcut: string; icon: typeof MousePoin
   { id: 'stair', label: 'Escada', shortcut: 'E', icon: Footprints },
   { id: 'mezzanine', label: 'Mezanino', shortcut: 'M', icon: Layers },
   { id: 'room', label: 'Cômodo', shortcut: 'A', icon: LayoutPanelTop },
+  { id: 'furniture', label: 'Móveis', shortcut: 'F', icon: Sofa },
   { id: 'dimension', label: 'Cota', shortcut: 'C', icon: RulerDimensionLine },
   { id: 'measure', label: 'Medir', shortcut: 'R', icon: Ruler },
 ];
@@ -112,19 +114,22 @@ export function EditorShell() {
       mezzanine: 'Arraste vértices e arestas do mezanino. Na planta fica mais fácil.',
       measure: 'Clique em dois pontos para medir. Esc limpa.',
       room: 'Clique dentro de um ambiente fechado e escolha o uso. Clique num cômodo para selecioná-lo.',
+      furniture: 'Escolha um móvel na biblioteca e clique no piso (ou arraste). R gira 90°, Alt solta sem encaixe, Esc encerra.',
       dimension: 'As cotas aparecem automaticamente na planta.',
     };
     const h = hints[t];
     if (h) toast.message(TOOLS.find((x) => x.id === t)?.label ?? '', { description: h, id: 'tool-hint', duration: 3500 });
   }, []);
   useShortcuts(toolPicked);
-  // "C" já é a Cota: a ferramenta Cômodo usa "A" (de ambiente).
+  // "C" já é a Cota e "M" o Mezanino: Cômodo usa "A" (de ambiente) e Móveis usa "F".
   useEffect(() => {
+    const keys: Record<string, Tool> = { a: 'room', f: 'furniture' };
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.key.toLowerCase() !== 'a' || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const tool = keys[e.key.toLowerCase()];
+      if (!tool || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       if (isTyping(e.target) || document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
-      useEditor.getState().setTool('room');
-      toolPicked('room');
+      useEditor.getState().setTool(tool);
+      toolPicked(tool);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -234,6 +239,7 @@ export function EditorShell() {
             )}
 
             {model && viewMode === 'presentation' ? <SunPanel /> : null}
+            {model && tool === 'furniture' && viewMode !== 'presentation' ? <FurnitureLibrary /> : null}
 
             <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between">
               {model ? (

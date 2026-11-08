@@ -19,6 +19,7 @@ import { useEditor, useSelectedObject, type SelectedObject } from '@/lib/store/e
 import { Notice, SelectField, SliderField, SwitchField, type Option } from './fields';
 import { Body, Header, Row, useDelete } from './inspector-parts';
 import { ExtraInspector } from './ExtraInspector';
+import { FurnitureInspector } from './FurnitureInspector';
 import { RoomInspector } from './RoomInspector';
 
 type Obj<K extends SelectedObject['kind']> = Extract<SelectedObject, { kind: K }>;
@@ -308,8 +309,7 @@ export function ObjectInspector() {
     case 'room':
       return <RoomInspector obj={obj} project={project} />;
     case 'furniture':
-      // Inspetor de móvel: card F6-W1.
-      return null;
+      return <FurnitureInspector obj={obj} project={project} />;
     default:
       return <HostInspector obj={obj} project={project} />;
   }
