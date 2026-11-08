@@ -160,7 +160,8 @@ export type LeadKey = 'steelProfile' | 'concrete' | 'hardware' | 'foundationMate
 
 /** Categoria de prazo de entrega (mesma regra do roteiro "compre primeiro"); null = sem prazo típico. */
 export function leadKeyOf(line: Pick<BudgetLine, 'itemId' | 'stage'>, catalog: Catalog = getCatalog()): LeadKey | null {
-  if (line.stage === 'structure') return catalog.profiles.some((p) => p.id === line.itemId) ? 'steelProfile' : 'hardware';
+  // Perfis de aço são conformados sob encomenda; madeira serrada tratada sai do estoque (prazo de ferragem).
+  if (line.stage === 'structure') return catalog.profiles.some((p) => p.id === line.itemId && p.material !== 'wood') ? 'steelProfile' : 'hardware';
   if (line.stage === 'foundation') return line.itemId === 'concrete_fck25' ? 'concrete' : 'foundationMaterial';
   return null;
 }
