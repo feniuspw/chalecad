@@ -6,6 +6,7 @@ import { MezzanineSection, TypologySection } from './TypologySections';
 import { ExtrasSection } from './ExtrasSection';
 import { FinishesSection } from './FinishesSection';
 import { InstallationsSection } from './InstallationsSection';
+import { PerformanceSection } from './PerformanceSection';
 import { TerrainSection } from './TerrainSection';
 import { FoundationSection, RoofSection, SiteSection, SystemSection } from './SystemSections';
 
@@ -32,6 +33,7 @@ export function PropertiesPanel() {
           <TerrainSection project={project} />
           <FinishesSection project={project} />
           <InstallationsSection project={project} />
+          <PerformanceSection project={project} />
           <ExtrasSection project={project} />
           <SiteSection project={project} />
         </div>

@@ -17,6 +17,7 @@ RESUMO DO SCHEMA DO PROJETO (JSON; caminhos de patch partem da raiz)
 - walls: paredes internas desenhadas { id, level, from [x,y], to [x,y], assembly?, wet?, height? }. As paredes externas são geradas pela tipologia (ids ext-front, ext-back, ext-left, ext-right, wing-*).
 - openings: lista { id, host (id de parede ou ext-*/roof-*), type: door|window|sliding_door|skylight, offset, width, height, sill }.
 - stairs: lista { id, type, from, to (ids de nível), position [x,y], rotationDeg, width }.
+- performance: { zone? (1 a 8, zona bioclimática NBR 15220-3; ausente = capital do estado, na serra costuma ser 1 a 3), solar (boolean: painéis fotovoltaicos no telhado), rainwater (boolean: captação de chuva) }. O desempenho térmico segue o procedimento simplificado da NBR 15575 e não substitui simulação.
 - roof: { cladding (ex. sandwich_eps30), ridgeAxis: 'depth' | 'width', gutters }.
 - design: { windV0, terrainCategory, soilBearingKPa }; budget: { contingencyPct, diyStages (etapas feitas pelo usuário), freight, durationsWeeks }; priceOverrides por itemId.
 - Índices de lista são numéricos (/openings/0/width). Para inserir no fim de uma lista, use o caminho .../- com op add. Antes de editar, chame getProject para ver os índices e valores reais.

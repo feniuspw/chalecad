@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState, type ReactNode } from 'react';
-import { ChevronDown, Download, FileJson, FileSpreadsheet, HardHat, Loader2, Sparkles, TriangleAlert } from 'lucide-react';
+import { ChevronDown, Download, FileJson, FileSpreadsheet, HardHat, Leaf, Loader2, Sparkles, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tabs, TabsContent, TabsList, TabsTrigger, cn } from '@chalecad/ui';
 import type { Results, Severity } from '@chalecad/engine';
@@ -16,6 +16,7 @@ import { BudgetTab } from './BudgetTab';
 import { InstallationsTab } from './InstallationsTab';
 import { Kpis, KpisSkeleton } from './Kpis';
 import { MaterialsTab } from './MaterialsTab';
+import { PerformanceTab } from './PerformanceTab';
 import { PricesTab } from './PricesTab';
 import { StructureTab } from './StructureTab';
 import { SummaryTab } from './SummaryTab';
@@ -93,6 +94,7 @@ export function ResultsPanel() {
   const computeError = useEditor((s) => s.computeError);
   const system = useEditor((s) => s.project.system.structure);
   const installationsOn = useEditor((s) => s.project.installations.enabled);
+  const project = useEditor((s) => s.project);
   const [tab, setTab] = useState('summary');
   const activeTab = tab === 'installations' && !installationsOn ? 'summary' : tab;
   const busy = computing || stale;
@@ -140,6 +142,9 @@ export function ResultsPanel() {
               Estrutura
             </Tab>
             {installationsOn ? <Tab value="installations">Instalações</Tab> : null}
+            <Tab value="performance">
+              <Leaf className="size-3.5" /> Desempenho
+            </Tab>
             <Tab value="work">
               <HardHat className="size-3.5" /> Obra
             </Tab>
@@ -180,6 +185,11 @@ export function ResultsPanel() {
               </Scroll>
             </TabsContent>
           ) : null}
+          <TabsContent value="performance" className="flex min-h-0 flex-1 flex-col">
+            <Scroll>
+              <PerformanceTab report={results.performance ?? null} results={results} project={project} />
+            </Scroll>
+          </TabsContent>
           <TabsContent value="work" className="flex min-h-0 flex-1 flex-col">
             <Scroll>
               <WorkTab results={results} />

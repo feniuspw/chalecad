@@ -198,6 +198,15 @@ const INST_COLS = [
   { key: 'breaker', label: 'Disjuntor', flex: 1.3, right: true },
 ] as const;
 
+const PERF_COLS = [
+  { key: 'element', label: 'Elemento', flex: 2.2 },
+  { key: 'u', label: 'U', flex: 1.6, right: true },
+  { key: 'limitU', label: 'Limite U', flex: 1.2, right: true },
+  { key: 'ct', label: 'CT', flex: 1.7, right: true },
+  { key: 'limitCT', label: 'Limite CT', flex: 1.5, right: true },
+  { key: 'status', label: 'Status', flex: 1.4, right: true },
+] as const;
+
 function MatRow({ r, i }: { r: Record<(typeof MAT_COLS)[number]['key'], string>; i: number }) {
   return (
     <View style={[s.tr, i % 2 ? s.trAlt : {}]} wrap={false}>
@@ -465,6 +474,47 @@ export function ChaleDocument({ data, plans, elevations }: ChaleDocumentProps) {
             ) : null}
           </View>
           <Text style={[s.caption, { textAlign: 'left', marginTop: 12 }]}>{data.installations.notice}</Text>
+        </Section>
+      ) : null}
+
+      {/* Desempenho */}
+      {data.performance ? (
+        <Section title="Desempenho" sub={`Térmico (NBR 15575), energia solar e água de chuva. ${data.performance.zone}.`} data={data}>
+          <View style={s.table}>
+            <View style={s.thead}>
+              {PERF_COLS.map((c) => (
+                <Text key={c.key} style={[s.th, { flex: c.flex }, 'right' in c ? s.right : {}]}>
+                  {c.label}
+                </Text>
+              ))}
+            </View>
+            {data.performance.thermal.map((r, i) => (
+              <View key={i} style={[s.tr, i % 2 ? s.trAlt : {}]} wrap={false}>
+                {PERF_COLS.map((c) => (
+                  <Text key={c.key} style={[s.td, { flex: c.flex }, 'right' in c ? s.right : {}, c.key === 'status' && r.fail ? { color: C.fail } : {}]}>
+                    {r[c.key]}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+          {data.performance.solar || data.performance.rain ? (
+            <View style={s.twoCol} wrap={false}>
+              {data.performance.solar ? (
+                <View style={s.col}>
+                  <Text style={s.h2}>Energia solar</Text>
+                  <KeyValues rows={data.performance.solar} />
+                </View>
+              ) : null}
+              {data.performance.rain ? (
+                <View style={s.col}>
+                  <Text style={s.h2}>Água de chuva</Text>
+                  <KeyValues rows={data.performance.rain} />
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+          <Text style={[s.caption, { textAlign: 'left', marginTop: 12 }]}>{data.performance.notice}</Text>
         </Section>
       ) : null}
 
