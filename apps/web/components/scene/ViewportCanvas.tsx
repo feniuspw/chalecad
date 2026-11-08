@@ -74,6 +74,7 @@ function ShowcaseLights({ bounds }: { bounds: ThreeBounds }) {
 
 export default function ViewportCanvas({ model, showcase = false, apiRef }: ViewportProps & ControlledViewportProps) {
   const bounds = useMemo(() => bboxToThree(model.bbox), [model.bbox]);
+  const presentation = useEditor((s) => s.viewMode === 'presentation');
   const signature = useMemo(() => `${model.walls.length}-${model.roofPlanes.length}-${JSON.stringify(model.bbox)}`, [model]);
 
   if (showcase) {
@@ -88,7 +89,7 @@ export default function ViewportCanvas({ model, showcase = false, apiRef }: View
 
   return (
     <Canvas
-      frameloop="demand"
+      frameloop={presentation ? 'always' : 'demand'}
       shadows="percentage"
       dpr={[1, 2]}
       camera={{ fov: 35, near: 0.1, far: 600, position: [12, 9, 12] }}

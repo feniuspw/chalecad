@@ -16,6 +16,9 @@ import { CameraRig } from './CameraRig';
 import { ExtrasView } from './ExtrasView';
 import { FinishesView } from './FinishesView';
 import { MotorGroup } from './MotorGroup';
+import { PresentationFx } from './PresentationFx';
+import { PresentationLights } from './PresentationLights';
+import { WalkRig } from './WalkRig';
 import { planClipPlane, PlanOverlay } from './PlanOverlay';
 import { useSceneInfo } from './sceneInfo';
 import { SkeletonView } from './SkeletonView';
@@ -52,6 +55,10 @@ export interface EditorSceneProps {
 
 /** Cena do editor: tudo reage ao store (ferramenta, vista, modo, nível ativo, seleção, destaque, resultados). */
 const NO_CLIP: THREE.Plane[] = [];
+const NO_HOSTS = { hostIds: [] as string[] };
+const NO_IDS: string[] = [];
+/** Plano distante da apresentação: o céu (drei Sky, caixa de 1000 m) precisa caber no frustum. */
+const PRESENTATION_FAR = 1000;
 
 export function EditorScene({ model, bounds, apiRef, signature }: EditorSceneProps) {
   const results = useEditor((s) => s.results);
@@ -65,12 +72,17 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const highlight = useEditor((s) => s.highlight);
   const select = useEditor((s) => s.select);
   const setHover = useEditor((s) => s.setHover);
+  const walkOn = useEditor((s) => s.walk);
   const gl = useThree((s) => s.gl);
 
+  const presentation = viewMode === 'presentation';
+  const walking = presentation && walkOn;
   const exploded = viewMode === 'exploded';
   const structural = viewMode === 'skeleton' || viewMode === 'heatmap';
   const gap = explodeGap(model.ridgeHeight);
-  const plan = cameraView === 'plan';
+  const plan = cameraView === 'plan' && !presentation;
+  // apresentação não tem planta: volta para o 3D
+  const view = presentation && cameraView === 'plan' ? '3d' : cameraView;
   const elevation = project.levels.find((l) => l.id === activeLevelId)?.elevation ?? 0;
   // lista vazia (não undefined) ao sair da planta: o R3F não limpa a prop quando ela vira undefined e o corte ficava preso
   const clip = useMemo(() => (plan ? [planClipPlane(elevation)] : NO_CLIP), [plan, elevation]);
@@ -98,7 +110,7 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
 
   const heat = useMemo(() => buildHeatIndex(results?.structure?.checks), [results?.structure]);
 
-  const hasHighlight = !!highlight && (highlight.pieceIds.length > 0 || highlight.hostIds.length > 0);
+  const hasHighlight = !presentation && !!highlight && (highlight.pieceIds.length > 0 || highlight.hostIds.length > 0);
   const litHosts = useMemo(() => ({ hostIds: [...new Set([...(highlight?.hostIds ?? []), ...selectedHostIds(selection)])] }), [highlight, selection]);
   const extraHighlight = useMemo(() => [...(highlight?.hostIds ?? []), ...(selection?.kind === 'extra' ? [selection.id] : [])], [highlight, selection]);
 
@@ -118,7 +130,7 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
     return () => setNotice(null);
   }, [overlayPieces, viewMode, results?.structure, pieces, setNotice]);
 
-  const selectingEnabled = tool === 'select';
+  const selectingEnabled = tool === 'select' && !presentation;
   const selectedOpeningId = selection?.kind === 'opening' ? selection.id : null;
   const selectedPieceId = selection?.kind === 'piece' ? selection.id : null;
 
@@ -131,24 +143,38 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
 
   return (
     <>
-      <CameraRig bounds={bounds} view={cameraView} extraHeight={exploded ? gap * 3 : 0} leftDrags={tool === 'select'} apiRef={apiRef} />
-      <Lights bounds={bounds} shadows={!plan} />
-      <Ground bounds={bounds} signature={signature} hasTerrain={!!terrain} plan={plan} planY={elevation} />
+      {walking ? (
+        <WalkRig model={model} levelId={activeLevelId} far={PRESENTATION_FAR} />
+      ) : (
+        <CameraRig bounds={bounds} view={view} extraHeight={exploded ? gap * 3 : 0} leftDrags={tool === 'select'} apiRef={apiRef} far={presentation ? PRESENTATION_FAR : undefined} />
+      )}
+      {presentation ? (
+        <>
+          <PresentationLights model={model} bounds={bounds} hasTerrain={!!terrain} />
+          <PresentationFx />
+        </>
+      ) : (
+        <>
+          <Lights bounds={bounds} shadows={!plan} />
+          <Ground bounds={bounds} signature={signature} hasTerrain={!!terrain} plan={plan} planY={elevation} />
+        </>
+      )}
 
-      {terrain ? <TerrainView terrain={terrain} plateau={plateau} /> : null}
+      {terrain ? <TerrainView terrain={terrain} plateau={presentation ? undefined : plateau} /> : null}
 
       <BuildingView
         model={model}
-        mode={viewMode}
+        mode={presentation ? 'finished' : viewMode}
+        plain={presentation}
         clip={clip}
         hideRoof={plan}
         fadeOthers={hasHighlight && !structural}
-        highlight={litHosts}
+        highlight={presentation ? NO_HOSTS : litHosts}
         hoverable={selectingEnabled}
         hoverId={hoverId}
         onHoverHost={setHover}
         onSelectHost={(id) => select(selectionFromHost(id, model, project))}
-        selectedOpeningId={selectedOpeningId}
+        selectedOpeningId={presentation ? null : selectedOpeningId}
         onSelectOpening={(id) => select({ kind: 'opening', id })}
         finishes={project.finishes}
       />
@@ -159,10 +185,10 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
             model={model}
             rooms={project.rooms}
             finishes={project.finishes}
-            mode={viewMode}
+            mode={presentation ? 'finished' : viewMode}
             clip={clip}
             hoverable={selectingEnabled}
-            selectedRoomId={selection?.kind === 'room' ? selection.id : null}
+            selectedRoomId={!presentation && selection?.kind === 'room' ? selection.id : null}
             onSelectRoom={(id) => select({ kind: 'room', id })}
           />
         </MotorGroup>
@@ -194,8 +220,8 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
         <MotorGroup>
           <ExtrasView
             extras={extras}
-            selectedId={selection?.kind === 'extra' ? selection.id : null}
-            highlightIds={extraHighlight}
+            selectedId={!presentation && selection?.kind === 'extra' ? selection.id : null}
+            highlightIds={presentation ? NO_IDS : extraHighlight}
             hoverable={selectingEnabled}
             onSelect={(id) => select({ kind: 'extra', id })}
           />
@@ -203,9 +229,13 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
       ) : null}
 
       {plan ? <PlanOverlay model={model} level={activeLevelId} elevation={elevation} /> : null}
-      <MeasurementsLayer />
-      <ToolLayer model={model} />
-      <PathDrawLayer model={model} />
+      {presentation ? null : (
+        <>
+          <MeasurementsLayer />
+          <ToolLayer model={model} />
+          <PathDrawLayer model={model} />
+        </>
+      )}
     </>
   );
 }

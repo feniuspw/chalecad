@@ -251,3 +251,64 @@ export function getTexture(materialId: string | undefined): THREE.CanvasTexture 
   cache.set(spec.id, tex);
   return tex;
 }
+
+// ---------------------------------------------------------------------------
+// Grama procedural (chão do modo apresentação)
+// ---------------------------------------------------------------------------
+
+/** Metros que a imagem da grama cobre. */
+export const GRASS_TILE = 4;
+
+let grass: THREE.CanvasTexture | undefined;
+
+/** Textura de grama (tons de cinza-esverdeado, multiplica a cor do material); emenda sem costura. */
+export function getGrassTexture(): THREE.CanvasTexture | undefined {
+  if (typeof document === 'undefined') return undefined;
+  if (grass) return grass;
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return undefined;
+  const rand = rng('grass');
+  ctx.fillStyle = '#e8ece0';
+  ctx.fillRect(0, 0, size, size);
+  // manchas largas de tom, depois fios curtos; tudo desenhado também deslocado de `size` para emendar
+  const wrap = (x: number, y: number, reach: number, draw: (dx: number, dy: number) => void) => {
+    for (const dx of [-size, 0, size]) {
+      for (const dy of [-size, 0, size]) {
+        if (x + dx > -reach && x + dx < size + reach && y + dy > -reach && y + dy < size + reach) draw(dx, dy);
+      }
+    }
+  };
+  for (let i = 0; i < 90; i++) {
+    const x = rand() * size, y = rand() * size, r = 20 + rand() * 50;
+    const v = 200 + Math.floor(rand() * 50);
+    wrap(x, y, r, (dx, dy) => {
+      ctx.fillStyle = `rgba(${v},${v + 4},${v - 20},0.10)`;
+      ctx.beginPath();
+      ctx.arc(x + dx, y + dy, r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+  for (let i = 0; i < 14000; i++) {
+    const x = rand() * size, y = rand() * size;
+    const v = 150 + Math.floor(rand() * 105);
+    const len = 2 + rand() * 4;
+    const a = -Math.PI / 2 + (rand() - 0.5) * 0.9;
+    const alpha = 0.18 + rand() * 0.3;
+    wrap(x, y, len + 1, (dx, dy) => {
+      ctx.strokeStyle = `rgba(${v * 0.8},${v},${v * 0.6},${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + dx, y + dy);
+      ctx.lineTo(x + dx + Math.cos(a) * len, y + dy + Math.sin(a) * len);
+      ctx.stroke();
+    });
+  }
+  grass = new THREE.CanvasTexture(canvas);
+  grass.wrapS = grass.wrapT = THREE.RepeatWrapping;
+  grass.colorSpace = THREE.SRGBColorSpace;
+  grass.anisotropy = 8;
+  return grass;
+}
