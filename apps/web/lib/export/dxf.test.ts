@@ -150,3 +150,20 @@ describe('texto e utilitários', () => {
     expect(dxfFileName('***')).toBe('projeto.dxf');
   });
 });
+
+describe('instalações no DXF', () => {
+  it('desenha os pontos nas camadas ELETRICA e HIDRAULICA', () => {
+    const lv = project.levels[0]!.id;
+    const pts = [
+      { id: 'p1', kind: 'outlet', level: lv, position: [1, 1], height: 0.3, roomId: null, hostId: null, furnitureId: null, circuitId: null, label: 'Tomada' },
+      { id: 'p2', kind: 'water_cold', level: lv, position: [2, 1], height: 0.6, roomId: null, hostId: null, furnitureId: null, circuitId: null, label: 'AF' },
+    ] as const;
+    const text = exportDxf(project, results.model, { date: '2026-11-08', installations: pts.map((p) => ({ ...p, position: [...p.position] as [number, number] })) });
+    expect(text).toContain('\nELETRICA\n');
+    expect(text).toContain('\nHIDRAULICA\n');
+    const lines = text.split('\n');
+    const layersUsed = lines.filter((l, i) => lines[i - 1] === '  8' || lines[i - 1] === '8');
+    expect(layersUsed).toContain('ELETRICA');
+    expect(layersUsed).toContain('HIDRAULICA');
+  });
+});

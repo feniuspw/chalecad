@@ -4,10 +4,11 @@
  * Acentos saem como `\U+XXXX` (escape padrão do DXF), então o arquivo é ASCII puro e abre igual em qualquer página de código.
  */
 import { getCatalog } from '@chalecad/catalog';
-import type { BuildingModel, HostWall, Project, ResolvedOpening, ResolvedStair, Vec2 } from '@chalecad/engine';
+import type { BuildingModel, HostWall, InstallationPoint, Project, ResolvedOpening, ResolvedStair, Vec2 } from '@chalecad/engine';
 import { fmt } from '../project/format';
 import { specOf } from '../project/furniture';
 import { furnitureSymbol, placeStrokes } from '../plan2d/furnitureSymbols';
+import { installationSymbols } from '../plan2d/installationSymbols';
 import { roomLabel, roomLabelPoint } from '../plan2d/rooms';
 import { deriveLevels, type PlanLevel } from '../plan2d/plan';
 import { ELEVATION_LABELS, type ElevationSide } from '../plan2d/elevation';
@@ -26,6 +27,8 @@ export const DXF_LAYERS = [
   { name: 'TELHADO', color: 1, ltype: 'CONTINUOUS' },
   { name: 'EIXOS', color: 8, ltype: 'DASHED' },
   { name: 'TEXTO', color: 7, ltype: 'CONTINUOUS' },
+  { name: 'ELETRICA', color: 30, ltype: 'CONTINUOUS' },
+  { name: 'HIDRAULICA', color: 5, ltype: 'CONTINUOUS' },
 ] as const;
 export type DxfLayer = (typeof DXF_LAYERS)[number]['name'];
 
@@ -327,7 +330,15 @@ interface Block {
   maxY: number;
 }
 
-function drawPlan(dxf: DxfWriter, model: BuildingModel, project: Project, level: PlanLevel, isGround: boolean, ox: number): Block {
+function drawPlan(
+  dxf: DxfWriter,
+  model: BuildingModel,
+  project: Project,
+  level: PlanLevel,
+  isGround: boolean,
+  ox: number,
+  installations: InstallationPoint[] = [],
+): Block {
   const cut = planWalls(model, level);
   const pts: Vec2[] = cut.flatMap(wallCorners);
   if (pts.length === 0) pts.push(...model.footprint);
@@ -369,6 +380,18 @@ function drawPlan(dxf: DxfWriter, model: BuildingModel, project: Project, level:
       if (p.length === 2 && !st.closed) dxf.line('MOVEIS', p[0]!, p[1]!);
       else dxf.poly('MOVEIS', p, st.closed);
     }
+  }
+
+  // Instalações estimadas: elétrica e hidráulica em camadas próprias.
+  const HYDRO = new Set(['water_cold', 'water_hot', 'sewer', 'drain', 'tank']);
+  for (const sym of installationSymbols(installations.filter((p) => p.level === level.id))) {
+    const layer = HYDRO.has(sym.kind) ? 'HIDRAULICA' : 'ELETRICA';
+    for (const st of sym.strokes) {
+      const p = st.pts.map(sh);
+      if (p.length === 2 && !st.closed) dxf.line(layer, p[0]!, p[1]!);
+      else dxf.poly(layer, p, st.closed);
+    }
+    if (sym.text) dxf.text(layer, sh([sym.point[0], sym.point[1] - 0.32]), 0.1, sym.text, true);
   }
 
   // Cotas totais (uma horizontal e uma vertical) e título.
@@ -433,6 +456,8 @@ export interface DxfOptions {
   date?: string;
   /** Níveis do projeto; omitido = deduzidos de `project`/`model`. */
   levels?: PlanLevel[];
+  /** Pontos de instalação (`results.installations.points`), desenhados nas plantas. */
+  installations?: InstallationPoint[];
 }
 
 /** Gera o DXF (texto) com a planta de cada nível, as quatro fachadas e o carimbo. */
@@ -444,7 +469,7 @@ export function exportDxf(project: Project, model: BuildingModel, opts: DxfOptio
   let ox = 0;
   let minY = Infinity;
   list.forEach((lv, i) => {
-    const b = drawPlan(dxf, model, project, lv, i === 0, ox);
+    const b = drawPlan(dxf, model, project, lv, i === 0, ox, opts.installations);
     ox += b.width + GAP + 1.6; // largura + 3 m (+ folga das cotas laterais)
     minY = Math.min(minY, b.minY);
   });
@@ -464,7 +489,7 @@ export function exportDxf(project: Project, model: BuildingModel, opts: DxfOptio
   dxf.line('TEXTO', [sx, sy + 2.2], [sx + sw, sy + 2.2]);
   dxf.text('TEXTO', [sx + 0.3, sy + 2.7], 0.3, project.meta.name);
   dxf.text('TEXTO', [sx + 0.3, sy + 1.7], 0.18, `Data: ${opts.date ?? new Date().toISOString().slice(0, 10)}`);
-  dxf.text('TEXTO', [sx + 0.3, sy + 1.2], 0.18, `Area construida: ${fmt(model.builtArea, 2)} m²`);
+  dxf.text('TEXTO', [sx + 0.3, sy + 1.2], 0.18, `Área construída: ${fmt(model.builtArea, 2)} m²`);
   dxf.text('TEXTO', [sx + 0.3, sy + 0.5], 0.15, DXF_STAMP_NOTICE);
   return dxf.toString();
 }

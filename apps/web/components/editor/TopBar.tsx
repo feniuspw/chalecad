@@ -74,7 +74,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       return;
     }
     const file = dxfFileName(project.meta.name);
-    downloadBytes(file, dxfBytes(exportDxf(project, results.model)), 'application/dxf');
+    downloadBytes(file, dxfBytes(exportDxf(project, results.model, { installations: results.installations?.points })), 'application/dxf');
     toast.success(`Arquivo ${file} baixado.`);
   };
 
