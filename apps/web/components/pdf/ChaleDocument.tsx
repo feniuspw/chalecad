@@ -385,6 +385,52 @@ export function ChaleDocument({ data, plans, elevations }: ChaleDocumentProps) {
         ) : null}
       </Section>
 
+      {/* Cronograma e compras */}
+      {data.work ? (
+        <Section title="Cronograma e compras" sub="Acompanhamento da obra: etapas com datas e o que ainda falta comprar." data={data}>
+          <KeyValues rows={data.work.summary} />
+          <Text style={s.h2}>Cronograma</Text>
+          <View style={s.table}>
+            <View style={s.thead}>
+              {['Etapa', 'Início', 'Fim', 'Duração', 'Situação'].map((h, i) => (
+                <Text key={h} style={[s.th, { flex: i === 0 ? 2.4 : 1.5 }, i > 0 ? s.right : {}]}>
+                  {h}
+                </Text>
+              ))}
+            </View>
+            {data.work.schedule.map((r, i) => (
+              <View key={r.stage} style={[s.tr, i % 2 ? s.trAlt : {}]} wrap={false}>
+                <Text style={[s.td, { flex: 2.4, color: C.ink }]}>{r.stage}</Text>
+                <Text style={[s.td, s.right, { flex: 1.5 }]}>{r.start}</Text>
+                <Text style={[s.td, s.right, { flex: 1.5 }]}>{r.end}</Text>
+                <Text style={[s.td, s.right, { flex: 1.5 }]}>{r.weeks}</Text>
+                <Text style={[s.td, s.right, { flex: 1.5 }]}>{r.done ? 'Concluída' : 'Pendente'}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={s.h2}>Falta comprar ({data.work.bought})</Text>
+          {data.work.toBuy.length === 0 ? <Text style={s.caption}>Todos os itens já foram comprados.</Text> : null}
+          {data.work.toBuy.map((g) => (
+            <View key={g.stage} style={[s.table, { marginBottom: 8 }]}>
+              <View style={s.thead} wrap={false}>
+                <Text style={[s.th, { flex: 4.2 }]}>{g.stage}</Text>
+                <Text style={[s.th, s.right, { flex: 1.6 }]}>Qtd.</Text>
+                <Text style={[s.th, s.right, { flex: 1.6 }]}>Estimado</Text>
+                <Text style={[s.th, s.right, { flex: 2.4 }]}>Comprar até</Text>
+              </View>
+              {g.rows.map((r, i) => (
+                <View key={r.name + i} style={[s.tr, i % 2 ? s.trAlt : {}]} wrap={false}>
+                  <Text style={[s.td, { flex: 4.2 }]}>{r.name}</Text>
+                  <Text style={[s.td, s.right, { flex: 1.6 }]}>{r.qty}</Text>
+                  <Text style={[s.td, s.right, { flex: 1.6 }]}>{r.estimated}</Text>
+                  <Text style={[s.td, s.right, { flex: 2.4, color: r.overdue ? C.fail : C.text }]}>{r.overdue ? `${r.by} (atrasado)` : r.by}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </Section>
+      ) : null}
+
       {/* Instalações */}
       {data.installations ? (
         <Section title="Instalações (estimativa)" sub="Quadro de circuitos e totais pelos mínimos da NBR 5410/5626." data={data}>
