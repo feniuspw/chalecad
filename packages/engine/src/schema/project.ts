@@ -557,6 +557,17 @@ export const Progress = z.object({
 });
 export type Progress = z.infer<typeof Progress>;
 
+/** Desempenho: zona bioclimática (térmico), energia solar e água de chuva. */
+export const Performance = z.object({
+  /** Zona bioclimática NBR 15220-3. Ausente = zona da capital do estado (serra costuma ser 1–3: ajuste). */
+  zone: z.number().int().min(1).max(8).optional(),
+  /** Dimensiona e orça um sistema fotovoltaico on-grid. */
+  solar: z.boolean().default(false),
+  /** Dimensiona e orça captação de água de chuva para uso não potável. */
+  rainwater: z.boolean().default(false),
+});
+export type Performance = z.infer<typeof Performance>;
+
 export const ProjectBase = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   meta: Meta,
@@ -582,6 +593,7 @@ export const ProjectBase = z.object({
   furniture: z.array(Furniture).default([]),
   installations: Installations.default({ enabled: false, waterHeater: 'electric_shower' }),
   progress: Progress.default({ purchased: {}, stagesDone: [] }),
+  performance: Performance.default({ solar: false, rainwater: false }),
   design: Design,
   budget: Budget,
   priceBookId: Id.default('default-2026-11'),

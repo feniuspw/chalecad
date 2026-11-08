@@ -384,6 +384,54 @@ export const TechnicalConstants = z.object({
     personsPerBedroom: pos,
     tankSizes: z.array(pos).min(1),
   }),
+  /**
+   * Desempenho: térmico (NBR 15575-4/5 procedimento simplificado, NBR 15220-2/3), energia solar fotovoltaica e
+   * captação de água de chuva (NBR 15527). Valores por UF são da capital (o usuário pode trocar a zona).
+   */
+  performance: z.object({
+    thermal: z.object({
+      /** Propriedades das camadas: λ (W/m·K), ρ (kg/m³), c (kJ/kg·K); `thickness` (mm) quando a assembly não traz. */
+      materials: z.record(z.string(), z.object({ lambda: pos, rho: pos, c: pos, thickness: pos.optional() })),
+      /** Resistências superficiais (m²·K/W): parede (int/ext) e cobertura (int, fluxo descendente no verão). */
+      rsiWall: pos,
+      rseWall: pos,
+      rsiRoof: pos,
+      rseRoof: pos,
+      /** Câmara de ar não ventilada entre placas (m²·K/W), quando a cavidade não é toda preenchida. */
+      airGapR: nonneg,
+      zoneByUF: z.record(z.string(), z.number().int().min(1).max(8)),
+      /** Absortância solar por cor da telha e da fachada (padrão quando não há acabamento). */
+      roofAlpha: z.record(z.string(), z.number().min(0).max(1)),
+      facadeAlpha: z.record(z.string(), z.number().min(0).max(1)),
+      defaultFacadeAlpha: z.number().min(0).max(1),
+      /** Limites de U (W/m²·K) por zona: [α ≤ 0,6, α > 0,6]. */
+      wallU: z.record(z.string(), z.tuple([pos, pos])),
+      roofU: z.record(z.string(), z.tuple([pos, pos])),
+      /** Capacidade térmica mínima de parede (kJ/m²·K) por zona; 0 = sem exigência. */
+      wallCT: z.record(z.string(), nonneg),
+    }),
+    solar: z.object({
+      /** Horas de sol pleno (kWh/m²·dia, média anual) por UF. */
+      hspByUF: z.record(z.string(), pos),
+      kWhPerPersonMonth: pos,
+      /** Consumo extra do chuveiro elétrico por morador (kWh/mês). */
+      showerKWhPerPersonMonth: nonneg,
+      moduleWp: pos,
+      moduleArea: pos,
+      performanceRatio: pos,
+      tariff: pos,
+      /** Custo de disponibilidade (kWh/mês) que a concessionária cobra mesmo com geração. */
+      minBillKWh: nonneg,
+    }),
+    rain: z.object({
+      mmPerYearByUF: z.record(z.string(), pos),
+      runoff: pos,
+      /** Fração da demanda de água que pode ser não potável (vaso, rega, lavar piso). */
+      nonPotableShare: pos,
+      /** Dias de reserva do reservatório de chuva. */
+      reserveDays: pos,
+    }),
+  }),
   /** Piso de concreto sobre o radier: consumos por m². */
   floor: z.object({ hardenerKgPerM2: pos, sealerLPerM2: pos }),
   /** Altura máxima de parede interna em nível superior/A-frame quando não informada (m). */

@@ -496,6 +496,58 @@ export interface InstallationsReport {
   conduit: number;
 }
 
+// ---------------------------------------------------------------------------
+// Desempenho (térmico, solar, chuva)
+// ---------------------------------------------------------------------------
+
+export interface ThermalElement {
+  /** Assembly (paredes) ou `roof`. */
+  id: string;
+  kind: 'wall' | 'roof';
+  label: string;
+  /** Transmitância (W/m²·K), capacidade térmica (kJ/m²·K) e absortância. */
+  U: number;
+  CT: number;
+  alpha: number;
+  limitU: number;
+  /** null = sem exigência de CT. */
+  limitCT: number | null;
+  okU: boolean;
+  okCT: boolean;
+}
+
+export interface SolarReport {
+  monthlyKWh: number;
+  kWp: number;
+  modules: number;
+  areaM2: number;
+  /** Água do telhado escolhida (melhor orientação ao norte) e se os módulos cabem nela. */
+  roofPlaneId: string | null;
+  fits: boolean;
+  annualKWh: number;
+  cost: number;
+  costMax: number;
+  savingsPerYear: number;
+  paybackYears: number;
+}
+
+export interface RainReport {
+  roofAreaM2: number;
+  annualLiters: number;
+  demandLitersYear: number;
+  tankLiters: number;
+  /** Fração da demanda não potável atendida pela chuva. */
+  coverage: number;
+}
+
+export interface PerformanceReport {
+  zone: number;
+  zoneSource: 'project' | 'uf';
+  thermal: ThermalElement[];
+  solar: SolarReport | null;
+  rain: RainReport | null;
+}
+
 export interface Results {
   engineVersion: string;
   catalogVersion: string;
@@ -508,6 +560,8 @@ export interface Results {
   terrain: TerrainReport | null;
   /** null quando `project.installations.enabled` é falso. */
   installations: InstallationsReport | null;
+  /** null até o motor de desempenho (F9-E1) entrar. */
+  performance: PerformanceReport | null;
   warnings: EngineWarning[];
   timingsMs: Record<string, number>;
 }

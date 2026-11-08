@@ -139,6 +139,66 @@ export const constants: TechnicalConstants = {
     nailKgPerM: 0.02,
     nailKgPerM2Board: 0.08,
   },
+  performance: {
+    thermal: {
+      // NBR 15220-2 (tabela B.3) e fichas de fabricantes; aço da telha desprezado, EPS como núcleo.
+      materials: {
+        cement_board_10: { lambda: 0.35, rho: 1300, c: 0.84 },
+        osb_11: { lambda: 0.13, rho: 600, c: 1.7 },
+        drywall_st_12: { lambda: 0.25, rho: 750, c: 0.84 },
+        drywall_ru_12: { lambda: 0.25, rho: 800, c: 0.84 },
+        siding_smart: { lambda: 0.35, rho: 1300, c: 0.84 },
+        wool_pet_50: { lambda: 0.045, rho: 20, c: 1.3 },
+        sandwich_eps30: { lambda: 0.035, rho: 15, c: 1.42, thickness: 30 },
+        finish_ceiling_wood: { lambda: 0.15, rho: 500, c: 1.34, thickness: 10 },
+        finish_ceiling_paint: { lambda: 0.25, rho: 750, c: 0.84, thickness: 12.5 },
+        finish_wall_wood: { lambda: 0.15, rho: 500, c: 1.34, thickness: 10 },
+        finish_facade_wood: { lambda: 0.15, rho: 500, c: 1.34, thickness: 15 },
+        finish_facade_brick: { lambda: 0.9, rho: 1800, c: 0.92, thickness: 15 },
+      },
+      rsiWall: 0.13,
+      rseWall: 0.04,
+      rsiRoof: 0.17,
+      rseRoof: 0.04,
+      airGapR: 0.16,
+      // NBR 15220-3: zona da capital.
+      zoneByUF: {
+        AC: 8, AL: 8, AP: 8, AM: 8, BA: 8, CE: 8, DF: 4, ES: 8, GO: 6, MA: 8, MT: 7, MS: 6, MG: 3, PA: 8,
+        PB: 8, PR: 1, PE: 8, PI: 7, RJ: 8, RN: 8, RS: 3, RO: 8, RR: 8, SC: 3, SP: 3, SE: 8, TO: 7,
+      },
+      roofAlpha: { graphite: 0.8, black: 0.9, terracotta: 0.65, white: 0.25, green: 0.7 },
+      facadeAlpha: { finish_facade_texture: 0.4, finish_facade_wood: 0.6, finish_facade_siding: 0.4, finish_facade_brick: 0.65 },
+      defaultFacadeAlpha: 0.4,
+      // NBR 15575-4 (paredes) e -5 (coberturas), procedimento simplificado. [α ≤ 0,6, α > 0,6]
+      wallU: { '1': [2.5, 2.5], '2': [2.5, 2.5], '3': [3.7, 2.5], '4': [3.7, 2.5], '5': [3.7, 2.5], '6': [3.7, 2.5], '7': [3.7, 2.5], '8': [3.7, 2.5] },
+      roofU: { '1': [2.3, 2.3], '2': [2.3, 2.3], '3': [2.3, 1.5], '4': [2.3, 1.5], '5': [2.3, 1.5], '6': [2.3, 1.5], '7': [2.3, 1.5], '8': [2.3, 1.5] },
+      wallCT: { '1': 130, '2': 130, '3': 130, '4': 130, '5': 130, '6': 130, '7': 130, '8': 0 },
+    },
+    solar: {
+      // Atlas Brasileiro de Energia Solar (2017), irradiação global horizontal média da capital.
+      hspByUF: {
+        AC: 4.6, AL: 5.4, AP: 4.9, AM: 4.6, BA: 5.5, CE: 5.6, DF: 5.4, ES: 5.0, GO: 5.5, MA: 5.3, MT: 5.2, MS: 5.3, MG: 5.4, PA: 4.9,
+        PB: 5.6, PR: 4.7, PE: 5.6, PI: 5.7, RJ: 5.0, RN: 5.7, RS: 4.5, RO: 4.8, RR: 5.0, SC: 4.4, SP: 4.9, SE: 5.4, TO: 5.4,
+      },
+      kWhPerPersonMonth: 55,
+      showerKWhPerPersonMonth: 30,
+      moduleWp: 550,
+      moduleArea: 2.58,
+      performanceRatio: 0.78,
+      tariff: 0.95,
+      minBillKWh: 50,
+    },
+    rain: {
+      // Normais climatológicas do INMET (capitais), arredondadas.
+      mmPerYearByUF: {
+        AC: 1950, AL: 2170, AP: 2500, AM: 2300, BA: 1900, CE: 1600, DF: 1500, ES: 1250, GO: 1600, MA: 2200, MT: 1350, MS: 1450, MG: 1500, PA: 2900,
+        PB: 1900, PR: 1450, PE: 2300, PI: 1350, RJ: 1200, RN: 1500, RS: 1350, RO: 2200, RR: 1700, SC: 1700, SP: 1450, SE: 1500, TO: 1700,
+      },
+      runoff: 0.8,
+      nonPotableShare: 0.4,
+      reserveDays: 15,
+    },
+  },
   floor: { hardenerKgPerM2: 4, sealerLPerM2: 0.2 },
   defaultCeilingMax: 2.8,
   terrain: { swellFactor: 1.25, compactionFactor: 0.85, truckM3: 12, excavatorM3PerDay: 250 },
