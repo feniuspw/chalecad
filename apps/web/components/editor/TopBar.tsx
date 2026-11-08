@@ -23,6 +23,7 @@ import { exportPdf } from '@/lib/pdf';
 import { CompareButton } from '@/components/compare/CompareButton';
 import { exportBudgetCsv, exportPurchaseCsv } from '@/lib/export/csv';
 import { downloadText } from '@/lib/export/download';
+import { dxfFileName, exportDxf } from '@/lib/export/dxf';
 import { ReportsDialog, type ReportKind } from '@/components/reports/ReportsDialog';
 import { ImportErrorsDialog } from './ImportErrorsDialog';
 import { ProjectName } from './ProjectName';
@@ -65,6 +66,17 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   };
   const onPurchaseCsv = () => csv('compras');
   const onBudgetCsv = () => csv('orcamento');
+
+  const onDxf = () => {
+    const { project, results } = useEditor.getState();
+    if (!results) {
+      toast.info('Aguarde o cálculo terminar para exportar.');
+      return;
+    }
+    const file = dxfFileName(project.meta.name);
+    downloadText(file, exportDxf(project, results.model), 'application/dxf');
+    toast.success(`Arquivo ${file} baixado.`);
+  };
 
   const onPdf = () => {
     const { project, results } = useEditor.getState();
@@ -197,6 +209,9 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={onBudgetCsv}>
               <FileText /> CSV do orçamento
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onDxf}>
+              <FileText /> DXF (AutoCAD)
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
