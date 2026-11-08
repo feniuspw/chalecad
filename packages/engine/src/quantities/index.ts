@@ -9,7 +9,7 @@ import type {
   QuantityLine,
   QuantityReport,
 } from '../schema/results';
-import { computeExtras } from '../extras';
+import { computeExtras, towerProfileLines } from '../extras';
 import { cutPlan } from './cutplan';
 import { collectItems, openingsByHost, wallAreas, type Item } from './items';
 
@@ -268,6 +268,8 @@ export function computeQuantities(
     if (a.notes.length) line.note = a.notes.join('; ');
     lines.push(line);
   }
+
+  lines.push(...towerProfileLines(project, model, catalog));
 
   // --- Áreas -------------------------------------------------------------------------
   let extNet = 0;

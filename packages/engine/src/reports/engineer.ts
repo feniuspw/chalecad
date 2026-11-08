@@ -1,4 +1,5 @@
 import type { Catalog } from '@chalecad/catalog';
+import { towerTankFullKg } from '../extras/water_tower';
 import type { Project } from '../schema/project';
 import { DISCLAIMER, type Results } from '../schema/results';
 import type {
@@ -142,6 +143,15 @@ export function buildEngineerPackage(project: Project, results: Results, catalog
     if (t.frontGable === 'glazed' || t.backGable === 'glazed') {
       ask('aframe-glazing', 'Fachada envidraçada: definir caixilharia (perfis, ancoragem na estrutura) e vidro de segurança para o vento do local.');
     }
+  }
+  for (const e of project.extras) {
+    if (e.kind !== 'water_tower') continue;
+    const tank = model.extras.find((x) => x.id === e.id)?.tank;
+    if (!tank) continue;
+    ask(
+      'water-tower',
+      `Torre da caixa d'água: confirmar a estrutura de apoio (${fmt(towerTankFullKg(catalog, tank.liters), 0)} kg cheia a ${fmt(e.platformZ, 1)} m) e a vedação no encontro com o telhado.`,
+    );
   }
   const rooms = model.rooms.filter((r) => r.polygon);
   if (rooms.length > 0) {

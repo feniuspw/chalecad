@@ -12,6 +12,7 @@ export type { PointEx, PlacedPoints, TankInfo } from './points';
 export { buildCircuits } from './circuits';
 export { computePipes } from './pipes';
 export { installationItems } from './quantities';
+export { sizeTank } from './tank';
 
 export interface InstallationsResult {
   report: InstallationsReport;
@@ -22,6 +23,48 @@ export interface InstallationsResult {
 }
 
 const fmt = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+const fmt1 = (n: number) => n.toFixed(1).replace('.', ',');
+
+/**
+ * Pressão mínima nos pontos de água (NBR 5626, simplificada): coluna d'água = fundo da caixa − cota do ponto.
+ * Faltam no catálogo (usados aqui com comentário): chuveiro a 2,10 m e demais pontos a 1,0 m do piso; coluna mínima
+ * de 1,0 m no chuveiro e 0,5 m nos demais.
+ */
+const SHOWER_POINT_HEIGHT = 2.1; // m acima do piso
+const OTHER_POINT_HEIGHT = 1.0; // m acima do piso
+const MIN_COLUMN_SHOWER = 1.0; // m.c.a.
+const MIN_COLUMN_OTHER = 0.5; // m.c.a.
+
+function pressureWarnings(project: Project, placed: ReturnType<typeof placePoints>): EngineWarning[] {
+  const tank = placed.tank;
+  if (!tank) return [];
+  const elevOf = (id: string) => project.levels.find((l) => l.id === id)?.elevation ?? 0;
+  const bottom = elevOf(tank.point.level) + tank.point.height;
+  const out: EngineWarning[] = [];
+  const seen = new Set<string>();
+  for (const p of placed.points) {
+    if (p.kind !== 'water_cold' && p.kind !== 'water_hot') continue;
+    const shower = p.height >= SHOWER_POINT_HEIGHT - 1e-9;
+    const key = `${p.furnitureId ?? p.id}:${shower}`;
+    if (seen.has(key)) continue; // água fria e quente do mesmo aparelho: um alerta só
+    seen.add(key);
+    const z = elevOf(p.level) + (shower ? SHOWER_POINT_HEIGHT : OTHER_POINT_HEIGHT);
+    const head = bottom - z;
+    const min = shower ? MIN_COLUMN_SHOWER : MIN_COLUMN_OTHER;
+    if (head >= min - 1e-9) continue;
+    const room = placed.rooms.find((r) => r.id === p.roomId);
+    const where = elevOf(p.level) > 0 ? 'do mezanino' : `(${room?.name ?? 'térreo'})`;
+    out.push({
+      code: 'install.pressure',
+      severity: 'warn',
+      message:
+        `${shower ? 'Chuveiro' : 'Ponto de água'} ${where} com só ${fmt1(Math.max(0, head))} m de coluna d'água ` +
+        `(mínimo ${fmt1(min)} m, NBR 5626): eleve a caixa (torre) ou use pressurizador`,
+      refs: [p.id, tank.towerId ?? tank.point.id],
+    });
+  }
+  return out;
+}
 
 /** Instalações estimadas. `null` se `project.installations.enabled` for falso. */
 export function computeInstallations(project: Project, model: BuildingModel, catalog: Catalog): InstallationsResult | null {
@@ -73,9 +116,12 @@ export function computeInstallations(project: Project, model: BuildingModel, cat
     warnings.push({
       code: 'install.tank_load',
       severity: 'info',
-      message: `Caixa d'água de ${fmt(tank.liters)} L pesa cerca de ${fmt(tank.fullKg)} kg cheia, sobre ${tank.roomName}: o engenheiro deve conferir o apoio.`,
-      refs: [tank.roomId],
+      message: tank.towerId
+        ? `Caixa d'água de ${fmt(tank.liters)} L pesa cerca de ${fmt(tank.fullKg)} kg cheia, sobre a torre ${tank.towerId} (plataforma a ${fmt1(tank.point.height)} m): o engenheiro deve conferir o apoio.`
+        : `Caixa d'água de ${fmt(tank.liters)} L pesa cerca de ${fmt(tank.fullKg)} kg cheia, sobre ${tank.roomName}: o engenheiro deve conferir o apoio.`,
+      refs: [tank.towerId ?? tank.roomId],
     });
+    warnings.push(...pressureWarnings(project, placed));
   }
   return {
     report,

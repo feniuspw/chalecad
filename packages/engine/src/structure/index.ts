@@ -14,6 +14,7 @@ import {
 import { compression, G, momentResistance, simpleBeam, woodCompression, woodDesign } from './capacity';
 import { nf } from './format';
 import { computeLoads, type LoadSet } from './loads';
+import { towerTankFullKg } from '../extras/water_tower';
 import { pricePerKg, suggest, type SuggestSpec } from './suggest';
 
 export { windPressure } from './loads';
@@ -308,6 +309,44 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
       },
       { pieces: joists, profile: prof, spacing: spacing0, ratioFn: (p, sp) => evalJoist(p, sp).ratio, allowSpacing: true },
     );
+  }
+
+  // 2b. Plataforma da caixa d'água (torre): dois perfis `joist` em caixa, vão = menor lado ----------------
+  for (const e of project.extras) {
+    if (e.kind !== 'water_tower') continue;
+    const em = model.extras.find((x) => x.id === e.id);
+    if (!em?.tank) continue;
+    const prof = getProfile(catalog, project.system.profiles.joist);
+    const L = Math.min(e.width, e.depth);
+    const fullKg = towerTankFullKg(catalog, em.tank.liters);
+    // peso próprio por viga: metade do OSB 18 da plataforma + o perfil (2 em caixa dividem a carga)
+    const osbKgM2 = catalog.materials.find((m) => m.id === 'osb_18')?.massPerUnit ?? 0;
+    const selfKg = (e.width * e.depth * osbKgM2) / 2 + prof.massPerM * L;
+    const wServ = (((fullKg / 2 + selfKg) * G) / 1000) / L; // kN/m por viga (água e peso próprio: permanentes)
+    const r = simpleBeam({
+      profile: prof,
+      L,
+      wUls: l.gammaG * wServ,
+      wServ,
+      deflDen: c.deflection.floor,
+      n: 2,
+      ...mat(prof),
+    });
+    push({
+      id: `joist:${e.id}`,
+      kind: 'joist',
+      label: `Viga da plataforma da caixa d'água ${e.id} (2 × ${prof.id} em caixa, vão ${nf(L)} m)`,
+      pieceIds: [],
+      hostIds: [e.id],
+      demand: Math.max(r.M, 0),
+      capacity: r.Mrd,
+      unit: 'kN·m',
+      ratio: r.ratio,
+      detail:
+        `Plataforma da caixa d'água: ${nb(prof)}caixa cheia ${nf(fullKg, 0)} kg (${nf(em.tank.liters, 0)} L), ` +
+        `metade em cada viga + peso próprio = ${nf(wServ)} kN/m; M = ${nf(r.M)} kN·m, Mrd = ${nf(r.Mrd)} kN·m (taxa ${nf(r.rM)}); ` +
+        `V = ${nf(r.V)} kN, Vrd = ${nf(r.Vrd)} kN (${nf(r.rV)}); flecha = ${nf(r.delta)} cm, limite L/${c.deflection.floor} = ${nf(r.deltaLim)} cm (${nf(r.rD)})`,
+    });
   }
 
   // 3. Caibros -------------------------------------------------------------

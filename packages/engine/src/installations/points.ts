@@ -8,6 +8,7 @@ import type {
   InstallationPointKind,
   RoomModel,
 } from '../schema/results';
+import { sizeTank } from './tank';
 import { manhattan, nearestEdge, onEdge, polygonCentroid, roomEdges, type EdgeInfo } from './geo';
 
 /** Ponto com dados internos do motor (carga, bitola do esgoto, item de origem). */
@@ -29,6 +30,8 @@ export interface TankInfo {
   roomName: string;
   /** Massa cheia (kg): água + caixa vazia. */
   fullKg: number;
+  /** Torre da caixa d'água (extra) que abriga a caixa, se houver. */
+  towerId?: string;
 }
 
 export interface PlacedPoints {
@@ -342,12 +345,7 @@ export function placePoints(project: Project, model: BuildingModel, catalog: Cat
   // --- Caixa d'água ------------------------------------------------------------------------------------
   let tank: TankInfo | null = null;
   if (rooms.length > 0) {
-    const bedrooms = project.rooms.filter((r) => r.use === 'bedroom').length;
-    const occupants = inst.occupants ?? Math.max(2, k.personsPerBedroom * bedrooms);
-    const dailyLiters = occupants * k.waterPerPerson;
-    const need = dailyLiters * k.reserveDays;
-    const sizes = [...k.tankSizes].sort((a, b) => a - b);
-    const liters = sizes.find((s) => s >= need - EPS) ?? sizes[sizes.length - 1]!;
+    const { liters, dailyLiters, occupants } = sizeTank(project, k);
     const xs = model.footprint.map((p) => p[0]);
     const ys = model.footprint.map((p) => p[1]);
     const center: Vec2 = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
@@ -362,19 +360,21 @@ export function placePoints(project: Project, model: BuildingModel, catalog: Cat
         host = r;
       }
     }
-    const pos = polygonCentroid(host.polygon!, seedOf(host));
+    // Com torre no projeto, a caixa vai nela: posição da torre e fundo na `platformZ` (cota a partir do térreo).
+    const tower = project.extras.find((e) => e.kind === 'water_tower');
+    const pos: Vec2 = tower ? [tower.position[0], tower.position[1]] : polygonCentroid(host.polygon!, seedOf(host));
     const tmat = catalog.materials.find((m) => m.id === `water_tank_${liters}`);
     const point: PointEx = {
       id: 'tank-1',
       kind: 'tank',
-      level: host.level,
+      level: tower ? ground.id : host.level,
       position: pos,
-      height: host.ceiling.avg,
+      height: tower ? tower.platformZ : host.ceiling.avg,
       roomId: host.id,
       hostId: null,
       furnitureId: null,
       circuitId: null,
-      label: `Caixa d'água ${String(liters).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} L`,
+      label: `Caixa d'água ${String(liters).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} L${tower ? ' (torre)' : ''}`,
       load: 0,
     };
     points.push(point);
@@ -386,6 +386,7 @@ export function placePoints(project: Project, model: BuildingModel, catalog: Cat
       roomId: host.id,
       roomName: host.name,
       fullKg: liters + (tmat?.massPerUnit ?? 0),
+      ...(tower ? { towerId: tower.id } : {}),
     };
   }
   return { points, panel, tank, rooms };

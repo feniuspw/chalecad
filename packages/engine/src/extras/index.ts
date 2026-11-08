@@ -3,6 +3,7 @@ import type { Project } from '../schema/project';
 import type { BuildingModel } from '../schema/results';
 import type { Item } from '../quantities/items';
 import { paginateSheets } from '../quantities/paginate';
+import { waterTowerItems } from './water_tower_quantities';
 import {
   deckGeometry,
   fencePosts,
@@ -12,6 +13,9 @@ import {
 } from './geometry';
 
 export { buildExtraModels, deckGeometry, fencePosts, facade } from './geometry';
+export { towerProfileLines } from './water_tower_quantities';
+export { waterTowerModel, towerTankFullKg, tankDimensions, towerLiters, towerContour } from './water_tower';
+export type { ExtraBuildContext, WaterTowerE } from './water_tower';
 
 const rect = (l: number, h: number): [number, number][] => [[0, 0], [l, 0], [l, h], [0, h]];
 
@@ -102,6 +106,10 @@ export function computeExtras(project: Project, model: BuildingModel, catalog: C
         if (project.roof.gutters) add(e.id, 'gutter', roof.uLength, { unitSize: c.roof.gutterLength });
         add(e.id, 'post_steel', em.posts.length);
       }
+    }
+    else if (e.kind === 'water_tower') {
+      const em = model.extras.find((x) => x.id === e.id);
+      if (em?.roofs) waterTowerItems(project, model, e, em, catalog, add);
     }
     else if (e.kind === 'retaining') {
       const length = pathLength(e.path, false);

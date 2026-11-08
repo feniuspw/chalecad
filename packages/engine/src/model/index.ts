@@ -389,7 +389,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     slabs,
     openings,
     stairs,
-    extras: buildExtraModels(project, catalog.constants.extras),
+    extras: buildExtraModels(project, catalog.constants.extras, { roofPlanes, slabs, installations: catalog.constants.installations }),
     rooms: [],
     furniture: [],
     ridgeHeight,

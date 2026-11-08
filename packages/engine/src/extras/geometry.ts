@@ -2,6 +2,7 @@ import type { TechnicalConstants } from '@chalecad/catalog';
 import { add3, cross3, dot3, scale3, signedArea, sub3, type Vec2, type Vec3 } from '../geometry';
 import type { Extra, Project } from '../schema/project';
 import type { ExtraModel, RoofPlane } from '../schema/results';
+import { waterTowerModel, type ExtraBuildContext } from './water_tower';
 
 const DEG = Math.PI / 180;
 
@@ -240,8 +241,8 @@ function deckModel(project: Project, e: DeckE, x: ExtrasConstants): ExtraModel {
   return m;
 }
 
-/** Geometria 3D dos extras (muro, cerca, deck, arrimo) na ordem de `project.extras`. */
-export function buildExtraModels(project: Project, x: ExtrasConstants): ExtraModel[] {
+/** Geometria 3D dos extras (muro, cerca, deck, arrimo, torre da caixa d'água) na ordem de `project.extras`. */
+export function buildExtraModels(project: Project, x: ExtrasConstants, ctx?: ExtraBuildContext): ExtraModel[] {
   return project.extras.map((e) => {
     switch (e.kind) {
       case 'fence':
@@ -253,8 +254,7 @@ export function buildExtraModels(project: Project, x: ExtrasConstants): ExtraMod
       case 'retaining':
         return retainingModel(e, x);
       case 'water_tower':
-        // Geometria da torre: card F11-E1. Até lá, só a área em planta (sem paredes nem telhado).
-        return { id: e.id, kind: 'water_tower', segments: [], posts: [] };
+        return waterTowerModel(project, e, x, ctx);
     }
   });
 }
