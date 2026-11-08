@@ -25,13 +25,15 @@ export interface CameraRigProps {
   /** Ferramentas de desenho usam o botão esquerdo: o arraste da câmera fica no direito/meio. */
   leftDrags: boolean;
   apiRef?: RefObject<ViewportHandle | null>;
+  /** Plano distante da câmera em perspectiva (padrão 600 m). */
+  far?: number;
 }
 
 /**
  * Câmera do editor: perspectiva orbital (3D) e ortográficas (planta e fachadas), com transição suave.
  * Trocar entre perspectiva e ortográfica troca a câmera padrão, partindo da pose anterior.
  */
-export function CameraRig({ bounds, view, extraHeight = 0, leftDrags, apiRef }: CameraRigProps) {
+export function CameraRig({ bounds, view, extraHeight = 0, leftDrags, apiRef, far = 600 }: CameraRigProps) {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   const invalidate = useThree((s) => s.invalidate);
@@ -178,9 +180,9 @@ export function CameraRig({ bounds, view, extraHeight = 0, leftDrags, apiRef }: 
   return (
     <>
       {ortho ? (
-        <OrthographicCamera key="ortho" makeDefault near={0.1} far={bounds.radius * 12 + 400} zoom={1} position={[0, 50, 0.01]} />
+        <OrthographicCamera key="ortho" makeDefault near={0.1} far={Math.max(far, bounds.radius * 12 + 400)} zoom={1} position={[0, 50, 0.01]} />
       ) : (
-        <PerspectiveCamera key="persp" makeDefault fov={35} near={0.1} far={600} position={[12, 9, 12]} />
+        <PerspectiveCamera key="persp" makeDefault fov={35} near={0.1} far={far} position={[12, 9, 12]} />
       )}
       <OrbitControls
         key={ortho ? 'orbit-ortho' : 'orbit-persp'}

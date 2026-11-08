@@ -5,6 +5,7 @@ import { getCatalog, type Catalog, type Profile } from '@chalecad/catalog';
 import { hasRidgeAxis } from '@/lib/project/edit';
 import { fmt } from '@/lib/project/format';
 import { useEditor } from '@/lib/store/editor';
+import { LocationFields } from './LocationFields';
 import { Section, Segmented, SelectField, SliderField, SwitchField, type Option } from './fields';
 import { usePanelUi } from './ui-state';
 import type { SectionId } from '@/lib/project/selection';
@@ -214,6 +215,7 @@ export function SiteSection({ project }: { project: Project }) {
   return (
     <Section title="Local" {...section}>
       <SelectField label="Estado (UF)" value={project.meta.region} options={UF_OPTIONS} onChange={(uf) => update('Alterar estado', (d) => void (d.meta.region = uf))} hint="preços e referências" />
+      <LocationFields project={project} />
       <SliderField
         label="Velocidade básica do vento (V₀)"
         value={d0.windV0}

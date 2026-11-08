@@ -1,9 +1,10 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, LayoutPanelTop, Loader2, LocateFixed, MousePointer2, Ruler, RulerDimensionLine, Wrench } from 'lucide-react';
+import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, LayoutPanelTop, Loader2, LocateFixed, MousePointer2, Ruler, RulerDimensionLine, Sun, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { IconButton, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@chalecad/ui';
 import { ArtNotice } from '@/components/ArtNotice';
+import { SunPanel } from '@/components/scene/SunPanel';
 import { PathDrawer, Viewport, type ViewportHandle, type ViewPreset } from '@/components/scene/Viewport';
 import { useExtraTools } from './properties/ui-state';
 import { useAutosave } from '@/hooks/useAutosave';
@@ -46,6 +47,7 @@ const MODES: { id: ViewMode; label: string; hint: string; icon: typeof Home }[] 
   { id: 'skeleton', label: 'Estrutura', hint: 'Só os perfis de aço (esqueleto)', icon: Wrench },
   { id: 'exploded', label: 'Explodido', hint: 'Camadas separadas: radier, estrutura, fechamento e cobertura', icon: Layers3 },
   { id: 'heatmap', label: 'Mapa de calor', hint: 'Estrutura colorida pela taxa de uso (pré-dimensionamento)', icon: Flame },
+  { id: 'presentation', label: 'Apresentação', hint: 'Sol real do terreno, sombras, céu e andar por dentro; salva imagem em alta resolução', icon: Sun },
 ];
 
 export function EditorShell() {
@@ -92,6 +94,15 @@ export function EditorShell() {
   const activeLevelId = useEditor((s) => s.activeLevelId);
   const setActiveLevel = useEditor((s) => s.setActiveLevel);
   const hasStructure = useEditor((s) => Boolean(s.results?.structure));
+
+  const pickMode = (id: ViewMode) => {
+    setViewMode(id);
+    // a apresentação não tem planta (ortográfica): volta ao 3D
+    if (id === 'presentation' && useEditor.getState().cameraView === 'plan') {
+      setView('3d');
+      setCameraView('3d');
+    }
+  };
 
   const toolPicked = useCallback((t: Tool) => {
     const hints: Partial<Record<Tool, string>> = {
@@ -222,6 +233,8 @@ export function EditorShell() {
               </div>
             )}
 
+            {model && viewMode === 'presentation' ? <SunPanel /> : null}
+
             <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between">
               {model ? (
                 <div className="pointer-events-auto rounded-lg border border-border bg-white/90 px-3 py-1.5 text-xs text-stone-600 shadow-float backdrop-blur tabular-nums">
@@ -263,7 +276,7 @@ export function EditorShell() {
                         <button
                           type="button"
                           disabled={disabled}
-                          onClick={() => setViewMode(id)}
+                          onClick={() => pickMode(id)}
                           aria-pressed={viewMode === id}
                           className="flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-stone-600 transition-colors outline-none hover:text-stone-900 focus-visible:ring-2 focus-visible:ring-accent/50 disabled:opacity-40 aria-pressed:bg-accent-soft aria-pressed:text-accent-hover"
                         >
