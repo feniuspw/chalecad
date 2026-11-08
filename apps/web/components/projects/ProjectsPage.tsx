@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownUp, CloudOff, FileUp, FolderPlus, Loader2, Plus, Search } from 'lucide-react';
+import { ArrowDownUp, CloudOff, FileUp, FolderPlus, Loader2, Plus, Search, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@chalecad/ui';
 import { loadProject } from '@chalecad/engine';
@@ -11,6 +11,7 @@ import { PresetCard } from '@/components/onboarding/PresetCard';
 import { findPreset, type Preset } from '@/lib/project/presets';
 import { getStorage, type ProjectSummary } from '@/lib/storage';
 import { SyncedStorage } from '@/lib/storage';
+import { WIZARD_FLAG } from '@/components/wizard/WizardDialog';
 import { ProjectCard } from './ProjectCard';
 
 type SortKey = 'recent' | 'name' | 'area' | 'total';
@@ -213,10 +214,15 @@ export function ProjectsPage() {
               </div>
               <h2 className="mt-5 text-xl font-semibold tracking-tight text-stone-900">Comece o seu primeiro chalé</h2>
               <p className="mt-2 max-w-md text-sm leading-relaxed text-stone-600">
-                Escolha um modelo pronto ou desenhe do zero. Ajuste as medidas e veja lista de materiais, peso e orçamento aparecerem na hora. Tudo fica salvo aqui.
+                Não entende de construção? Responda perguntas simples e montamos um chalé para você. Ou escolha um modelo pronto, ou desenhe do zero. Ajuste as medidas e veja lista de materiais, peso e orçamento aparecerem na hora. Tudo fica salvo aqui.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <Button asChild variant="accent" size="lg">
+                  <Link href="/editor?new=1&wizard=1" onClick={() => window.sessionStorage.setItem(WIZARD_FLAG, '1')}>
+                    <Wand2 /> Me ajude a montar
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg">
                   <Link href="/editor?new=1">
                     <Plus /> Novo projeto
                   </Link>

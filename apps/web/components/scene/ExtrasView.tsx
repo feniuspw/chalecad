@@ -3,6 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Edges } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ExtraModel } from '@chalecad/engine';
+import { getTexture } from '@/lib/three/textures';
+import { ROOF_COLORS } from '@/lib/project/rooms';
+import { useEditor } from '@/lib/store/editor';
 import { makeRoofGeometry } from './geometry';
 import { COLORS } from './materials';
 
@@ -76,7 +79,18 @@ interface Tex {
   wood: THREE.Texture;
 }
 
-function SegmentMesh({ seg, tex, lit, selected, hover, plain }: { seg: Seg; tex: Tex; lit: boolean; selected: boolean; hover: boolean; plain: boolean }) {
+/** Como a torre da caixa d'água pinta as paredes e o telhado (igual ao chalé). */
+export interface TowerStyle {
+  /** Textura da fachada do chalé (acabamento escolhido). */
+  facadeMap?: THREE.Texture | undefined;
+  roofColor: string;
+  /** Estrutura/Explodido: paredes translúcidas para ver a caixa, postes e armação. */
+  see: boolean;
+  /** Câmera em planta: sem o telhado da torre cobrindo a vista de cima. */
+  plan?: boolean;
+}
+
+function SegmentMesh({ seg, tex, lit, selected, hover, plain, tower }: { seg: Seg; tex: Tex; lit: boolean; selected: boolean; hover: boolean; plain: boolean; tower?: TowerStyle | undefined }) {
   const length = Math.hypot(seg.to[0] - seg.from[0], seg.to[1] - seg.from[1]);
   const angle = Math.atan2(seg.to[1] - seg.from[1], seg.to[0] - seg.from[0]);
   const geometry = useMemo(() => makeScaledBox(Math.max(0.01, length), Math.max(0.01, seg.thickness), Math.max(0.01, seg.height)), [length, seg.thickness, seg.height]);
@@ -97,7 +111,11 @@ function SegmentMesh({ seg, tex, lit, selected, hover, plain }: { seg: Seg; tex:
       material = <meshStandardMaterial color="#a8a29e" roughness={0.9} {...common} />;
       break;
     case 'board':
-      material = <meshStandardMaterial map={tex.wood} color="#ffffff" roughness={0.8} {...common} />;
+      if (tower) {
+        // paredes da torre: mesmo acabamento do chalé; translúcidas quando selecionada ou nas vistas técnicas (recorte para ver a caixa)
+        const ghost = tower.see || selected;
+        material = <meshStandardMaterial key={ghost ? 'ghost' : 'solid'} map={tower.facadeMap ?? tex.wood} color="#ffffff" roughness={0.85} transparent={ghost} opacity={ghost ? (tower.see ? 0.18 : 0.35) : 1} depthWrite={!ghost} {...common} />;
+      } else material = <meshStandardMaterial map={tex.wood} color="#ffffff" roughness={0.8} {...common} />;
       break;
     case 'rail':
       // guarda-corpo: painel quase transparente + corrimão no topo (ver abaixo)
@@ -106,7 +124,7 @@ function SegmentMesh({ seg, tex, lit, selected, hover, plain }: { seg: Seg; tex:
     default: // tela
       material = <meshStandardMaterial color="#57534e" transparent opacity={0.3} depthWrite={false} side={THREE.DoubleSide} roughness={0.7} {...common} />;
   }
-  const solid = seg.material !== 'mesh' && seg.material !== 'rail';
+  const solid = seg.material !== 'mesh' && seg.material !== 'rail' && !(tower && (tower.see || selected));
   return (
     <group>
       <mesh geometry={geometry} position={pos} rotation={[0, 0, angle]} castShadow={solid} receiveShadow renderOrder={solid ? 0 : 2}>
@@ -132,10 +150,11 @@ interface ExtraProps {
   selected: boolean;
   hoverable: boolean;
   plain: boolean;
+  tower?: TowerStyle | undefined;
   onSelect?: (id: string) => void;
 }
 
-function Extra({ extra, tex, lit, selected, hoverable, plain, onSelect }: ExtraProps) {
+function Extra({ extra, tex, lit, selected, hoverable, plain, tower, onSelect }: ExtraProps) {
   const [hover, setHover] = useState(false);
   useEffect(() => {
     if (!hover) return;
@@ -154,6 +173,8 @@ function Extra({ extra, tex, lit, selected, hoverable, plain, onSelect }: ExtraP
   useEffect(() => () => deckGeo?.dispose(), [deckGeo]);
   const roof = useMemo(() => (extra.roof ? makeRoofGeometry(extra.roof, []) : null), [extra.roof]);
   useEffect(() => () => roof?.geometry.dispose(), [roof]);
+  const towerRoofs = useMemo(() => (extra.roofs ?? []).map((r) => makeRoofGeometry(r, [])), [extra.roofs]);
+  useEffect(() => () => towerRoofs.forEach((r) => r.geometry.dispose()), [towerRoofs]);
 
   const woodTex = useMemo(() => {
     const t = tex.wood.clone();
@@ -164,7 +185,11 @@ function Extra({ extra, tex, lit, selected, hoverable, plain, onSelect }: ExtraP
   useEffect(() => () => woodTex.dispose(), [woodTex]);
 
   const postBase = extra.kind === 'deck' ? (extra.topZ ?? 0) : 0;
-  const postColor = extra.kind === 'deck' ? POST_COLORS.wood : extra.kind === 'fence' ? POST_COLORS.concrete : POST_COLORS.steel;
+  const seg0 = extra.segments[0];
+  // as postes da torre medem a altura desde o piso de apoio (térreo ou mezanino); o topo é o das paredes
+  const towerTop = extra.kind === 'water_tower' && seg0 ? seg0.baseZ + seg0.height : null;
+  const showTank = !!extra.tank && !!tower && (tower.see || selected);
+  const postColor = extra.kind === 'water_tower' ? POST_COLORS.steel : extra.kind === 'deck' ? POST_COLORS.wood : extra.kind === 'fence' ? POST_COLORS.concrete : POST_COLORS.steel;
   const emissive = lit || selected ? COLORS.accent : hover ? COLORS.hover : '#000000';
   const ei = lit || selected ? 0.1 : hover ? 0.1 : 0;
 
@@ -186,10 +211,22 @@ function Extra({ extra, tex, lit, selected, hoverable, plain, onSelect }: ExtraP
   return (
     <group {...handlers}>
       {extra.segments.map((s, i) => (
-        <SegmentMesh key={i} seg={s} tex={tex} lit={lit} selected={selected} hover={hover} plain={plain} />
+        <SegmentMesh key={i} seg={s} tex={tex} lit={lit} selected={selected} hover={hover} plain={plain} tower={extra.kind === 'water_tower' ? tower : undefined} />
       ))}
-      {extra.posts.map((p, i) => (
-        <mesh key={`p${i}`} position={[p.position[0], p.position[1], postBase + p.height / 2]} castShadow>
+      {extra.kind === 'water_tower' && !tower?.plan ? towerRoofs.map((r, i) => (
+        <mesh key={`tr${i}`} geometry={r.geometry} position={r.position} quaternion={r.quaternion} castShadow receiveShadow>
+          <meshStandardMaterial color={tower?.roofColor ?? COLORS.roof} roughness={0.95} emissive={emissive} emissiveIntensity={ei} />
+          {plain ? null : <Edges threshold={25} color="#78716c" transparent opacity={0.4} raycast={() => null} />}
+        </mesh>
+      )) : null}
+      {showTank && extra.tank ? (
+        <mesh position={[extra.tank.position[0], extra.tank.position[1], extra.tank.baseZ + extra.tank.height / 2]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[extra.tank.radius, extra.tank.radius, extra.tank.height, 32]} />
+          <meshStandardMaterial color="#3b82f6" transparent opacity={0.55} roughness={0.25} metalness={0.1} />
+        </mesh>
+      ) : null}
+      {extra.kind === 'water_tower' && !(tower?.see || selected) ? null : extra.posts.map((p, i) => (
+        <mesh key={`p${i}`} position={[p.position[0], p.position[1], (towerTop !== null ? towerTop - p.height : postBase) + p.height / 2]} castShadow>
           <boxGeometry args={[p.size, p.size, p.height]} />
           <meshStandardMaterial color={postColor} roughness={0.8} emissive={emissive} emissiveIntensity={ei} />
         </mesh>
@@ -217,11 +254,26 @@ export interface ExtrasViewProps {
   hoverable?: boolean;
   /** Modo apresentação: sem arestas técnicas. */
   plain?: boolean;
+  /** Acabamento da torre da caixa d'água (fachada e telha do chalé; vistas técnicas). */
+  tower?: TowerStyle;
   onSelect?: (id: string) => void;
 }
 
 /** Muro, cerca, deck e arrimo (`results.model.extras`), selecionáveis. */
-export function ExtrasView({ extras, selectedId = null, highlightIds = [], hoverable = true, plain = false, onSelect }: ExtrasViewProps) {
+/** Acabamento da torre a partir do projeto aberto no editor (fachada, cor da telha) e da vista (Explodido/Estrutura). */
+function useTowerStyle(): TowerStyle {
+  const finishes = useEditor((s) => s.project?.finishes);
+  const viewMode = useEditor((s) => s.viewMode);
+  const facadeId = finishes?.facade;
+  const facadeMap = useMemo(() => getTexture(facadeId), [facadeId]);
+  const roofColor = ROOF_COLORS.find((c) => c.id === finishes?.roofColor)?.hex ?? COLORS.roof;
+  return { facadeMap, roofColor, see: viewMode === 'exploded' || viewMode === 'skeleton' || viewMode === 'heatmap' };
+}
+
+export function ExtrasView({ extras, selectedId = null, highlightIds = [], hoverable = true, plain = false, tower: towerProp, onSelect }: ExtrasViewProps) {
+  const fromEditor = useTowerStyle();
+  const inPlan = useEditor((st) => st.cameraView === 'plan');
+  const tower = towerProp ?? { ...fromEditor, plan: inPlan };
   const tex = useMemo<Tex>(() => ({ block: makeBlockTexture(), wood: makeWoodTexture() }), []);
   useEffect(
     () => () => {
@@ -234,7 +286,7 @@ export function ExtrasView({ extras, selectedId = null, highlightIds = [], hover
   return (
     <>
       {extras.map((x) => (
-        <Extra key={x.id} extra={x} tex={tex} lit={lit.has(x.id)} selected={selectedId === x.id} hoverable={hoverable} plain={plain} onSelect={onSelect} />
+        <Extra key={x.id} extra={x} tex={tex} lit={lit.has(x.id)} selected={selectedId === x.id} hoverable={hoverable} plain={plain} tower={tower} onSelect={onSelect} />
       ))}
     </>
   );
