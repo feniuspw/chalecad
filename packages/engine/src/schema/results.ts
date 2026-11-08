@@ -429,6 +429,70 @@ export interface EngineWarning {
   refs?: string[];
 }
 
+// ---------------------------------------------------------------------------
+// Instalações (estimadas)
+// ---------------------------------------------------------------------------
+
+export type InstallationPointKind =
+  | 'light'
+  | 'switch'
+  | 'outlet'
+  | 'outlet_high'
+  | 'tue'
+  | 'water_cold'
+  | 'water_hot'
+  | 'sewer'
+  | 'drain'
+  | 'panel'
+  | 'tank';
+
+/** Ponto de instalação posicionado pelo motor. */
+export interface InstallationPoint {
+  id: string;
+  kind: InstallationPointKind;
+  level: string;
+  /** Posição em planta (na face da parede, quando houver). */
+  position: Vec2;
+  /** Altura acima do piso do nível (m): tomada baixa 0,30, interruptor 1,10, ponto de luz no teto. */
+  height: number;
+  roomId: string | null;
+  /** Parede onde fica (tomadas, interruptores, pontos de água); null no teto ou no piso. */
+  hostId: string | null;
+  furnitureId: string | null;
+  circuitId: string | null;
+  label: string;
+}
+
+export interface Circuit {
+  id: string;
+  kind: 'lighting' | 'outlets' | 'kitchen' | 'tue';
+  label: string;
+  points: number;
+  /** Potência de projeto (VA ou W). */
+  power: number;
+  /** Seção do cabo (mm²) e disjuntor (A). */
+  wire: number;
+  breaker: number;
+  /** Comprimento estimado de cabo do circuito (m, fase + neutro + terra já multiplicados). */
+  cableLength: number;
+}
+
+export interface InstallationsReport {
+  points: InstallationPoint[];
+  circuits: Circuit[];
+  panel: { level: string; position: Vec2 };
+  /** Demanda total estimada (kW) e tensão. */
+  demandKw: number;
+  voltage: number;
+  /** Caixa d'água escolhida (L) e consumo diário estimado (L). */
+  tankLiters: number;
+  dailyLiters: number;
+  occupants: number;
+  /** Comprimentos estimados (m). */
+  pipes: { cold: number; hot: number; sewer40: number; sewer100: number };
+  conduit: number;
+}
+
 export interface Results {
   engineVersion: string;
   catalogVersion: string;
@@ -439,6 +503,8 @@ export interface Results {
   structure: StructuralReport | null;
   budget: BudgetReport;
   terrain: TerrainReport | null;
+  /** null quando `project.installations.enabled` é falso. */
+  installations: InstallationsReport | null;
   warnings: EngineWarning[];
   timingsMs: Record<string, number>;
 }

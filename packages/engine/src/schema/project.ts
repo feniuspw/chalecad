@@ -407,6 +407,7 @@ export const Stage = z.enum([
   'roof',
   'floor',
   'finishing',
+  'installations',
   'extras',
 ]);
 export type Stage = z.infer<typeof Stage>;
@@ -510,6 +511,21 @@ export const Furniture = z.object({
 });
 export type Furniture = z.infer<typeof Furniture>;
 
+/**
+ * Instalações elétricas e hidráulicas estimadas (NBR 5410 / NBR 5626, mínimos usuais).
+ * O motor posiciona os pontos a partir dos cômodos e dos móveis; nada é desenhado pelo usuário.
+ */
+export const Installations = z.object({
+  enabled: z.boolean().default(false),
+  /** Aquecimento da água do banho: chuveiro elétrico (TUE), aquecedor a gás ou solar (água quente encanada). */
+  waterHeater: z.enum(['electric_shower', 'gas', 'solar']).default('electric_shower'),
+  /** Moradores, para a caixa d'água. Ausente = 2 por quarto, mínimo 2. */
+  occupants: z.number().int().min(1).max(20).optional(),
+  /** Posição do quadro de distribuição (térreo). Ausente = junto à porta de entrada. */
+  panel: Vec2.optional(),
+});
+export type Installations = z.infer<typeof Installations>;
+
 export const ProjectBase = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   meta: Meta,
@@ -533,6 +549,7 @@ export const ProjectBase = z.object({
   rooms: z.array(Room).default([]),
   finishes: Finishes.default({}),
   furniture: z.array(Furniture).default([]),
+  installations: Installations.default({ enabled: false, waterHeater: 'electric_shower' }),
   design: Design,
   budget: Budget,
   priceBookId: Id.default('default-2026-11'),

@@ -79,6 +79,7 @@ export function computeAllWith(
     structure,
     budget,
     terrain: terrainResult?.report ?? null,
+    installations: null,
     warnings,
     timingsMs,
   };

@@ -61,6 +61,7 @@ export function computePartial(project: Project, catalog: Catalog): Results {
       stalePrices: [],
     },
     terrain: null,
+    installations: null,
     warnings: [
       {
         code: PARTIAL_WARNING_CODE,

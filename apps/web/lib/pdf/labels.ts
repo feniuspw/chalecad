@@ -18,6 +18,7 @@ export const STAGE_LABELS: Record<Stage, string> = {
   roof: 'Cobertura',
   floor: 'Pisos',
   finishing: 'Acabamentos',
+  installations: 'Instalações elétricas e hidráulicas',
   extras: 'Extras externos',
 };
 

@@ -11,6 +11,7 @@ export const STAGE_COLORS: Record<StageId, string> = {
   roof: '#b91c1c',
   floor: '#65a30d',
   finishing: '#7c3aed',
+  installations: '#ca8a04',
   extras: '#db2777',
 };
 

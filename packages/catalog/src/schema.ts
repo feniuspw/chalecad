@@ -17,6 +17,7 @@ export const StageId = z.enum([
   'roof',
   'floor',
   'finishing',
+  'installations',
   'extras',
 ]);
 export type StageId = z.infer<typeof StageId>;
@@ -29,6 +30,7 @@ export const STAGE_LABELS: Record<StageId, string> = {
   roof: 'Cobertura',
   floor: 'Piso',
   finishing: 'Acabamento',
+  installations: 'Instalações',
   extras: 'Extras',
 };
 
@@ -40,6 +42,7 @@ export const STAGE_ORDER: StageId[] = [
   'roof',
   'floor',
   'finishing',
+  'installations',
   'extras',
 ];
 
@@ -326,6 +329,39 @@ export const TechnicalConstants = z.object({
     openableFraction: z.record(z.string(), z.number().min(0).max(1)),
     /** Passagem livre mínima entre móveis e paredes (NBR 9050 usa 0,90 m; 0,80 m é o usual residencial). */
     circulationMin: pos,
+  }),
+  /**
+   * Instalações estimadas. NBR 5410: tomadas (1 a cada 5 m de perímetro; 3,5 m em cozinha/serviço; 1 junto ao lavatório),
+   * iluminação (100 VA nos primeiros 6 m² + 60 VA a cada 4 m² inteiros). NBR 5626: reserva de água por morador.
+   */
+  installations: z.object({
+    voltage: pos,
+    outletPerimeter: pos,
+    wetOutletPerimeter: pos,
+    outletVA: pos,
+    /** Cozinha/serviço: 600 VA nas 3 primeiras tomadas, 100 VA nas demais. */
+    wetOutletVA: pos,
+    wetOutletHighCount: nonneg,
+    lightBaseVA: pos,
+    lightBaseArea: pos,
+    lightStepVA: pos,
+    lightStepArea: pos,
+    /** Potência máxima por circuito de uso geral (VA). */
+    circuitMaxVA: pos,
+    /** Potência dos equipamentos de uso específico (W), por ID de móvel do catálogo ou `electric_shower`. */
+    tuePower: z.record(z.string(), pos),
+    /** Fator de demanda global (residencial). */
+    demandFactor: pos,
+    /** Traçado real / distância em linha reta (cabos e tubos). */
+    routingFactor: pos,
+    /** Descida/subida por ponto: do forro ou do piso até a caixa (m). */
+    dropPerPoint: pos,
+    /** Seção do cabo (mm²) por faixa de corrente: [corrente máx. A, seção, disjuntor A]. */
+    wireTable: z.array(z.tuple([pos, pos, pos])).min(1),
+    waterPerPerson: pos,
+    reserveDays: pos,
+    personsPerBedroom: pos,
+    tankSizes: z.array(pos).min(1),
   }),
   /** Piso de concreto sobre o radier: consumos por m². */
   floor: z.object({ hardenerKgPerM2: pos, sealerLPerM2: pos }),
