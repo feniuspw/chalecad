@@ -56,6 +56,13 @@ export const Meta = z.object({
   region: UF.default('SP'),
   currency: z.literal('BRL').default('BRL'),
   notes: z.string().max(5000).optional(),
+  /** Coordenadas do terreno (sol no modo apresentação). Ausente = capital do estado (`region`). */
+  location: z.object({ lat: len(-34, 6), lon: len(-75, -28) }).optional(),
+  /**
+   * Para onde fica o norte em planta, em graus no sentido horário a partir de +y (fundos):
+   * 0 = norte nos fundos, 90 = norte à direita (+x), 180 = norte na frente (−y, padrão: frente recebe o sol).
+   */
+  northDeg: z.number().finite().min(0).max(360).default(180),
 });
 
 export const FlatSite = z.object({ type: z.literal('flat') });

@@ -31,6 +31,12 @@ export const DEFAULT_TOOL_OPTIONS: ToolOptions = {
   snapModulation: true,
 };
 
+/** Data inicial do sol: hoje, em AAAA-MM-DD (horário local). */
+function defaultSunDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /** Valida o projeto e devolve problemas em pt-BR (vazio = válido). */
 export function validateProject(project: unknown): ValidationIssue[] {
   const r = loadProject(project);
@@ -70,6 +76,8 @@ function initialState() {
     hoverId: null,
     highlight: null,
     viewMode: 'finished' as const,
+    sun: { date: defaultSunDate(), minutes: 15 * 60 },
+    walk: false,
     cameraView: '3d' as const,
     activeLevelId: groundLevel(project).id,
     tool: 'select' as const,
@@ -216,7 +224,9 @@ export const useEditor = create<EditorStore>()((set, get) => {
     select: (selection) => set({ selection }),
     setHover: (hoverId) => set((s) => (s.hoverId === hoverId ? s : { hoverId })),
     setHighlight: (highlight) => set({ highlight }),
-    setViewMode: (viewMode) => set({ viewMode }),
+    setViewMode: (viewMode) => set(viewMode === 'presentation' ? { viewMode } : { viewMode, walk: false }),
+    setSun: (sun) => set((s) => ({ sun: { ...s.sun, ...sun } })),
+    setWalk: (walk) => set({ walk }),
     setCameraView: (cameraView) => set({ cameraView }),
     setActiveLevel: (activeLevelId) => set({ activeLevelId }),
     setTool: (tool) => set({ tool }),

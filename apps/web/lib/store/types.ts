@@ -6,7 +6,13 @@ import type { Patch } from 'immer';
 import type { EngineWarning, Project, Results } from '@chalecad/engine';
 
 /** Modo de visualização da cena. `heatmap` só depois do motor estrutural (Fase 2). */
-export type ViewMode = 'finished' | 'skeleton' | 'exploded' | 'heatmap';
+export type ViewMode = 'finished' | 'skeleton' | 'exploded' | 'heatmap' | 'presentation';
+
+/** Sol do modo apresentação: data (AAAA-MM-DD) e hora local em minutos desde 0h. */
+export interface SunState {
+  date: string;
+  minutes: number;
+}
 
 /** Câmera: 3D orbital ou ortográficas 2D. `plan` mostra o nível ativo em planta. */
 export type CameraView = '3d' | 'plan' | 'front' | 'back' | 'left' | 'right';
@@ -69,6 +75,9 @@ export interface EditorState {
   highlight: Highlight | null;
 
   viewMode: ViewMode;
+  sun: SunState;
+  /** Câmera em primeira pessoa (andar por dentro) no modo apresentação. */
+  walk: boolean;
   cameraView: CameraView;
   activeLevelId: string;
   tool: Tool;
@@ -99,6 +108,8 @@ export interface EditorActions {
   setHover(id: string | null): void;
   setHighlight(h: Highlight | null): void;
   setViewMode(m: ViewMode): void;
+  setSun(sun: Partial<SunState>): void;
+  setWalk(on: boolean): void;
   setCameraView(v: CameraView): void;
   setActiveLevel(id: string): void;
   setTool(t: Tool): void;
