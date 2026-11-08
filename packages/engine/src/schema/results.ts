@@ -281,6 +281,9 @@ export interface QuantityReport {
   steelKg: number;
   /** Índice de sanidade: aço / área construída. Faixa usual em catalog.constants.steelIndexRange. */
   steelKgPerM2: number;
+  /** Wood frame: volume de madeira estrutural (m³) e índice por m² construído. 0 no LSF. */
+  woodM3: number;
+  woodM3PerM2: number;
 }
 
 // ---------------------------------------------------------------------------

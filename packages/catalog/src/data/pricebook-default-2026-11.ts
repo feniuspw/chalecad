@@ -12,9 +12,17 @@ const U_6M: Record<number, [number, number?]> = { 90: [103, 111], 140: [132], 20
 const T_FACTOR: Record<number, number> = { 0.8: 0.86, 0.95: 1, 1.25: 1.3 };
 const BAR_3M_FACTOR = 0.55;
 const STEEL_BRL_PER_KG = 13.5;
+const WOOD_BRL_PER_M: Record<string, [number, number]> = {
+  W38x89: [14, 19],
+  W38x140: [22, 30],
+  W38x184: [30, 40],
+  W38x235: [40, 55],
+  W25x50: [4, 6],
+};
 
 /** Materiais: [preço, preço máx?] por unidade de compra. */
 const MATERIAL_PRICES: Record<string, [number, number?]> = {
+  nail_wood: [28, 38],
   pvc_sewer_40: [38, 55],
   ppr_hot_25: [42, 60],
   wire_1_5: [180, 240],
@@ -154,6 +162,16 @@ for (const p of profiles) {
       const id = p.priceItemIds[i];
       if (!id) return;
       items.push(item(id, `${p.name} barra ${len} m`, `barra ${len} m`, len === 6 ? six : scale(six, BAR_3M_FACTOR), note));
+    });
+  } else if (p.family === 'Wood') {
+    // Pinus autoclavado: R$/m por seção (varejo nov/2026), peça de 6 m ~10% mais cara por metro.
+    const perM = WOOD_BRL_PER_M[p.id];
+    if (!perM) throw new Error(`Sem preço de referência para ${p.id}`);
+    p.barLengths.forEach((len, i) => {
+      const id = p.priceItemIds[i];
+      if (!id) return;
+      const f = len >= 6 ? 1.1 : 1;
+      items.push(item(id, `${p.name} peça ${len} m`, `peça ${len} m`, scale(perM.map((x) => x * len) as [number, number?], f)));
     });
   } else if (p.family === 'Cr') {
     p.barLengths.forEach((len, i) => {

@@ -214,6 +214,14 @@ const DEFAULT_PROFILES = {
   rafter: 'Ue140x40x0.95',
   purlin: 'Cr50x0.95',
 };
+/** Perfis padrão do wood frame (pinus autoclavado C25). O editor troca para estes ao mudar o sistema. */
+export const WOOD_PROFILES = {
+  wallStud: 'W38x89',
+  wallTrack: 'W38x89',
+  joist: 'W38x184',
+  rafter: 'W38x140',
+  purlin: 'W25x50',
+};
 const DEFAULT_ASSEMBLIES = {
   exterior: 'ext_cement_osb_wool_drywall',
   interior: 'int_drywall_wool_drywall',
@@ -221,7 +229,11 @@ const DEFAULT_ASSEMBLIES = {
 };
 
 export const System = z.object({
-  structure: z.literal('lsf').default('lsf'),
+  /**
+   * `lsf`: light steel frame (perfis Ue/U). `wood`: wood frame (madeira serrada tratada, perfis `W*` do catálogo).
+   * O tipo dos perfis escolhidos deve bater com o sistema (o motor avisa se não bater).
+   */
+  structure: z.enum(['lsf', 'wood']).default('lsf'),
   studSpacing: z.union([z.literal(0.4), z.literal(0.6)]).default(0.6),
   /**
    * A-frame: espaçamento próprio dos caibros (as águas apoiam no radier, não precisam seguir os montantes).

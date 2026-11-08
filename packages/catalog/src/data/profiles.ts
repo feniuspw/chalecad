@@ -39,6 +39,7 @@ function make(
     rx: s.rx,
     ry: s.ry,
     fy: 230,
+    material: 'steel',
     barLengths,
     priceItemIds,
   };
@@ -74,6 +75,41 @@ for (const web of WEBS) {
 for (const w of [70, 100]) {
   const id = `Fita${w}x0.95`;
   list.push(make('Fita', id, `Fita de aço ${w}x0,95 mm`, w, 0, 0, 0.95, [50], [`roll-${id}`]));
+}
+
+// Wood frame: pinus tratado em autoclave, seções usuais (38 mm de espessura), classe C25. Massa = 550 kg/m³.
+const WOOD_DENSITY = 550;
+for (const [b, h, name] of [
+  [38, 89, 'Montante/guia de madeira 38 x 89 mm'],
+  [38, 140, 'Montante/caibro de madeira 38 x 140 mm'],
+  [38, 184, 'Viga/caibro de madeira 38 x 184 mm'],
+  [38, 235, 'Viga de madeira 38 x 235 mm'],
+  [25, 50, 'Sarrafo de madeira 25 x 50 mm (ripa/terça)'],
+] as const) {
+  const id = `W${b}x${h}`;
+  const s = sectionProperties('Wood', h, b, 0, b);
+  list.push({
+    id,
+    family: 'Wood',
+    name,
+    web: h,
+    flange: b,
+    lip: 0,
+    thickness: b,
+    massPerM: (s.area / 1e4) * WOOD_DENSITY,
+    area: s.area,
+    Ix: s.Ix,
+    Wx: s.Wx,
+    Iy: s.Iy,
+    Wy: s.Wy,
+    rx: s.rx,
+    ry: s.ry,
+    fy: 230,
+    material: 'wood',
+    woodClass: 'C25',
+    barLengths: [3, 4.2, 6],
+    priceItemIds: [`wood-${id}-3m`, `wood-${id}-4.2m`, `wood-${id}-6m`],
+  });
 }
 
 export const profiles: Profile[] = list;

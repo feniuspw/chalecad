@@ -63,6 +63,7 @@ export const materials: Material[] = [
   m('pvc_sewer_100', 'Tubo PVC esgoto 100 mm', 'misc', 'm', 'barra 6 m', 6, 1.4, 5),
   m('pvc_water_25', 'Tubo PVC água 25 mm', 'misc', 'm', 'barra 6 m', 6, 0.17, 5),
   // Instalações (estimadas pelo motor quando project.installations.enabled)
+  m('nail_wood', 'Prego galvanizado para wood frame', 'fastener', 'kg', 'kg', 1, 1, 5, frac),
   m('pvc_sewer_40', 'Tubo PVC esgoto 40 mm', 'misc', 'm', 'barra 6 m', 6, 0.45, 5),
   m('ppr_hot_25', 'Tubo PPR água quente 25 mm', 'misc', 'm', 'barra 3 m', 3, 0.25, 5),
   m('wire_1_5', 'Cabo flexível 1,5 mm²', 'misc', 'm', 'rolo 100 m', 100, 0.02, 10),

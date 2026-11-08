@@ -21,7 +21,7 @@ const line = (id: string, stage: QuantityLine['stage'], priceItemId: string, qty
   wastePct: 0, weightKg, priceItemId, pieceIds: [], hostIds: [],
 });
 const areas = { footprint: 50, built: 80, roof: 60, exteriorWallsNet: 70, interiorWallsNet: 10, openings: 5, radier: 55, mezzanine: 20 };
-const q = (lines: QuantityLine[], steelKg = 100): QuantityReport => ({ lines, cutPlans: [], areas, steelKg, steelKgPerM2: 1 });
+const q = (lines: QuantityLine[], steelKg = 100): QuantityReport => ({ lines, cutPlans: [], areas, steelKg, steelKgPerM2: 1, woodM3: 0, woodM3PerM2: 0 });
 const w: WeightReport = { totalKg: 0, superstructureKg: 0, byStage: {}, byElement: [], kgPerM2: 0 };
 const proj = (patch: Record<string, unknown>) => ({ ...base, budget: { ...base.budget, ...patch } });
 

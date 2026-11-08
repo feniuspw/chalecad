@@ -42,6 +42,8 @@ export function computePartial(project: Project, catalog: Catalog): Results {
       },
       steelKg: 0,
       steelKgPerM2: 0,
+      woodM3: 0,
+      woodM3PerM2: 0,
     },
     weight: { totalKg: 0, superstructureKg: 0, byStage: {}, byElement: [], kgPerM2: 0 },
     structure: null,

@@ -50,7 +50,8 @@ export const STAGE_ORDER: StageId[] = [
 // Perfis de aço formados a frio
 // ---------------------------------------------------------------------------
 
-export const ProfileFamily = z.enum(['Ue', 'U', 'Cr', 'Fita']);
+/** `Wood`: madeira serrada retangular (wood frame): `web` = altura, `flange` = `thickness` = largura (mm). */
+export const ProfileFamily = z.enum(['Ue', 'U', 'Cr', 'Fita', 'Wood']);
 
 export const Profile = z.object({
   /** Ex.: Ue90x40x0.95, U90x40x0.95, Cr50x0.95 (cartola), Fita70x0.95. */
@@ -74,8 +75,11 @@ export const Profile = z.object({
   /** Raios de giração (cm). */
   rx: nonneg,
   ry: nonneg,
-  /** Resistência ao escoamento (MPa). ZAR 230 por padrão. */
+  /** Resistência ao escoamento (MPa). ZAR 230 por padrão. Ignorado em madeira. */
   fy: pos.default(230),
+  material: z.enum(['steel', 'wood']).default('steel'),
+  /** Classe de resistência da madeira (NBR 7190, coníferas). Só em `material: 'wood'`. */
+  woodClass: z.enum(['C20', 'C25', 'C30']).optional(),
   /** Comprimentos de barra à venda (m). */
   barLengths: z.array(pos).min(1).default([6]),
   /** ID do item na base de preços por barra (um por comprimento, mesma ordem de barLengths). */
@@ -219,6 +223,23 @@ export const TechnicalConstants = z.object({
   steelE: pos, // MPa
   /** Faixa usual de aço LSF por m² construído (kg/m²). */
   steelIndexRange: z.tuple([pos, pos]),
+  /**
+   * Wood frame (NBR 7190, pinus tratado em autoclave). Resistências características e módulo médio por classe (MPa);
+   * kmod = kmod1 (carga longa) × kmod2 (umidade) × kmod3 (2ª categoria); γ de compressão e de tração/cisalhamento.
+   */
+  wood: z.object({
+    density: pos,
+    classes: z.record(z.string(), z.object({ fc0k: pos, fvk: pos, E0m: pos })),
+    kmod: pos,
+    gammaC: pos,
+    gammaT: pos,
+    gammaV: pos,
+    /** Faixa usual de madeira estrutural por m² construído (m³/m²). */
+    indexRange: z.tuple([pos, pos]),
+    /** Pregos por m de peça (kg/m) e por placa fixada (kg/m²). */
+    nailKgPerM: nonneg,
+    nailKgPerM2Board: nonneg,
+  }),
   /** Perda de corte por corte (m), espessura do disco. */
   sawKerf: nonneg,
   /** Dias para considerar preço desatualizado. */

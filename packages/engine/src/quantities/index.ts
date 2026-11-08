@@ -282,5 +282,7 @@ export function computeQuantities(
     areas,
     steelKg,
     steelKgPerM2: model.builtArea > 0 ? steelKg / model.builtArea : 0,
+    woodM3: 0,
+    woodM3PerM2: 0,
   };
 }

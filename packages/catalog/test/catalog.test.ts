@@ -36,9 +36,9 @@ describe('catálogo', () => {
     expect(s.massPerM).toBeLessThanOrEqual(1.38);
   });
 
-  test('massa/m = área × 7850', () => {
+  test('massa/m = área × densidade (aço 7850, madeira constants.wood.density)', () => {
     for (const p of cat.profiles) {
-      const expected = p.area * 1e-4 * 7850;
+      const expected = p.area * 1e-4 * (p.material === 'wood' ? cat.constants.wood.density : 7850);
       expect(Math.abs(p.massPerM - expected) / expected).toBeLessThan(0.01);
     }
   });

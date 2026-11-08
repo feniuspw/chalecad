@@ -37,6 +37,15 @@ export function sectionProperties(
   lip: number,
   t: number,
 ): SectionProps {
+  if (family === 'Wood') {
+    // Seção retangular maciça: web = altura (eixo forte), flange = largura. Unidades: mm → cm.
+    const hb = web / 10;
+    const bb = flange / 10;
+    const area = hb * bb;
+    const Ix = (bb * hb ** 3) / 12;
+    const Iy = (hb * bb ** 3) / 12;
+    return { area, massPerM: 0, Ix, Wx: Ix / (hb / 2), Iy, Wy: Iy / (bb / 2), rx: Math.sqrt(Ix / area), ry: Math.sqrt(Iy / area) };
+  }
   const h = web - t;
   const b = Math.max(flange - t, 0);
   const lipC = lip > 0 ? Math.max(lip - 2 * t, 0) : 0;

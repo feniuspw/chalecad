@@ -122,6 +122,23 @@ export const constants: TechnicalConstants = {
     personsPerBedroom: 2,
     tankSizes: [310, 500, 1000, 1500, 2000, 3000],
   },
+  // NBR 7190 (coníferas): C20 fc0k 20 / fvk 4 / E0m 3500; C25 25 / 5 / 8500; C30 30 / 6 / 14500 MPa.
+  // kmod = 0,7 (longa duração) × 1,0 (classe de umidade 1–2) × 0,8 (madeira de 2ª categoria) = 0,56.
+  wood: {
+    density: 550,
+    classes: {
+      C20: { fc0k: 20, fvk: 4, E0m: 3500 },
+      C25: { fc0k: 25, fvk: 5, E0m: 8500 },
+      C30: { fc0k: 30, fvk: 6, E0m: 14500 },
+    },
+    kmod: 0.56,
+    gammaC: 1.4,
+    gammaT: 1.8,
+    gammaV: 1.8,
+    indexRange: [0.06, 0.12],
+    nailKgPerM: 0.02,
+    nailKgPerM2Board: 0.08,
+  },
   floor: { hardenerKgPerM2: 4, sealerLPerM2: 0.2 },
   defaultCeilingMax: 2.8,
   terrain: { swellFactor: 1.25, compactionFactor: 0.85, truckM3: 12, excavatorM3PerDay: 250 },
