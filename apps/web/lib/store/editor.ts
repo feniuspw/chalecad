@@ -8,6 +8,7 @@ import { applyPatches as immerApplyPatches, enablePatches, produceWithPatches, t
 import { loadProject, type Furniture, type FurnitureModel, type Opening, type Project, type ResolvedOpening, type Room, type RoomModel, type Stair, type Wall } from '@chalecad/engine';
 import { createProject } from '../project/templates';
 import { groundLevel } from '../project/edit';
+import { applyWallChanges } from '../tools/walls';
 import type {
   EditorStore,
   HistoryEntry,
@@ -187,6 +188,10 @@ export const useEditor = create<EditorStore>()((set, get) => {
       } catch (e) {
         console.warn('[editor] patches inválidos ignorados:', e);
       }
+    },
+
+    moveWalls(label, changes) {
+      edit(label, (d) => applyWallChanges(d, changes), false);
     },
 
     undo() {

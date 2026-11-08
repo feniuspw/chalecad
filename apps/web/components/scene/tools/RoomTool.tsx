@@ -46,7 +46,7 @@ function Pin({ p, z, mpp }: { p: Vec2; z: number; mpp: number }) {
 }
 
 /** Menu leve com os usos, ancorado no ponto clicado. */
-function UseMenu({ p, z, onPick, onClose }: { p: Vec2; z: number; onPick: (use: RoomUse) => void; onClose: () => void }) {
+export function UseMenu({ p, z, onPick, onClose }: { p: Vec2; z: number; onPick: (use: RoomUse) => void; onClose: () => void }) {
   return (
     <Html position={[p[0], p[1], z + 0.05]} zIndexRange={[40, 30]} style={{ transform: 'translate(-50%, 12px)' }}>
       <div role="menu" aria-label="Uso do cômodo" className="w-44 rounded-lg border border-border bg-white p-1 shadow-lg" onPointerDown={(e) => e.stopPropagation()}>
