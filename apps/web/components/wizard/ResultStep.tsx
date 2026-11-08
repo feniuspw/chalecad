@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Droplets, Loader2, Scissors, Wallet } from 'lucide-react';
+import { AlertTriangle, Check, Droplets, Loader2, Scissors, ShieldCheck, Wallet } from 'lucide-react';
 import { Button, cn } from '@chalecad/ui';
 import { computeAll, type Project, type Results } from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
@@ -20,6 +20,8 @@ const brlK = (n: number) => `R$ ${Math.round(n / 1000).toLocaleString('pt-BR')} 
 export interface Generated {
   project: Project;
   notes: string[];
+  /** Pontos que sobraram para revisar (vazio = dentro das verificações automáticas). */
+  review: string[];
   results: Results;
 }
 
@@ -33,7 +35,7 @@ export function useGenerated(a: WizardAnswers): State {
     const t = setTimeout(() => {
       try {
         const g = generateProject(a);
-        setState({ kind: 'ready', ...g, results: computeAll(g.project, getCatalog()) });
+        setState({ kind: 'ready', project: g.project, notes: g.notes, review: g.review, results: computeAll(g.project, getCatalog()) });
       } catch (e) {
         console.error('[assistente]', e);
         setState({ kind: 'error', message: e instanceof Error ? e.message : 'erro desconhecido' });
@@ -100,7 +102,7 @@ export function ResultStep({ a, name, onName, onApply, onCreate, onBack, creatin
     );
   }
 
-  const { project, notes, results } = state;
+  const { project, notes, review, results } = state;
   const model = results.model;
   const rooms = model.rooms.filter((r) => r.polygon);
   const style = STYLE_NAMES[resolveStyle(a).kind];
@@ -114,6 +116,26 @@ export function ResultStep({ a, name, onName, onApply, onCreate, onBack, creatin
           {style}, {fmt(model.builtArea, 0)} m² construídos. É um ponto de partida: depois de criar, dá para mudar tudo no editor e os números se atualizam na hora.
         </p>
       </div>
+
+      {review.length === 0 ? (
+        <p role="status" data-testid="wizard-seal" className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            <strong className="font-semibold">Dentro das verificações automáticas.</strong> Janelas, estrutura e pé-direito passaram nas contas do programa. Isso não substitui o projeto de um engenheiro com ART.
+          </span>
+        </p>
+      ) : (
+        <div role="status" data-testid="wizard-seal" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+          <p className="flex items-center gap-2 font-semibold">
+            <AlertTriangle className="size-4 shrink-0" aria-hidden /> {review.length} {review.length === 1 ? 'ponto' : 'pontos'} para revisar
+          </p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-6">
+            {review.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <figure className="rounded-2xl border border-border bg-gradient-to-b from-sky-50 to-stone-50 p-3">

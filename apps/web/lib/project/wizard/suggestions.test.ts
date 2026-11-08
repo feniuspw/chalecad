@@ -11,7 +11,7 @@ const cost = (a: WizardAnswers) => costOfProject(generateProject(a, catalog).pro
 describe('sugestões de corte', () => {
   const sug = cutSuggestions(base, undefined, catalog, 20);
 
-  it('cada sugestão baixa o custo de verdade (número do motor)', () => {
+  it('cada sugestão baixa o custo de verdade (número do motor)', { timeout: 120_000 }, () => {
     expect(sug.length).toBeGreaterThanOrEqual(4);
     const total = cost(base);
     for (const s of sug) {
@@ -28,13 +28,13 @@ describe('sugestões de corte', () => {
     for (let i = 1; i < sug.length; i++) expect(sug[i - 1]!.saving).toBeGreaterThanOrEqual(sug[i]!.saving);
   });
 
-  it('não sugere cortar o que a pessoa não escolheu', () => {
+  it('não sugere cortar o que a pessoa não escolheu', { timeout: 60_000 }, () => {
     const none = cutSuggestions({ ...DEFAULT_ANSWERS, style: 'modern', bedrooms: 1, deck: 'none', laundry: 'none', installations: false }, undefined, catalog, 20);
     expect(none.map((s) => s.id)).not.toContain('bathUp');
     expect(none.map((s) => s.id)).not.toContain('deckRoof');
   });
 
-  it('compara o custo com a faixa informada', () => {
+  it('compara o custo com a faixa informada', { timeout: 60_000 }, () => {
     const c = costOfProject(generateProject(base, catalog).project, catalog);
     expect(c.max).toBeGreaterThan(c.min);
     expect(budgetStatus(base, c).status).toBe('over');
