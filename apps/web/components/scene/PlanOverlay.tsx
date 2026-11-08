@@ -2,15 +2,50 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import * as THREE from 'three';
-import type { BuildingModel, HostWall, ResolvedOpening } from '@chalecad/engine';
+import type { BuildingModel, HostWall, ResolvedOpening, RoomModel } from '@chalecad/engine';
+import { useEditor } from '@/lib/store/editor';
+import { ROOM_FILL, roomLabel, roomLabelPoint } from '@/lib/plan2d/rooms';
 import { dimGeometry, solidIntervals, wallDimensions } from '@/lib/tools/dimensions';
 import { PLAN_CUT_HEIGHT } from '@/lib/three/views';
 import { wallBasis } from '@/lib/three/convert';
-import { basisTransform } from './geometry';
+import { basisTransform, makeShape } from './geometry';
 import { SceneLabel } from './labels';
 import { MotorGroup } from './MotorGroup';
 
 const POCHE = '#3f3b37';
+
+/** Cômodo na planta: preenchimento suave por uso e rótulo "Nome · área" no ponto mais interno. */
+function PlanRoom({ room, z }: { room: RoomModel; z: number }) {
+  const selected = useEditor((s) => s.selection?.kind === 'room' && s.selection.id === room.id);
+  const selectable = useEditor((s) => s.tool === 'select');
+  const select = useEditor((s) => s.select);
+  const polygon = room.polygon as [number, number][];
+  const geometry = useMemo(() => new THREE.ShapeGeometry(makeShape(polygon, [])), [polygon]);
+  const label = useMemo(() => roomLabelPoint(polygon).point, [polygon]);
+  const pts = useMemo<[number, number, number][]>(() => [...polygon, polygon[0]!].map(([x, y]) => [x, y, z + 0.002]), [polygon, z]);
+  return (
+    <group>
+      <mesh
+        geometry={geometry}
+        position={[0, 0, z]}
+        renderOrder={2}
+        onClick={
+          selectable
+            ? (e) => {
+                if (e.delta > 4) return;
+                e.stopPropagation();
+                select({ kind: 'room', id: room.id });
+              }
+            : undefined
+        }
+      >
+        <meshBasicMaterial color={ROOM_FILL[room.use]} transparent opacity={selected ? 0.8 : 0.55} depthWrite={false} toneMapped={false} />
+      </mesh>
+      {selected ? <Line points={pts} color="#d97706" lineWidth={2.5} /> : null}
+      <SceneLabel position={[label[0], label[1], z + 0.01]}>{roomLabel(room)}</SceneLabel>
+    </group>
+  );
+}
 
 function WallPoche({ wall, openings }: { wall: HostWall; openings: ResolvedOpening[] }) {
   const t = useMemo(() => basisTransform(wallBasis(wall)), [wall]);
@@ -55,8 +90,12 @@ export function PlanOverlay({ model, level, elevation }: { model: BuildingModel;
   const walls = useMemo(() => model.walls.filter((w) => w.level === level), [model.walls, level]);
   const dims = useMemo(() => wallDimensions(model.walls, model.openings, level), [model.walls, model.openings, level]);
   const z = elevation + PLAN_CUT_HEIGHT + 0.04;
+  const rooms = useMemo(() => model.rooms.filter((r) => r.level === level && r.polygon && r.polygon.length >= 3), [model.rooms, level]);
   return (
     <MotorGroup>
+      {rooms.map((r) => (
+        <PlanRoom key={r.id} room={r} z={elevation + 0.006} />
+      ))}
       {walls.map((w) => (
         <WallPoche key={w.id} wall={w} openings={model.openings} />
       ))}

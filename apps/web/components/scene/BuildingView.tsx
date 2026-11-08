@@ -2,9 +2,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Edges } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
-import type { BuildingModel, HostWall, ResolvedOpening, ResolvedStair, SlabModel, RoofPlane, Vec3 } from '@chalecad/engine';
+import type { BuildingModel, Finishes, HostWall, ResolvedOpening, ResolvedStair, SlabModel, RoofPlane, Vec3 } from '@chalecad/engine';
 import * as THREE from 'three';
 import { freeSlabEdges, glazingBars, guardrailLayout, guardrailSpan, openingPlacement, roofZAt, type V2 } from '@/lib/three/convert';
+import { getTexture } from '@/lib/three/textures';
+import { ROOF_COLORS } from '@/lib/project/rooms';
 import { explodeGap as computeGap, type ExplodeLayer } from '@/lib/three/views';
 import type { ViewMode } from '@/lib/store/types';
 import { COLORS } from './materials';
@@ -29,6 +31,8 @@ export interface BuildingViewProps {
   hideRoof?: boolean;
   selectedOpeningId?: string | null;
   onSelectOpening?: (id: string) => void;
+  /** Acabamentos gerais: fachada (textura nas paredes externas) e cor da telha. */
+  finishes?: Finishes;
 }
 
 interface ViewState {
@@ -38,8 +42,11 @@ interface ViewState {
   selectedOpeningId: string | null;
   onSelectOpening?: (id: string) => void;
   hoverable: boolean;
+  /** Textura da fachada; ausente = cor lisa de sempre. */
+  facadeMap?: THREE.Texture;
+  roofColor: string;
 }
-const ViewCtx = createContext<ViewState>({ ghost: false, selectedOpeningId: null, hoverable: true });
+const ViewCtx = createContext<ViewState>({ ghost: false, selectedOpeningId: null, hoverable: true, roofColor: COLORS.roof });
 
 // ---------------------------------------------------------------------------
 // Interação por hospedeiro (hover = emissive leve, selecionado = contorno âmbar)
@@ -108,10 +115,12 @@ interface SurfaceProps {
   rotation?: [number, number, number];
   size?: [number, number, number];
   castShadow?: boolean;
+  /** Textura (UVs em metros). Com textura a cor vira branca para não tingir. */
+  map?: THREE.Texture;
 }
 
 /** Malha opaca que reage ao hover/seleção do HostGroup pai. Aceita geometria pronta ou caixa (size). */
-function Surface({ geometry, size, color, roughness = 0.85, metalness = 0, edges = true, edgeColor = COLORS.edge, castShadow = true, ...rest }: SurfaceProps) {
+function Surface({ geometry, size, color, map, roughness = 0.85, metalness = 0, edges = true, edgeColor = COLORS.edge, castShadow = true, ...rest }: SurfaceProps) {
   const { hovered, active, faded } = useContext(StyleCtx);
   const { clip, ghost } = useContext(ViewCtx);
   const opacity = ghost ? 0.22 : faded ? 0.16 : 1;
@@ -121,8 +130,9 @@ function Surface({ geometry, size, color, roughness = 0.85, metalness = 0, edges
     <mesh geometry={geometry} castShadow={castShadow && opacity === 1} receiveShadow={opacity === 1} renderOrder={opacity < 1 ? 1 : 0} {...rest}>
       {size ? <boxGeometry args={size} /> : null}
       <meshStandardMaterial
-        key={opacity < 1 ? 'translucent' : 'opaque'} // trocar `transparent` exige novo programa de shader
-        color={color}
+        key={`${opacity < 1 ? 'translucent' : 'opaque'}${map ? '-map' : ''}`} // trocar `transparent`/`map` exige novo programa de shader
+        color={map ? '#ffffff' : color}
+        map={map ?? null}
         roughness={roughness}
         metalness={metalness}
         emissive={emissive}
@@ -289,12 +299,14 @@ function Wall({ wall, openings, ...common }: { wall: HostWall; openings: Resolve
   useEffect(() => () => built.geometry.dispose(), [built]);
   const interior = wall.kind === 'interior';
   const glazed = wall.assemblyId === 'gable_glazed';
+  const { facadeMap } = useContext(ViewCtx);
+  const facade = !interior && wall.exteriorSide !== null && !glazed ? facadeMap : undefined;
   return (
     <HostGroup id={wall.id} position={built.position} quaternion={built.quaternion} {...common}>
       {glazed ? (
         <GlazedWall geometry={built.geometry} outline={wall.outline as V2[]} openings={built.openings} depth={wall.thickness} />
       ) : (
-        <Surface geometry={built.geometry} color={interior ? COLORS.wallInterior : COLORS.wallExterior} roughness={0.92} />
+        <Surface geometry={built.geometry} color={interior ? COLORS.wallInterior : COLORS.wallExterior} map={facade} roughness={0.92} />
       )}
       {built.openings.map((op) => (
         <OpeningMesh key={op.id} op={op} depth={wall.thickness} />
@@ -306,10 +318,11 @@ function Wall({ wall, openings, ...common }: { wall: HostWall; openings: Resolve
 function Roof({ plane, openings, ...common }: { plane: RoofPlane; openings: ResolvedOpening[] } & PartCommon) {
   const built = useMemo(() => makeRoofGeometry(plane, openings), [plane, openings]);
   useEffect(() => () => built.geometry.dispose(), [built]);
+  const { roofColor } = useContext(ViewCtx);
   const skylights = openings.filter((o) => o.valid && o.hostKind === 'roof' && o.hostId === plane.id);
   return (
     <HostGroup id={plane.id} position={built.position} quaternion={built.quaternion} {...common}>
-      <Surface geometry={built.geometry} color={COLORS.roof} roughness={0.95} edgeColor="#78716c" />
+      <Surface geometry={built.geometry} color={roofColor} roughness={0.95} edgeColor="#78716c" />
       {skylights.map((op) => {
         const { center, size } = openingPlacement(op);
         return (
@@ -476,6 +489,7 @@ export function BuildingView({
   hideRoof = false,
   selectedOpeningId = null,
   onSelectOpening,
+  finishes,
 }: BuildingViewProps) {
   const lit = useMemo(() => new Set(highlight?.hostIds ?? []), [highlight]);
   const common = (id: string): PartCommon => ({
@@ -489,9 +503,12 @@ export function BuildingView({
   const structural = mode === 'skeleton' || mode === 'heatmap';
   const exploded = mode === 'exploded';
   const gap = computeGap(model.ridgeHeight);
+  const facadeId = finishes?.facade;
+  const facadeMap = useMemo(() => getTexture(facadeId), [facadeId]);
+  const roofColor = ROOF_COLORS.find((c) => c.id === finishes?.roofColor)?.hex ?? COLORS.roof;
   const view = useMemo<ViewState>(
-    () => ({ clip, ghost: structural, selectedOpeningId, onSelectOpening, hoverable }),
-    [clip, structural, selectedOpeningId, onSelectOpening, hoverable],
+    () => ({ clip, ghost: structural, selectedOpeningId, onSelectOpening, hoverable, facadeMap, roofColor }),
+    [clip, structural, selectedOpeningId, onSelectOpening, hoverable, facadeMap, roofColor],
   );
   const layer = (l: ExplodeLayer, children: ReactNode) => (
     <ExplodeGroup layer={l} active={exploded} gap={gap}>

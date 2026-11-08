@@ -7,6 +7,7 @@ import { useHint } from './hooks';
 import { MeasureTool } from './MeasureTool';
 import { MezzanineTool } from './MezzanineTool';
 import { OpeningTool } from './OpeningTool';
+import { RoomTool } from './RoomTool';
 import { SelectOverlays } from './SelectOverlays';
 import { StairTool } from './StairTool';
 import { WallTool } from './WallTool';
@@ -42,6 +43,8 @@ export function ToolLayer({ model }: { model: BuildingModel }) {
       return <MezzanineTool env={env} />;
     case 'measure':
       return <MeasureTool env={env} />;
+    case 'room':
+      return <RoomTool env={env} />;
     default:
       return null;
   }

@@ -8,7 +8,7 @@ import type { PdfImage } from '../../components/pdf/ChaleDocument';
 import { buildPdfData, type PdfData } from './data';
 import { svgToPng } from './images';
 
-export { buildPdfData, type PdfData } from './data';
+export { buildPdfData, buildRoomRows, type PdfData, type RoomRow } from './data';
 
 export const PDF_ELEVATIONS: ElevationSide[] = ['front', 'right'];
 

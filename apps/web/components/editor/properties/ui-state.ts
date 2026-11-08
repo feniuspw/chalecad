@@ -9,7 +9,7 @@ interface PanelUi {
 }
 
 export const usePanelUi = create<PanelUi>((set) => ({
-  open: { typology: true, mezzanine: true, system: false, roof: false, foundation: false, site: false, terrain: false, extras: false },
+  open: { typology: true, mezzanine: true, system: false, roof: false, foundation: false, site: false, terrain: false, extras: false, finishes: false },
   setOpen: (id, open) => set((s) => ({ open: { ...s.open, [id]: open } })),
   reveal: (id) => set((s) => ({ open: { ...s.open, [id]: true } })),
 }));

@@ -4,6 +4,7 @@
  */
 import { getAssembly, getCatalog, getPriceBook, getProfile, type Catalog } from '@chalecad/catalog';
 import { DISCLAIMER, buildEngineerPackage, type BudgetLine, type EngineerPackage, type Project, type QuantityLine, type Results, type Stage } from '@chalecad/engine';
+import { finishName, ROOM_USES } from '../project/rooms';
 import { BRACING_LABELS, STAGE_LABELS, STAGE_ORDER, TYPOLOGY_LABELS } from './labels';
 import { brl, brl0, dateBR, isoToBR, num, qty } from './format';
 
@@ -46,6 +47,15 @@ export interface Alert {
   text: string;
 }
 
+export interface RoomRow {
+  name: string;
+  use: string;
+  area: string;
+  ceilingAvg: string;
+  floor: string;
+  walls: string;
+}
+
 export interface PdfData {
   title: string;
   fileName: string;
@@ -57,6 +67,8 @@ export interface PdfData {
   kpis: Kpi[];
   areas: { label: string; value: string }[];
   dimensions: { label: string; value: string }[];
+  /** Cômodos marcados (tabela "Cômodos"); vazio quando não há. */
+  rooms: RoomRow[];
   materials: MaterialStage[];
   budget: {
     rows: BudgetRow[];
@@ -143,6 +155,23 @@ function assemblyName(cat: Catalog, id: string): string {
   }
 }
 
+/** Linhas da tabela de cômodos: nome, uso, área, pé-direito médio, piso e paredes. */
+export function buildRoomRows(project: Project, results: Results, catalog: Catalog): RoomRow[] {
+  const resolved = new Map((results.model.rooms ?? []).map((r) => [r.id, r]));
+  return project.rooms.map((room): RoomRow => {
+    const rm = resolved.get(room.id);
+    const closed = !!rm?.polygon;
+    return {
+      name: clean(rm?.name || room.name || ROOM_USES[room.use].label),
+      use: ROOM_USES[room.use].label,
+      area: closed ? `${num(rm!.area, 2)} m²` : 'aberto',
+      ceilingAvg: closed ? `${num(rm!.ceiling.avg, 2)} m` : '—',
+      floor: clean(room.floor ? finishName(room.floor, catalog) : 'Acabamento do nível'),
+      walls: clean(room.walls ? finishName(room.walls, catalog) : 'Sem revestimento'),
+    };
+  });
+}
+
 export function buildPdfData(project: Project, results: Results, opts: { catalog?: Catalog; now?: Date } = {}): PdfData {
   const catalog = opts.catalog ?? getCatalog();
   const now = opts.now ?? new Date();
@@ -220,6 +249,8 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
     { label: 'Custo por m² construído', value: brl(budget.perM2) },
   ];
   const schedule = budget.schedule.map((w) => ({ label: `Semana ${w.week}`, amount: brl(w.amount) }));
+
+  const rooms = buildRoomRows(project, results, catalog);
 
   // --- Alertas e perguntas ----------------------------------------------------------
   const alerts: Alert[] = [];
@@ -300,6 +331,14 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
     },
   ];
 
+  if (rooms.length > 0) {
+    // O documento lista as premissas em pares rótulo/valor: os cômodos entram por aqui até haver tabela própria.
+    premises.splice(2, 0, {
+      group: 'Cômodos',
+      items: rooms.map((r) => ({ label: r.name, value: `${r.use} · ${r.area} · pé-direito médio ${r.ceilingAvg} · piso: ${r.floor} · paredes: ${r.walls}` })),
+    });
+  }
+
   return {
     title: project.meta.name,
     fileName: `${slugForFile(project.meta.name)}.pdf`,
@@ -311,6 +350,7 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
     kpis,
     areas,
     dimensions,
+    rooms,
     materials,
     budget: { rows, totals, schedule },
     alerts,

@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, Loader2, LocateFixed, MousePointer2, Ruler, RulerDimensionLine, Wrench } from 'lucide-react';
+import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, LayoutPanelTop, Loader2, LocateFixed, MousePointer2, Ruler, RulerDimensionLine, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { IconButton, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@chalecad/ui';
 import { ArtNotice } from '@/components/ArtNotice';
@@ -9,7 +9,7 @@ import { useExtraTools } from './properties/ui-state';
 import { useAutosave } from '@/hooks/useAutosave';
 import { useBootstrap } from '@/hooks/useBootstrap';
 import { useEngine } from '@/hooks/useEngine';
-import { useShortcuts } from '@/hooks/useShortcuts';
+import { isTyping, useShortcuts } from '@/hooks/useShortcuts';
 import { startNewProject } from '@/lib/project/actions';
 import { fmt } from '@/lib/project/format';
 import { selectionFromHost } from '@/lib/project/selection';
@@ -29,6 +29,7 @@ const TOOLS: { id: Tool; label: string; shortcut: string; icon: typeof MousePoin
   { id: 'opening', label: 'Abertura', shortcut: 'O', icon: DoorOpen },
   { id: 'stair', label: 'Escada', shortcut: 'E', icon: Footprints },
   { id: 'mezzanine', label: 'Mezanino', shortcut: 'M', icon: Layers },
+  { id: 'room', label: 'Cômodo', shortcut: 'A', icon: LayoutPanelTop },
   { id: 'dimension', label: 'Cota', shortcut: 'C', icon: RulerDimensionLine },
   { id: 'measure', label: 'Medir', shortcut: 'R', icon: Ruler },
 ];
@@ -99,12 +100,24 @@ export function EditorShell() {
       stair: 'Clique no térreo para posicionar. R gira 90°.',
       mezzanine: 'Arraste vértices e arestas do mezanino. Na planta fica mais fácil.',
       measure: 'Clique em dois pontos para medir. Esc limpa.',
+      room: 'Clique dentro de um ambiente fechado e escolha o uso. Clique num cômodo para selecioná-lo.',
       dimension: 'As cotas aparecem automaticamente na planta.',
     };
     const h = hints[t];
     if (h) toast.message(TOOLS.find((x) => x.id === t)?.label ?? '', { description: h, id: 'tool-hint', duration: 3500 });
   }, []);
   useShortcuts(toolPicked);
+  // "C" já é a Cota: a ferramenta Cômodo usa "A" (de ambiente).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.key.toLowerCase() !== 'a' || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (isTyping(e.target) || document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
+      useEditor.getState().setTool('room');
+      toolPicked('room');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toolPicked]);
 
   // Reenquadra a câmera quando o tamanho da edificação muda bastante (troca de tipologia, novo projeto, extras).
   const lastBox = useRef<number[] | null>(null);

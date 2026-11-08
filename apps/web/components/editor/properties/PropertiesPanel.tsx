@@ -4,6 +4,7 @@ import { useEditor } from '@/lib/store/editor';
 import { ObjectInspector } from './Inspectors';
 import { MezzanineSection, TypologySection } from './TypologySections';
 import { ExtrasSection } from './ExtrasSection';
+import { FinishesSection } from './FinishesSection';
 import { TerrainSection } from './TerrainSection';
 import { FoundationSection, RoofSection, SiteSection, SystemSection } from './SystemSections';
 
@@ -28,6 +29,7 @@ export function PropertiesPanel() {
           <RoofSection project={project} />
           <FoundationSection project={project} />
           <TerrainSection project={project} />
+          <FinishesSection project={project} />
           <ExtrasSection project={project} />
           <SiteSection project={project} />
         </div>

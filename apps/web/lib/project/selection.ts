@@ -3,6 +3,7 @@ import type { BuildingModel, Project } from '@chalecad/engine';
 import type { Selection } from '../store/types';
 import { removeOpening, removeStair, removeWall } from './edit';
 import { extraLabel, removeExtra } from './extras';
+import { removeRoom, roomDisplayName } from './rooms';
 import { hostLabel, openingLabel, STAIR_LABELS } from './labels';
 
 /** Converte o ID do hospedeiro clicado na cena em uma seleção tipada. */
@@ -14,7 +15,7 @@ export function selectionFromHost(id: string, model: BuildingModel, project: Pro
   return { kind: 'host', id };
 }
 
-export type SectionId = 'typology' | 'mezzanine' | 'system' | 'roof' | 'foundation' | 'site' | 'terrain' | 'extras';
+export type SectionId = 'typology' | 'mezzanine' | 'system' | 'roof' | 'foundation' | 'site' | 'terrain' | 'extras' | 'finishes';
 
 /** Para onde levar o usuário ao clicar num problema de validação (caminho Zod, ex.: `openings.2.width`). */
 export function issueTarget(path: string, project: Project): { selection?: Selection; section?: SectionId } {
@@ -89,6 +90,12 @@ export function deleteSelection(
       const name = extraLabel(project, sel.id);
       update(`Excluir ${name.toLowerCase()}`, (d) => void removeExtra(d, sel.id));
       return { ok: true, message: `${name} excluído.` };
+    }
+    case 'room': {
+      const room = project.rooms.find((r) => r.id === sel.id);
+      const name = room ? roomDisplayName(project, room) : 'Cômodo';
+      update(`Remover ${name.toLowerCase()}`, (d) => void removeRoom(d, sel.id));
+      return { ok: true, message: `${name} removido.` };
     }
     default:
       return { ok: false, message: 'Este elemento faz parte da tipologia: ajuste-o nas propriedades.' };

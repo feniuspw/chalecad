@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getCatalog } from '@chalecad/catalog';
 import { computeAll, type BuildingModel, type Project } from '@chalecad/engine';
 import { createProject } from '../project/templates';
-import { deriveLevels, elevationSvg, planSvg } from './index';
+import { deriveLevels, elevationSvg, planSvg, roomLabel, roomLabelPoint } from './index';
 
 /** Verifica que o XML é bem formado (tags balanceadas, atributos entre aspas). */
 function assertWellFormed(svg: string) {
@@ -120,5 +120,51 @@ describe('fachadas', () => {
     for (const side of ['back', 'left'] as const) assertWellFormed(elevationSvg(model, side).svg);
     const a = build(createProject('a_frame'));
     for (const side of ['front', 'back', 'left', 'right'] as const) assertWellFormed(elevationSvg(a, side).svg);
+  });
+});
+
+describe('cômodos na planta', () => {
+  const L: [number, number][] = [[0, 0], [6, 0], [6, 2], [2, 2], [2, 6], [0, 6]];
+  const inPoly = (p: [number, number]) => {
+    let c = false;
+    for (let i = 0, j = L.length - 1; i < L.length; j = i++) {
+      const [xi, yi] = L[i]!;
+      const [xj, yj] = L[j]!;
+      if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) c = !c;
+    }
+    return c;
+  };
+
+  it('rótulo cai dentro de um L (onde o centroide cai fora)', () => {
+    expect(inPoly([2.2, 2.2])).toBe(false); // centroide do L
+    const { point, radius } = roomLabelPoint(L);
+    expect(inPoly(point)).toBe(true);
+    expect(radius).toBeGreaterThan(0.9); // braço de 2 m: raio máximo 1
+  });
+
+  it('retângulo: centro', () => {
+    const { point, radius } = roomLabelPoint([[0, 0], [4, 0], [4, 2], [0, 2]]);
+    expect(point[1]).toBeCloseTo(1, 1);
+    expect(radius).toBeCloseTo(1, 1);
+  });
+
+  it('texto "Quarto · 9,0 m²" e desenho no SVG', () => {
+    expect(roomLabel({ name: 'Quarto', area: 9 })).toBe('Quarto · 9,0 m²');
+    const project = createProject('gable_mezzanine');
+    const results = computeAll(project, getCatalog());
+    const model: BuildingModel = {
+      ...results.model,
+      rooms: [
+        {
+          id: 'r-1', level: project.levels[0]!.id, use: 'bedroom', name: 'Quarto', polygon: [[0.1, 0.1], [3, 0.1], [3, 3], [0.1, 3]],
+          edges: [], area: 8.41, perimeter: 11.6, ceiling: { min: 2.6, avg: 2.6, max: 2.6 }, glazing: 0, openingIds: [], wet: false,
+        },
+      ],
+    };
+    const doc = planSvg(model, { project, levelId: project.levels[0]!.id });
+    assertWellFormed(doc.svg);
+    expect(doc.svg).toContain('data-role="room"');
+    expect(doc.svg).toContain('Quarto · 8,4 m²');
+    expect(planSvg(results.model, { project }).svg).not.toContain('data-role="room"');
   });
 });
