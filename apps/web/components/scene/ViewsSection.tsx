@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { Camera, Eye, Film, Home, Images, Mountain, Pencil, Plus, Sofa, Square, Trash2, X } from 'lucide-react';
+import { Camera, ChevronDown, Eye, Film, Home, Images, Mountain, Pencil, Plus, Sofa, Square, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Switch, cn } from '@chalecad/ui';
 import { getDirector } from '@/lib/three/director';
@@ -111,12 +111,34 @@ export function ViewsSection({ compact = false }: { compact?: boolean }) {
 
   const busy = !!task;
   const disabled = !model || busy;
+  // Fotos, vídeo e vistas salvas ficam recolhidos por padrão: o painel do sol não cobre a cena.
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    try {
+      setMore(localStorage.getItem('chalecad.cameraMore') === '1');
+    } catch {
+      // sem armazenamento: recolhido
+    }
+  }, []);
+  const toggleMore = () =>
+    setMore((v) => {
+      try {
+        localStorage.setItem('chalecad.cameraMore', v ? '0' : '1');
+      } catch {
+        // ignora
+      }
+      return !v;
+    });
 
   return (
     <div className="mt-2.5 space-y-2 border-t border-border pt-2.5" aria-label="Câmera">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-stone-700">
+      <button type="button" onClick={toggleMore} aria-expanded={more} className="flex w-full items-center gap-1.5 text-xs font-medium text-stone-700 hover:text-stone-900">
         <Camera className="size-3.5 text-accent" /> Câmera
-      </div>
+        <span className="ml-auto flex items-center gap-0.5 text-[11px] font-normal text-stone-500">
+          {more ? 'menos' : 'fotos, vídeo e vistas salvas'}
+          <ChevronDown className={cn('size-3 transition-transform', more && 'rotate-180')} />
+        </span>
+      </button>
       <div className="flex flex-wrap gap-1">
         {VIEWPOINT_ORDER.map((id, i) => {
           const Icon = ICONS[id];
@@ -128,6 +150,8 @@ export function ViewsSection({ compact = false }: { compact?: boolean }) {
         })}
       </div>
 
+      {more ? (
+      <>
       {saved.length > 0 ? (
         <ul className={cn('space-y-0.5', compact && 'max-h-24 overflow-y-auto')} aria-label="Vistas salvas">
           {saved.map((v) => (
@@ -162,6 +186,8 @@ export function ViewsSection({ compact = false }: { compact?: boolean }) {
         <Switch checked={timelapse} onCheckedChange={setTimelapse} disabled={!supported || busy} aria-label="Do nascer ao pôr do sol" />
       </label>
       {!supported ? <p className="text-[10px] text-stone-400">Gravação de vídeo indisponível neste navegador.</p> : null}
+      </>
+      ) : null}
     </div>
   );
 }
