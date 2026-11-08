@@ -10,9 +10,15 @@ import { useExtraTools } from './properties/ui-state';
 import { useAutosave } from '@/hooks/useAutosave';
 import { useBootstrap } from '@/hooks/useBootstrap';
 import { useEngine } from '@/hooks/useEngine';
-import { isTyping, useShortcuts } from '@/hooks/useShortcuts';
+import { isTyping, TOOL_KEYS, useShortcuts } from '@/hooks/useShortcuts';
 import { startNewProject } from '@/lib/project/actions';
 import { fmt } from '@/lib/project/format';
+import { findPreset } from '@/lib/project/presets';
+import { HelpMenu } from '@/components/onboarding/HelpMenu';
+import { ShortcutsDialog } from '@/components/onboarding/ShortcutsDialog';
+import { TOOL_KEY_MAP, toolShortcut } from '@/components/onboarding/shortcuts';
+import { shouldAutoStart } from '@/components/onboarding/steps';
+import { Tour } from '@/components/onboarding/Tour';
 import { selectionFromHost } from '@/lib/project/selection';
 import { selectionHostId, useEditor } from '@/lib/store/editor';
 import type { CameraView, Tool, ViewMode } from '@/lib/store/types';
@@ -25,17 +31,22 @@ import { TopBar } from './TopBar';
 import { useResizablePanel } from './useResizablePanel';
 import { ValidationBanner } from './ValidationBanner';
 
-const TOOLS: { id: Tool; label: string; shortcut: string; icon: typeof MousePointer2 }[] = [
-  { id: 'select', label: 'Selecionar', shortcut: 'V', icon: MousePointer2 },
-  { id: 'wall', label: 'Parede interna', shortcut: 'W', icon: BrickWall },
-  { id: 'opening', label: 'Abertura', shortcut: 'O', icon: DoorOpen },
-  { id: 'stair', label: 'Escada', shortcut: 'E', icon: Footprints },
-  { id: 'mezzanine', label: 'Mezanino', shortcut: 'M', icon: Layers },
-  { id: 'room', label: 'Cômodo', shortcut: 'A', icon: LayoutPanelTop },
-  { id: 'furniture', label: 'Móveis', shortcut: 'F', icon: Sofa },
-  { id: 'dimension', label: 'Cota', shortcut: 'C', icon: RulerDimensionLine },
-  { id: 'measure', label: 'Medir', shortcut: 'R', icon: Ruler },
-];
+const TOOLS: { id: Tool; label: string; shortcut: string; icon: typeof MousePointer2 }[] = (
+  [
+    { id: 'select', label: 'Selecionar', icon: MousePointer2 },
+    { id: 'wall', label: 'Parede interna', icon: BrickWall },
+    { id: 'opening', label: 'Abertura', icon: DoorOpen },
+    { id: 'stair', label: 'Escada', icon: Footprints },
+    { id: 'mezzanine', label: 'Mezanino', icon: Layers },
+    { id: 'room', label: 'Cômodo', icon: LayoutPanelTop },
+    { id: 'furniture', label: 'Móveis', icon: Sofa },
+    { id: 'dimension', label: 'Cota', icon: RulerDimensionLine },
+    { id: 'measure', label: 'Medir', icon: Ruler },
+  ] as const
+).map((t) => ({ ...t, shortcut: toolShortcut(t.id) }));
+
+// Teclas de ferramenta que o EditorShell registra (as demais ficam em `useShortcuts`); a tabela é `SHORTCUTS`.
+const SHELL_TOOL_KEYS: Record<string, Tool> = Object.fromEntries(Object.entries(TOOL_KEY_MAP).filter(([k]) => !(k in TOOL_KEYS)));
 
 const VIEWS: { id: ViewPreset; camera: CameraView; label: string }[] = [
   { id: '3d', camera: '3d', label: '3D' },
@@ -56,6 +67,8 @@ export function EditorShell() {
   const { ready, firstAccess, wantsNew } = useBootstrap();
   const [newOpen, setNewOpen] = useState(false);
   const [welcomed, setWelcomed] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const showWelcome = ready && firstAccess && !welcomed;
 
   useEngine();
@@ -69,10 +82,15 @@ export function EditorShell() {
   }, []);
 
   // /editor?new=1 (vindo de /projetos): abre o assistente de novo projeto (o bootstrap lê o parâmetro).
+  // /editor?new=1&template=<id>: cria direto a partir do modelo pronto (cartões da lista vazia de projetos).
+  const templateHandled = useRef(false);
   useEffect(() => {
-    if (!ready || !wantsNew) return;
+    if (!ready || !wantsNew || templateHandled.current) return;
+    templateHandled.current = true;
     setWelcomed(true);
-    setNewOpen(true);
+    const preset = findPreset(new URLSearchParams(window.location.search).get('template') ?? '');
+    if (preset) void handleCreateRef.current(preset.build());
+    else setNewOpen(true);
   }, [ready, wantsNew]);
 
   const viewport = useRef<ViewportHandle>(null);
@@ -121,11 +139,10 @@ export function EditorShell() {
     if (h) toast.message(TOOLS.find((x) => x.id === t)?.label ?? '', { description: h, id: 'tool-hint', duration: 3500 });
   }, []);
   useShortcuts(toolPicked);
-  // "C" já é a Cota e "M" o Mezanino: Cômodo usa "A" (de ambiente) e Móveis usa "F".
+  // "C" já é a Cota e "M" o Mezanino: Cômodo usa "A" (de ambiente) e Móveis usa "F" (ver SHORTCUTS).
   useEffect(() => {
-    const keys: Record<string, Tool> = { a: 'room', f: 'furniture' };
     const onKey = (e: KeyboardEvent) => {
-      const tool = keys[e.key.toLowerCase()];
+      const tool = SHELL_TOOL_KEYS[e.key.toLowerCase()];
       if (!tool || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       if (isTyping(e.target) || document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
       useEditor.getState().setTool(tool);
@@ -134,6 +151,26 @@ export function EditorShell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [toolPicked]);
+
+  // "?" abre a lista de atalhos (fora de campos de texto e com nenhum diálogo aberto).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '?' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
+      e.preventDefault();
+      setShortcutsOpen(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Tour guiado na primeira abertura do editor (depois do assistente de novo projeto e do primeiro cálculo).
+  const calculated = !!model;
+  useEffect(() => {
+    if (!ready || showWelcome || newOpen || !calculated || !shouldAutoStart()) return;
+    const t = setTimeout(() => setTourOpen(true), 900);
+    return () => clearTimeout(t);
+  }, [ready, showWelcome, newOpen, calculated]);
 
   // Reenquadra a câmera quando o tamanho da edificação muda bastante (troca de tipologia, novo projeto, extras).
   const lastBox = useRef<number[] | null>(null);
@@ -163,6 +200,9 @@ export function EditorShell() {
     toast.success(`“${p.meta.name}” criado.`);
     setTimeout(() => viewport.current?.center(), 150);
   };
+
+  const handleCreateRef = useRef(handleCreate);
+  handleCreateRef.current = handleCreate;
 
   const closeNew = (open: boolean) => {
     if (open) return;
@@ -194,7 +234,7 @@ export function EditorShell() {
 
         <div className="flex min-h-0 flex-1">
           {/* Trilho de ferramentas */}
-          <nav aria-label="Ferramentas" className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-white py-2">
+          <nav aria-label="Ferramentas" data-tour="toolbar" className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-white py-2">
             {TOOLS.map(({ id, label, shortcut, icon: Icon }) => (
               <IconButton
                 key={id}
@@ -213,7 +253,7 @@ export function EditorShell() {
           </nav>
 
           {/* Propriedades */}
-          <aside aria-label="Propriedades" className="flex w-[19rem] shrink-0 flex-col border-r border-border bg-white">
+          <aside aria-label="Propriedades" data-tour="properties" className="flex w-[19rem] shrink-0 flex-col border-r border-border bg-white">
             <PropertiesPanel />
           </aside>
 
@@ -273,7 +313,7 @@ export function EditorShell() {
             </div>
 
             <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-1.5">
-              <div role="group" aria-label="Modo de visualização" className="flex items-center rounded-lg border border-border bg-white/90 p-0.5 shadow-float backdrop-blur">
+              <div role="group" aria-label="Modo de visualização" data-tour="modes" className="flex items-center rounded-lg border border-border bg-white/90 p-0.5 shadow-float backdrop-blur">
                 {MODES.map(({ id, label, hint, icon: Icon }) => {
                   const disabled = id === 'heatmap' && !hasStructure;
                   return (
@@ -322,7 +362,7 @@ export function EditorShell() {
           </main>
 
           {/* Painel direito redimensionável */}
-          <aside style={{ width }} className="relative flex shrink-0 flex-col border-l border-border bg-white">
+          <aside style={{ width }} data-tour="results" className="relative flex shrink-0 flex-col border-l border-border bg-white">
             <div
               {...handleProps}
               className={
@@ -336,7 +376,10 @@ export function EditorShell() {
 
         <footer className="flex h-7 shrink-0 items-center justify-between border-t border-border bg-white px-3">
           <ArtNotice />
-          <span className="hidden text-xs text-stone-400 tabular-nums sm:block">Unidades: metros · BRL</span>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-xs text-stone-400 tabular-nums sm:block">Unidades: metros · BRL</span>
+            <HelpMenu onShortcuts={() => setShortcutsOpen(true)} onTour={() => setTourOpen(true)} />
+          </div>
         </footer>
       </div>
 
@@ -357,6 +400,8 @@ export function EditorShell() {
         onCancel={() => setDrawingExtra(null)}
       />
 
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <Tour open={tourOpen} onClose={() => setTourOpen(false)} />
       <NewProjectDialog open={newOpen || showWelcome} onOpenChange={closeNew} onCreate={handleCreate} firstAccess={showWelcome} />
     </TooltipProvider>
   );
