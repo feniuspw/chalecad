@@ -258,7 +258,7 @@ export type CheckStatus = 'ok' | 'warn' | 'fail';
 
 export interface StructuralCheck {
   id: string;
-  kind: 'stud' | 'joist' | 'rafter' | 'header' | 'bracing' | 'anchorage' | 'soil' | 'purlin';
+  kind: 'stud' | 'gable_stud' | 'joist' | 'rafter' | 'header' | 'bracing' | 'anchorage' | 'soil' | 'purlin';
   label: string;
   /** Peças e hospedeiros afetados, para colorir no 3D. */
   pieceIds: string[];
@@ -275,6 +275,8 @@ export interface StructuralCheck {
     text: string;
     profileId?: string;
     studSpacing?: 0.4 | 0.6;
+    /** A-frame: espaçamento só dos caibros. */
+    rafterSpacing?: 0.4 | 0.6;
     deltaCost?: number;
     deltaKg?: number;
   };

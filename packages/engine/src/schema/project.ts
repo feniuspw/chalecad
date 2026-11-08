@@ -216,10 +216,20 @@ const DEFAULT_ASSEMBLIES = {
 export const System = z.object({
   structure: z.literal('lsf').default('lsf'),
   studSpacing: z.union([z.literal(0.4), z.literal(0.6)]).default(0.6),
+  /**
+   * A-frame: espaçamento próprio dos caibros (as águas apoiam no radier, não precisam seguir os montantes).
+   * Ausente = igual a `studSpacing`. Nas outras tipologias a estrutura é alinhada e este campo é ignorado.
+   */
+  rafterSpacing: z.union([z.literal(0.4), z.literal(0.6)]).optional(),
   profiles: z
     .object({
       wallStud: Id.default(DEFAULT_PROFILES.wallStud),
       wallTrack: Id.default(DEFAULT_PROFILES.wallTrack),
+      /**
+       * Montante só das empenas altas (paredes `gable`: frente e fundos do A-frame, empena da ala L/T).
+       * Ausente = mesmo perfil das outras paredes. Permite reforçar só onde precisa.
+       */
+      gableStud: Id.optional(),
       joist: Id.default(DEFAULT_PROFILES.joist),
       rafter: Id.default(DEFAULT_PROFILES.rafter),
       /** Terça/cartola para fixar a telha. */

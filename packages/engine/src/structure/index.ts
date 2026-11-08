@@ -219,7 +219,9 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
   for (const w of model.walls) {
     const wl = wallLoads.get(w.id);
     const studs = piecesOf(w.id, ['stud', 'stud_corner']);
-    if (!wl || studs.length === 0) continue;
+    // fachada envidraçada: quem resiste ao vento é a caixilharia (alerta de vidro de segurança)
+    if (!wl || studs.length === 0 || w.assemblyId === 'gable_glazed') continue;
+    const gable = w.kind === 'gable';
     const prof = profileFor(studs[0], project.system.profiles.wallStud);
     const L = studDesignLength(w, studs.map((p) => p.length));
     const G_ = wl.roof.dead + wl.own + (wl.floor?.dead ?? 0);
@@ -242,8 +244,8 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
     push(
       {
         id: `stud:${w.id}`,
-        kind: 'stud',
-        label: `Montantes da parede ${w.id} (${prof.id} a cada ${nf(spacing0, 1)} m)`,
+        kind: gable ? 'gable_stud' : 'stud',
+        label: `Montantes ${gable ? 'da empena' : 'da parede'} ${w.id} (${prof.id} a cada ${nf(spacing0, 1)} m)`,
         pieceIds: studs.map((p) => p.id),
         hostIds: [w.id],
         demand: e.N,
@@ -254,7 +256,8 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
           `N = ${nf(e.N)} kN; Nc,Rd = ${nf(e.cp.NcRd)} kN (χ = ${nf(e.cp.chi)}, λ0 = ${nf(e.cp.lambda0)}, L = ${nf(L)} m); ` +
           `M = ${nf(e.M)} kN·m; Mrd = ${nf(e.Mrd)} kN·m; N/Nc,Rd + M/Mrd = ${nf(e.ratio)} (combinação ${e.combo === 1 ? '1,4G + 1,5Q + 0,6·1,4W' : '1,4G + 0,5·1,5Q + 1,4W'})`,
       },
-      { pieces: studs, profile: prof, spacing: spacing0, ratioFn: (p, s) => evalStud(p, s).ratio, allowSpacing: true },
+      // empena: reforça só o perfil dela, sem mexer no espaçamento da casa toda
+      { pieces: studs, profile: prof, spacing: spacing0, ratioFn: (p, s) => evalStud(p, s).ratio, allowSpacing: !gable },
     );
   }
 
@@ -316,7 +319,9 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
         s,
       };
     };
-    const r = evalRafter(prof, spacing0);
+    const aFrame = project.typology.kind === 'a_frame';
+    const rafterSpacing0 = aFrame ? (project.system.rafterSpacing ?? spacing0) : spacing0;
+    const r = evalRafter(prof, rafterSpacing0);
     push(
       {
         id: 'rafter',
@@ -332,7 +337,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
           `Rege ${r.governs}; M = ${nf(r.M)} kN·m, Mrd = ${nf(r.Mrd)} kN·m (${nf(r.rM)}); V = ${nf(r.V)} kN, Vrd = ${nf(r.Vrd)} kN (${nf(r.rV)}); ` +
           `flecha = ${nf(r.delta)} cm, limite L/${c.deflection.roof} = ${nf(r.deltaLim)} cm (${nf(r.rD)})`,
       },
-      { pieces: rafters, profile: prof, spacing: spacing0, ratioFn: (p, sp) => evalRafter(p, sp).ratio, allowSpacing: true },
+      { pieces: rafters, profile: prof, spacing: rafterSpacing0, ratioFn: (p, sp) => evalRafter(p, sp).ratio, allowSpacing: true, spacingField: aFrame ? 'rafter' : 'stud' },
     );
   }
 

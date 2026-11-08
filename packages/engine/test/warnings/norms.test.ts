@@ -94,3 +94,50 @@ describe('alertas de norma', () => {
     expect(codes(r)).not.toContain('stair.blondel');
   });
 });
+
+describe('montante próprio das empenas', () => {
+  test('sem gableStud: empena reprovada sugere só perfil, sem mexer no espaçamento', () => {
+    const r = computeAll(base({}, { frontGable: 'closed' }), testCatalog);
+    const g = r.structure!.checks.filter((c) => c.kind === 'gable_stud');
+    expect(g.map((c) => c.hostIds[0]).sort()).toEqual(['ext-back', 'ext-front']);
+    const failing = g.find((c) => c.status === 'fail')!;
+    expect(failing.suggestion?.profileId).toBeDefined();
+    expect(failing.suggestion?.studSpacing).toBeUndefined();
+    // a empena envidraçada fica com a caixilharia: sem verificação de montante
+    const glazed = computeAll(base(), testCatalog).structure!.checks.filter((c) => c.kind === 'gable_stud');
+    expect(glazed.map((c) => c.hostIds[0])).toEqual(['ext-back']);
+  });
+
+  test('com gableStud: só as empenas usam o perfil maior (e a guia acompanha)', () => {
+    const p = base({ system: { profiles: { gableStud: 'Ue250x40x1.25' } } }, { frontGable: 'closed' });
+    const r = computeAll(p, testCatalog);
+    const front = r.pieces.filter((x) => x.hostId === 'ext-front');
+    expect(front.filter((x) => x.role === 'stud').every((x) => x.profileId === 'Ue250x40x1.25')).toBe(true);
+    const tracks = front.filter((x) => x.role === 'track_bottom');
+    expect(tracks.length).toBeGreaterThan(0);
+    expect(tracks.every((x) => x.profileId === 'U250x40x1.25')).toBe(true);
+    const side = r.pieces.filter((x) => x.hostId === 'annex-right-side' && x.role === 'stud');
+    expect(side.every((x) => x.profileId === 'Ue90x40x0.95')).toBe(true);
+    expect(r.structure!.checks.filter((c) => c.kind === 'gable_stud').every((c) => c.status !== 'fail')).toBe(true);
+  });
+});
+
+describe('espaçamento próprio dos caibros no A-frame', () => {
+  test('sugestão dos caibros muda só o espaçamento deles', () => {
+    const r = computeAll(base(), testCatalog);
+    const rafter = r.structure!.checks.find((c) => c.kind === 'rafter')!;
+    expect(rafter.status).toBe('fail');
+    expect(rafter.suggestion?.studSpacing).toBeUndefined();
+    if (rafter.suggestion?.rafterSpacing) expect(rafter.suggestion.text).toMatch(/espaçamento dos caibros/);
+  });
+
+  test('rafterSpacing 0,4: caibros do A-frame a 40 cm, paredes e anexo seguem a 60 cm', () => {
+    const p = base({ system: { rafterSpacing: 0.4 } });
+    const r = computeAll(p, testCatalog);
+    const ys = r.pieces.filter((x) => x.hostId === 'roof-b' && x.role === 'rafter').map((x) => x.start[1]).sort((a, b) => a - b);
+    expect(ys[1]! - ys[0]!).toBeCloseTo(0.4, 6);
+    const annex = r.pieces.filter((x) => x.hostId === 'annex-right-roof' && x.role === 'rafter').map((x) => x.start[1]).sort((a, b) => a - b);
+    expect(annex[1]! - annex[0]!).toBeCloseTo(0.6, 6);
+    expect(r.structure!.checks.find((c) => c.kind === 'rafter')!.label).toMatch(/a cada 0,4 m/);
+  });
+});

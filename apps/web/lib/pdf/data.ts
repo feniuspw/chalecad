@@ -250,6 +250,7 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
       items: [
         { label: 'Estrutura', value: 'Light Steel Frame (LSF), perfis de aço galvanizado' },
         { label: 'Montantes', value: profileName(catalog, sys.profiles.wallStud) },
+        ...(sys.profiles.gableStud ? [{ label: 'Montantes das empenas', value: profileName(catalog, sys.profiles.gableStud) }] : []),
         { label: 'Guias', value: profileName(catalog, sys.profiles.wallTrack) },
         { label: 'Vigas de piso', value: profileName(catalog, sys.profiles.joist) },
         { label: 'Caibros', value: profileName(catalog, sys.profiles.rafter) },

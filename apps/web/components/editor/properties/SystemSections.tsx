@@ -25,6 +25,8 @@ const profileOption = (p: Profile): Option<string> => ({
 });
 
 // Faixas de alma por uso (mm): montante de parede, viga de piso e caibro.
+/** Opção "igual às paredes" do montante das empenas (sem perfil próprio). */
+const SAME = '__same__';
 const WEB_RANGE = { wallStud: [90, 140], joist: [140, 250], rafter: [90, 200] } as const;
 
 function options(cat: Catalog, family: Profile['family'], range?: readonly [number, number], keep?: string): Option<string>[] {
@@ -56,6 +58,18 @@ export function SystemSection({ project }: { project: Project }) {
         onChange={(v) => update('Alterar espaçamento dos montantes', (d) => void (d.system.studSpacing = v))}
         hint={sys.studSpacing === 0.4 ? 'mais rígido, mais aço' : 'mais econômico'}
       />
+      {project.typology.kind === 'a_frame' ? (
+        <Segmented<0.4 | 0.6>
+          label="Espaçamento dos caibros"
+          value={sys.rafterSpacing ?? sys.studSpacing}
+          options={[
+            { value: 0.4, label: '40 cm' },
+            { value: 0.6, label: '60 cm' },
+          ]}
+          onChange={(v) => update('Alterar espaçamento dos caibros', (d) => void (d.system.rafterSpacing = v))}
+          hint="só as águas"
+        />
+      ) : null}
       <SelectField
         label="Perfil do montante"
         value={sys.profiles.wallStud}
@@ -71,6 +85,19 @@ export function SystemSection({ project }: { project: Project }) {
         }
       />
       <p className="-mt-2 text-[11px] text-stone-500">Guia: {sys.profiles.wallTrack} (acompanha o montante)</p>
+      {project.typology.kind === 'a_frame' || project.typology.kind === 'combined' ? (
+        <SelectField
+          label="Montante das empenas"
+          value={sys.profiles.gableStud ?? SAME}
+          options={[{ value: SAME, label: 'Igual às paredes' }, ...options(cat, 'Ue', [90, 250], sys.profiles.gableStud)]}
+          onChange={(id) =>
+            update('Alterar montante das empenas', (d) => {
+              if (id === SAME) delete d.system.profiles.gableStud;
+              else d.system.profiles.gableStud = id;
+            })
+          }
+        />
+      ) : null}
       <SelectField
         label="Perfil da viga do mezanino"
         value={sys.profiles.joist}

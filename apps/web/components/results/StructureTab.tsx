@@ -18,6 +18,7 @@ const STATUS: Record<CheckStatus, { label: string; bar: string; text: string; ic
 
 const KIND_LABEL: Record<StructuralCheck['kind'], string> = {
   stud: 'Montante',
+  gable_stud: 'Montante da empena',
   joist: 'Viga de piso',
   rafter: 'Caibro',
   header: 'Verga',

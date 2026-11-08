@@ -64,8 +64,6 @@ export function generateWalls(
   const c = catalog.constants;
   const sys = project.system;
   const stud = profileOf(catalog, sys.profiles.wallStud);
-  const fl = stud.flange / 1000;
-  const webM = stud.web / 1000;
   const s = sys.studSpacing;
 
   for (const w of model.walls) {
@@ -81,8 +79,13 @@ export function generateWalls(
     const P = (u: number, v: number): Vec3 => [w.from[0] + dx * u, w.from[1] + dy * u, w.baseZ + v];
     const glazed = w.assemblyId === 'gable_glazed';
     const openings = glazed ? [] : allOpenings;
-    const trackId = sys.profiles.wallTrack;
-    const studId = sys.profiles.wallStud;
+    // empenas podem ter montante próprio (reforço só onde precisa); a guia acompanha o montante
+    const own = w.kind === 'gable' && sys.profiles.gableStud ? profileOf(catalog, sys.profiles.gableStud) : stud;
+    const ownTrack = catalog.profiles.find((p) => p.family === 'U' && p.web === own.web && p.thickness === own.thickness);
+    const trackId = own === stud ? sys.profiles.wallTrack : (ownTrack?.id ?? sys.profiles.wallTrack);
+    const studId = own.id;
+    const fl = own.flange / 1000;
+    const webM = own.web / 1000;
     const exterior = w.exteriorSide !== null;
 
     // --- Painéis ---------------------------------------------------------

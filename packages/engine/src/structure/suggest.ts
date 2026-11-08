@@ -12,6 +12,8 @@ export interface SuggestSpec {
   currentRatio: number;
   /** Quando false só troca de perfil. */
   allowSpacing: boolean;
+  /** Qual espaçamento a sugestão muda: o da estrutura toda (padrão) ou só o dos caibros (A-frame). */
+  spacingField?: 'stud' | 'rafter';
 }
 
 /** R$/kg da barra de 6 m (ou a maior disponível) do perfil, pela base de preços do projeto. */
@@ -69,12 +71,14 @@ export function suggest(spec: SuggestSpec, project: Project, catalog: Catalog): 
 
   const spacingChanged = best.spacing !== spec.spacing;
   const profileChanged = best.profile.id !== cur.id;
+  const rafterOnly = spec.spacingField === 'rafter';
+  const spacingText = rafterOnly ? 'reduzir o espaçamento dos caibros para 0,4 m' : 'reduzir o espaçamento para 0,4 m';
   const what = profileChanged
-    ? `Trocar ${cur.id} por ${best.profile.id}${spacingChanged ? ' e reduzir o espaçamento para 0,4 m' : ''}`
-    : 'Reduzir o espaçamento para 0,4 m';
+    ? `Trocar ${cur.id} por ${best.profile.id}${spacingChanged ? ` e ${spacingText}` : ''}`
+    : spacingText.charAt(0).toUpperCase() + spacingText.slice(1);
   let text = `${what} deixa a taxa em ${nf(best.ratio)} (${signed(deltaKg)} kg, ${deltaCost >= 0 ? '+' : '-'}R$ ${nf(Math.abs(deltaCost), 0)})`;
   // O espaçamento é único no projeto (estrutura alinhada): muda também montantes e caibros.
-  if (spacingChanged) text += '. O espaçamento vale para toda a estrutura, então o custo total sobe mais que isso';
+  if (spacingChanged && !rafterOnly) text += '. O espaçamento vale para toda a estrutura, então o custo total sobe mais que isso';
   if (best.ratio >= warn) text += '. Ainda acima da faixa usual: revisar vão e apoios com o engenheiro';
 
   const out: NonNullable<StructuralCheck['suggestion']> = {
@@ -83,6 +87,9 @@ export function suggest(spec: SuggestSpec, project: Project, catalog: Catalog): 
     deltaCost: Math.round(deltaCost * 100) / 100,
   };
   if (profileChanged) out.profileId = best.profile.id;
-  if (spacingChanged) out.studSpacing = 0.4;
+  if (spacingChanged) {
+    if (rafterOnly) out.rafterSpacing = 0.4;
+    else out.studSpacing = 0.4;
+  }
   return out;
 }

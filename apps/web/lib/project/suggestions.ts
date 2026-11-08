@@ -12,12 +12,15 @@ export function suggestionRecipe(check: StructuralCheck): { label: string; recip
   const profile = s.profileId;
   const spacing = s.studSpacing;
   const hasProfile = profile !== undefined && getCatalog().profiles.some((p) => p.id === profile);
-  const field = check.kind === 'stud' ? 'wallStud' : check.kind === 'joist' ? 'joist' : check.kind === 'rafter' ? 'rafter' : check.kind === 'purlin' ? 'purlin' : null;
+  const field =
+    check.kind === 'stud' ? 'wallStud' : check.kind === 'gable_stud' ? 'gableStud' : check.kind === 'joist' ? 'joist' : check.kind === 'rafter' ? 'rafter' : check.kind === 'purlin' ? 'purlin' : null;
   const applyProfile = hasProfile && field !== null;
-  if (!applyProfile && spacing === undefined) return null;
+  const rafterSpacing = s.rafterSpacing;
+  if (!applyProfile && spacing === undefined && rafterSpacing === undefined) return null;
   const parts: string[] = [];
-  if (applyProfile) parts.push(profile!);
+  if (applyProfile) parts.push(field === 'gableStud' ? `${profile!} só nas empenas` : profile!);
   if (spacing !== undefined) parts.push(`montantes a cada ${formatNumber(spacing * 100, 0)} cm`);
+  if (rafterSpacing !== undefined) parts.push(`caibros a cada ${formatNumber(rafterSpacing * 100, 0)} cm`);
   return {
     label: parts.join(' + '),
     recipe: (d) => {
@@ -29,6 +32,7 @@ export function suggestionRecipe(check: StructuralCheck): { label: string; recip
         }
       }
       if (spacing !== undefined) d.system.studSpacing = spacing;
+      if (rafterSpacing !== undefined) d.system.rafterSpacing = rafterSpacing;
     },
   };
 }

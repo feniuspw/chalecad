@@ -19,6 +19,7 @@ export const STATUS_LABEL = { ok: 'Dentro da faixa', warn: 'Atenção', fail: 'R
 
 export const CHECK_KIND_LABEL: Record<string, string> = {
   stud: 'Montante',
+  gable_stud: 'Montante da empena',
   joist: 'Viga de piso',
   rafter: 'Caibro',
   header: 'Verga',

@@ -47,7 +47,10 @@ function tryOpening(p: Project, o: Opening, catalog: Catalog): Project | null {
   });
   if (overlappingOpenings(next, o.id).length > 0) return null;
   const valid = buildModel(next, catalog).openings.find((x) => x.id === o.id)?.valid ?? false;
-  return valid ? next : null;
+  if (!valid) return null;
+  // não troca um problema por outro: a verga do vão novo precisa passar
+  const header = computeAll(next, catalog).structure?.checks.find((c) => c.kind === 'header' && c.hostIds.includes(fit.host) && c.status === 'fail');
+  return header ? null : next;
 }
 
 /** Hospedeiros onde cabe janela, por volume (o mesmo critério dos alertas de iluminação). */
@@ -91,8 +94,14 @@ export function planNormFixes(input: Project, catalog: Catalog = getCatalog(), i
   // relata o resultado final (várias verificações podem ter mexido no mesmo perfil)
   const a0 = input.system;
   const a1 = p.system;
-  for (const [field, label] of [['wallStud', 'Montantes'], ['joist', 'Vigas do mezanino'], ['rafter', 'Caibros'], ['purlin', 'Terças']] as const) {
-    if (a0.profiles[field] !== a1.profiles[field]) changes.push({ label, detail: `${a0.profiles[field]} → ${a1.profiles[field]}` });
+  for (const [field, label] of [['wallStud', 'Montantes'], ['gableStud', 'Montantes das empenas'], ['joist', 'Vigas do mezanino'], ['rafter', 'Caibros'], ['purlin', 'Terças']] as const) {
+    const was = a0.profiles[field] ?? (field === 'gableStud' ? a0.profiles.wallStud : undefined);
+    if (a1.profiles[field] !== undefined && was !== a1.profiles[field]) changes.push({ label, detail: `${was} → ${a1.profiles[field]}` });
+  }
+  const r0 = a0.rafterSpacing ?? a0.studSpacing;
+  const r1 = a1.rafterSpacing ?? a1.studSpacing;
+  if (a1.rafterSpacing !== undefined && r0 !== r1) {
+    changes.push({ label: 'Espaçamento dos caibros', detail: `${fmt(r0 * 100, 0)} → ${fmt(r1 * 100, 0)} cm (só as águas do A-frame)` });
   }
   if (a0.studSpacing !== a1.studSpacing) {
     changes.push({ label: 'Espaçamento da estrutura', detail: `${fmt(a0.studSpacing * 100, 0)} → ${fmt(a1.studSpacing * 100, 0)} cm (montantes, caibros e vigas)` });
@@ -144,7 +153,7 @@ export function planNormFixes(input: Project, catalog: Catalog = getCatalog(), i
     let added = 0;
     for (const o of p.openings.filter((x) => x.type === 'window' && hosts.includes(x.host))) {
       const len = hostLength(p, o.host) ?? o.width;
-      const width = Math.min(2.0, Math.max(o.width, len - 0.6));
+      const width = Math.min(1.5, Math.max(o.width, len - 0.6));
       const bigger: Opening = { ...o, width: round(width, 2), offset: round(Math.max(0.3, o.offset - (width - o.width) / 2), 2), height: Math.max(o.height, 1.2), sill: Math.min(o.sill, 0.9) };
       const next = tryOpening(p, bigger, catalog);
       if (next) {
@@ -156,17 +165,17 @@ export function planNormFixes(input: Project, catalog: Catalog = getCatalog(), i
       if (!short()) break;
       const len = hostLength(p, host);
       if (len === null) continue;
-      for (let off = 0.3; off + 1.2 <= len - 0.3 + 1e-6 && short(); off += 0.3) {
-        const next = tryOpening(p, { id: ids('o'), host, type: 'window', offset: round(off, 2), width: 1.2, height: 1.2, sill: 0.9 }, catalog);
+      for (let off = 0.3; off + 1.0 <= len - 0.3 + 1e-6 && short(); off += 0.3) {
+        const next = tryOpening(p, { id: ids('o'), host, type: 'window', offset: round(off, 2), width: 1.0, height: 1.2, sill: 0.9 }, catalog);
         if (next) {
           p = next;
           added++;
-          off += 1.2;
+          off += 1.0;
         }
       }
     }
     if (enlarged || added) {
-      const parts = [enlarged ? `${enlarged} janela(s) ampliada(s)` : '', added ? `${added} janela(s) nova(s) de 1,2 × 1,2 m` : ''].filter(Boolean);
+      const parts = [enlarged ? `${enlarged} janela(s) ampliada(s)` : '', added ? `${added} janela(s) nova(s) de 1,0 × 1,2 m` : ''].filter(Boolean);
       changes.push({ label: zone, detail: parts.join(' e ') });
     }
   }

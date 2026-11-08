@@ -97,6 +97,7 @@ export function EngineerPackageView({ pkg }: { pkg: EngineerPackage }) {
           <Fact label="Telhado" value={formatArea(s.areas.roof)} />
           <Fact label="Radier" value={`${formatArea(s.areas.radier)} · ${formatNumber(s.foundation.thickness * 100, 0)} cm`} />
           <Fact label="Montantes" value={`${s.profiles.wallStud ?? '–'} a cada ${formatNumber(s.studSpacing * 100, 0)} cm`} />
+          {s.profiles.gableStud ? <Fact label="Montantes das empenas" value={s.profiles.gableStud} /> : null}
           <Fact label="Contraventamento" value={s.bracing} />
           <Fact label="Aço" value={formatKg(s.steelKg)} />
           <Fact label="Peso total" value={formatKg(s.totalWeightKg)} />

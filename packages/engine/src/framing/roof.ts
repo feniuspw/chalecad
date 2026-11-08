@@ -5,7 +5,7 @@ import type { BuildingModel, RoofPlane } from '../schema/results';
 import { slopedFrame } from '../model/sloped';
 import { annexGeometry } from '../model/annex';
 import { complexFramers, framePlane } from './complex';
-import { PieceSink, profileOf, uVariant } from './util';
+import { PieceSink, profileOf, rafterSpacingOf, uVariant } from './util';
 
 export type RoofFramer = (model: BuildingModel, project: Project, catalog: Catalog, sink: PieceSink) => void;
 
@@ -38,7 +38,9 @@ const twoPlaneFramer: RoofFramer = (model, project, catalog, sink) => {
   const L = ref.uLength - 2 * rake;
   const ls: number[] = [];
   // Estrutura alinhada (in-line framing): caibros sobre os montantes, nunca mais espaçados que o catálogo permite.
-  const spacing = Math.min(c.roof.rafterSpacing, sys.studSpacing);
+  // No A-frame as águas apoiam no radier e podem ter espaçamento próprio; os anexos seguem os montantes.
+  const spacing = rafterSpacingOf(project, catalog);
+  const annexSpacing = Math.min(c.roof.rafterSpacing, sys.studSpacing);
   for (let k = 0; k * spacing < L - 0.02; k++) ls.push(k * spacing);
   ls.push(L);
 
@@ -94,7 +96,7 @@ const twoPlaneFramer: RoofFramer = (model, project, catalog, sink) => {
         purlinCuts: (v) => (v * cos > outside + 1e-6 ? [[-e, 0], [len, len + e]] : []),
       },
       catalog,
-      spacing,
+      annexSpacing,
       sys.profiles.purlin,
       rafter.id,
       sink,

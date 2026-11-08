@@ -1,6 +1,7 @@
 import type { Catalog, Profile } from '@chalecad/catalog';
 import { length3, type Vec3 } from '../geometry';
 import type { Piece, PieceRole } from '../schema/results';
+import type { Project } from '../schema/project';
 
 /** Tolerância geométrica: peças menores que isto (m) não são geradas. */
 export const MIN_LEN = 0.02;
@@ -49,4 +50,11 @@ export function subtractIntervals(lo: number, hi: number, cuts: [number, number]
     out = next;
   }
   return out.filter(([a, b]) => b - a > 1e-9);
+}
+
+/** Espaçamento dos caibros: A-frame pode ter o seu (águas no radier); nas demais, alinhado aos montantes. */
+export function rafterSpacingOf(project: Project, catalog: Catalog): number {
+  const sys = project.system;
+  const own = project.typology.kind === 'a_frame' ? (sys.rafterSpacing ?? sys.studSpacing) : sys.studSpacing;
+  return Math.min(catalog.constants.roof.rafterSpacing, own);
 }
