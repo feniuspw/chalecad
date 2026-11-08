@@ -1,6 +1,7 @@
 /** Planta baixa por nível em SVG, gerada a partir do `BuildingModel` (funções puras). */
 import type { BuildingModel, HostWall, Project, ResolvedOpening, ResolvedStair, Vec2 } from '@chalecad/engine';
 import { fmt } from '../project/format';
+import { ROOM_FILL, roomLabel, roomLabelPoint } from './rooms';
 import { ACCENT, GUIDE, INK, MUTED, esc, group, hDim, line, meters, n2, northArrow, poly, rect, scaleBar, svgDocument, tag, text, vDim, type SvgDoc } from './svg';
 
 export interface PlanLevel {
@@ -146,6 +147,26 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
       );
     }
   }
+
+  // Cômodos: preenchimento suave por uso (sob as paredes) e rótulo "Nome · área" no ponto mais interno.
+  const roomLayers: string[] = [];
+  for (const r of (model.rooms ?? []).filter((x) => x.level === level.id && x.polygon && x.polygon.length >= 3)) {
+    const { point, radius } = roomLabelPoint(r.polygon!);
+    const c = P(point);
+    const label = roomLabel(r);
+    const fits = label.length * 4.4 <= radius * 2 * S;
+    const t = { 'font-size': 8.5, fill: INK, stroke: '#fff', 'stroke-width': 2.5, 'paint-order': 'stroke' } as const;
+    roomLayers.push(
+      group(
+        poly(r.polygon!.map(P), { fill: ROOM_FILL[r.use], 'fill-opacity': 0.55, stroke: 'none' }) +
+          (fits
+            ? text(c[0], c[1] + 3, label, t)
+            : text(c[0], c[1] - 2, r.name, { ...t, 'font-weight': 700 }) + text(c[0], c[1] + 9, `${fmt(r.area, 1)} m²`, t)),
+        { 'data-role': 'room', 'data-id': r.id },
+      ),
+    );
+  }
+  layers.push(...roomLayers);
 
   // Paredes de níveis abaixo (contexto), em cinza.
   for (const w of ghosts) layers.push(poly(wallPolygon(w).map(P), { fill: '#f5f5f4', stroke: GUIDE, 'stroke-width': 0.6, 'data-role': 'wall-below' }));

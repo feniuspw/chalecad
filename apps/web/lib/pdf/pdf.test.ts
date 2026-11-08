@@ -60,3 +60,41 @@ describe('PDF', () => {
     expect(buf.byteLength).toBeGreaterThan(20_000);
   }, 60_000);
 });
+
+describe('tabela de cômodos', () => {
+  const withRoom = {
+    ...project,
+    rooms: [
+      { id: 'r-aaaaaaaa', level: project.levels[0]!.id, use: 'bedroom' as const, seed: [1, 1] as [number, number], floor: 'finish_floor_vinyl', walls: 'finish_wall_paint' },
+      { id: 'r-bbbbbbbb', level: project.levels[0]!.id, use: 'bathroom' as const, seed: [2, 2] as [number, number] },
+    ],
+  };
+  const res = {
+    ...results,
+    model: {
+      ...results.model,
+      rooms: [
+        {
+          id: 'r-aaaaaaaa', level: project.levels[0]!.id, use: 'bedroom' as const, name: 'Quarto', polygon: [[0, 0], [3, 0], [3, 3], [0, 3]] as [number, number][],
+          edges: [], area: 9, perimeter: 12, ceiling: { min: 2.5, avg: 2.7, max: 2.9 }, glazing: 1, openingIds: [], wet: false,
+        },
+      ],
+    },
+  };
+
+  it('uma linha por cômodo, com área, pé-direito médio, piso e paredes', () => {
+    const data = buildPdfData(withRoom, res, { now: new Date('2026-11-07T12:00:00Z') });
+    expect(data.rooms).toHaveLength(2);
+    expect(data.rooms[0]).toMatchObject({ name: 'Quarto', use: 'Quarto', area: '9,00 m²', ceilingAvg: '2,70 m' });
+    expect(data.rooms[0]!.floor).toContain('vinílico');
+    expect(data.rooms[0]!.walls).toContain('Pintura');
+    expect(data.rooms[1]).toMatchObject({ area: 'aberto', walls: 'Sem revestimento' });
+    expect(data.premises.some((g) => g.group === 'Cômodos')).toBe(true);
+  });
+
+  it('sem cômodos, nada muda', () => {
+    const data = buildPdfData(project, results);
+    expect(data.rooms).toEqual([]);
+    expect(data.premises.some((g) => g.group === 'Cômodos')).toBe(false);
+  });
+});

@@ -11,7 +11,7 @@ import {
 
 const toVec2 = (pts: V2[]) => pts.map(([x, y]) => new THREE.Vector2(x, y));
 
-function makeShape(outline: V2[], holes: V2[][]): THREE.Shape {
+export function makeShape(outline: V2[], holes: V2[][]): THREE.Shape {
   const shape = new THREE.Shape(toVec2(outline));
   for (const h of holes) shape.holes.push(new THREE.Path(toVec2(h)));
   return shape;

@@ -14,6 +14,7 @@ import type { Selection } from '@/lib/store/types';
 import { BuildingView } from './BuildingView';
 import { CameraRig } from './CameraRig';
 import { ExtrasView } from './ExtrasView';
+import { FinishesView } from './FinishesView';
 import { MotorGroup } from './MotorGroup';
 import { planClipPlane, PlanOverlay } from './PlanOverlay';
 import { useSceneInfo } from './sceneInfo';
@@ -146,7 +147,23 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
         onSelectHost={(id) => select(selectionFromHost(id, model, project))}
         selectedOpeningId={selectedOpeningId}
         onSelectOpening={(id) => select({ kind: 'opening', id })}
+        finishes={project.finishes}
       />
+
+      {!plan && (model.rooms.length > 0 || project.finishes.interiorRoof) ? (
+        <MotorGroup>
+          <FinishesView
+            model={model}
+            rooms={project.rooms}
+            finishes={project.finishes}
+            mode={viewMode}
+            clip={clip}
+            hoverable={selectingEnabled}
+            selectedRoomId={selection?.kind === 'room' ? selection.id : null}
+            onSelectRoom={(id) => select({ kind: 'room', id })}
+          />
+        </MotorGroup>
+      ) : null}
 
       {(structural || exploded) && pieces && pieces.length > 0 ? (
         <MotorGroup>
