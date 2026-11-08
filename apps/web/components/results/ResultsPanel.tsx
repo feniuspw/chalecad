@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState, type ReactNode } from 'react';
-import { ChevronDown, Download, FileJson, FileSpreadsheet, Loader2, Sparkles, TriangleAlert } from 'lucide-react';
+import { ChevronDown, Download, FileJson, FileSpreadsheet, HardHat, Loader2, Sparkles, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tabs, TabsContent, TabsList, TabsTrigger, cn } from '@chalecad/ui';
 import type { Results, Severity } from '@chalecad/engine';
@@ -19,6 +19,7 @@ import { MaterialsTab } from './MaterialsTab';
 import { PricesTab } from './PricesTab';
 import { StructureTab } from './StructureTab';
 import { SummaryTab } from './SummaryTab';
+import { WorkTab } from './WorkTab';
 
 const COUNT_STYLE: Record<Severity, string> = {
   error: 'bg-fail text-white',
@@ -139,6 +140,9 @@ export function ResultsPanel() {
               Estrutura
             </Tab>
             {installationsOn ? <Tab value="installations">Instalações</Tab> : null}
+            <Tab value="work">
+              <HardHat className="size-3.5" /> Obra
+            </Tab>
             <Tab value="analyst">
               <Sparkles className="size-3.5 text-accent" /> Analista
             </Tab>
@@ -176,6 +180,11 @@ export function ResultsPanel() {
               </Scroll>
             </TabsContent>
           ) : null}
+          <TabsContent value="work" className="flex min-h-0 flex-1 flex-col">
+            <Scroll>
+              <WorkTab results={results} />
+            </Scroll>
+          </TabsContent>
           <TabsContent value="analyst" className="flex min-h-0 flex-1 flex-col">
             <AnalystPanel />
           </TabsContent>

@@ -7,6 +7,7 @@ import { DISCLAIMER, buildEngineerPackage, type BudgetLine, type EngineerPackage
 import { finishName, ROOM_USES } from '../project/rooms';
 import { circuitRows, INSTALLATIONS_NOTICE, pipeTotals, wireTotals } from '../three/installations';
 import { BRACING_LABELS, STAGE_ORDER, SYSTEM_LABELS, SYSTEM_PREMISES, TYPOLOGY_LABELS, stageLabel } from './labels';
+import { buildWorkPdf, type WorkPdf } from './work';
 import { brl, brl0, dateBR, isoToBR, num, qty } from './format';
 
 export interface Kpi {
@@ -81,6 +82,8 @@ export interface PdfData {
   rooms: RoomRow[];
   /** Seção "Instalações (estimativa)"; null quando não há relatório. */
   installations: InstallationsPdf | null;
+  /** Página "Cronograma e compras"; null sem data de início nem compras marcadas. */
+  work: WorkPdf | null;
   materials: MaterialStage[];
   budget: {
     rows: BudgetRow[];
@@ -395,6 +398,7 @@ export function buildPdfData(project: Project, results: Results, opts: { catalog
     dimensions,
     rooms,
     installations: buildInstallationsPdf(results),
+    work: buildWorkPdf(project, results, { catalog }),
     materials,
     budget: { rows, totals, schedule },
     alerts,
