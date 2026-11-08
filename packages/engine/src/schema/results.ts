@@ -148,7 +148,7 @@ export interface ResolvedStair {
 /** Extras fora da edificação (muro, cerca, deck, arrimo), para o 3D e quantitativos. */
 export interface ExtraModel {
   id: string;
-  kind: 'fence' | 'wall' | 'deck' | 'retaining';
+  kind: 'fence' | 'wall' | 'deck' | 'retaining' | 'water_tower';
   /** Segmentos verticais em planta (muro, cerca, arrimo, mureta, guarda-corpo do deck). */
   segments: { from: Vec2; to: Vec2; height: number; thickness: number; baseZ: number; material: 'block' | 'mesh' | 'board' | 'gabion' | 'concrete' | 'rail' }[];
   /** Mourões/postes da cerca e pilares do deck coberto. */
@@ -158,6 +158,9 @@ export interface ExtraModel {
   topZ?: number;
   /** Deck coberto: água de cobertura. */
   roof?: RoofPlane;
+  /** Torre da caixa d'água: águas do telhado próprio, plataforma e a caixa (cilindro). */
+  roofs?: RoofPlane[];
+  tank?: { position: Vec2; baseZ: number; radius: number; height: number; liters: number };
 }
 
 export interface BuildingModel {

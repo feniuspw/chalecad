@@ -14,6 +14,7 @@ export const EXTRA_ICONS: Record<ExtraKind, ComponentType<{ className?: string }
   wall: BrickWall,
   fence: Fence,
   retaining: Mountain,
+  water_tower: Mountain,
 };
 
 const ADD: { kind: ExtraKind; label: string; hint: string }[] = [

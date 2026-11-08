@@ -405,7 +405,25 @@ export const RetainingExtra = z.object({
   drainage: z.boolean().default(true),
 });
 
-export const Extra = z.discriminatedUnion('kind', [FenceExtra, WallExtra, DeckExtra, RetainingExtra]);
+/**
+ * Torre da caixa d'água: volume pequeno que atravessa o telhado e eleva a caixa acima dos chuveiros do mezanino
+ * (NBR 5626: pressão mínima no ponto de uso). Estrutura própria (4 montantes), fechamento e telhado próprios.
+ */
+export const WaterTowerExtra = z.object({
+  id: Id,
+  kind: z.literal('water_tower'),
+  /** Centro da torre em planta (normalmente sobre o banheiro). */
+  position: Vec2,
+  width: len(1, 3).default(1.6),
+  depth: len(1, 3).default(1.6),
+  /** Cota do piso da caixa d'água (m, a partir do térreo). */
+  platformZ: len(2, 10).default(5),
+  /** Caixa d'água abrigada (L). Ausente = a caixa das instalações (ou 1.000 L). */
+  tankLiters: z.number().int().min(100).max(5000).optional(),
+  roof: z.enum(['gable', 'shed', 'flat']).default('gable'),
+});
+
+export const Extra = z.discriminatedUnion('kind', [FenceExtra, WallExtra, DeckExtra, RetainingExtra, WaterTowerExtra]);
 export type Extra = z.infer<typeof Extra>;
 
 // ---------------------------------------------------------------------------

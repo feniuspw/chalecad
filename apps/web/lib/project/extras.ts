@@ -14,6 +14,7 @@ export const EXTRA_LABELS: Record<ExtraKind, string> = {
   wall: 'Muro',
   fence: 'Cerca',
   retaining: 'Muro de arrimo',
+  water_tower: "Torre da caixa d'água",
 };
 
 export const SIDE_LABELS = { front: 'Frente', back: 'Fundos', left: 'Esquerda', right: 'Direita' } as const;
@@ -112,6 +113,8 @@ export function duplicateExtra(draft: Project, id: string, ids: IdGen = newId): 
   if (copy.kind === 'deck') {
     const len = sideLength(draft, copy.side);
     copy.offset = round(clamp(copy.offset + (copy.length ?? len) + 0.2, 0, Math.max(0, len - 1)), 2);
+  } else if (copy.kind === 'water_tower') {
+    copy.position = [round(copy.position[0] + 1, 2), round(copy.position[1] + 1, 2)];
   } else {
     copy.path = copy.path.map(([x, y]) => [round(x + 1, 2), round(y + 1, 2)] as Vec2);
   }
@@ -175,6 +178,8 @@ export function extraSummary(e: Extra): { title: string; detail: string } {
       return { title: EXTRA_LABELS.fence, detail: `${f(pathLength(e.path, e.closed), 0)} m · ${f(e.height)} m de altura` };
     case 'retaining':
       return { title: EXTRA_LABELS.retaining, detail: `${f(pathLength(e.path, false), 0)} m · ${f(e.height)} m de altura` };
+    case 'water_tower':
+      return { title: EXTRA_LABELS.water_tower, detail: `${f(e.width)} × ${f(e.depth)} m · caixa a ${f(e.platformZ)} m` };
   }
 }
 

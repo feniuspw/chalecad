@@ -252,6 +252,9 @@ export function buildExtraModels(project: Project, x: ExtrasConstants): ExtraMod
         return deckModel(project, e, x);
       case 'retaining':
         return retainingModel(e, x);
+      case 'water_tower':
+        // Geometria da torre: card F11-E1. Até lá, só a área em planta (sem paredes nem telhado).
+        return { id: e.id, kind: 'water_tower', segments: [], posts: [] };
     }
   });
 }
