@@ -142,7 +142,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
   const [kind, setKind] = useState<TemplateKind>('gable_mezzanine');
   const [params, setParams] = useState<TemplateParams>(DEFAULT_PARAMS.gable_mezzanine);
   const [nameTouched, setNameTouched] = useState(false);
-  const [tab, setTab] = useState<'wizard' | 'models' | 'scratch'>('models');
+  const [tab, setTab] = useState<'wizard' | 'models' | 'scratch'>('wizard');
   const [presetId, setPresetId] = useState<string>(PRESETS[0]!.id);
   const [presetName, setPresetName] = useState<string>(PRESETS[0]!.name);
   const nameId = useId();
@@ -155,10 +155,9 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
       setKind('gable_mezzanine');
       setParams(DEFAULT_PARAMS.gable_mezzanine);
       setNameTouched(false);
-      // A lista vazia de projetos pede o assistente "Me ajude a montar" (o editor limpa a URL, então vai por sessionStorage).
-      const wantsWizard = typeof window !== 'undefined' && (window.sessionStorage.getItem(WIZARD_FLAG) === '1' || new URLSearchParams(window.location.search).get('wizard') === '1');
+      // O assistente "Me ajude a montar" é a porta de entrada (público leigo); a flag da lista vazia é só limpa.
       if (typeof window !== 'undefined') window.sessionStorage.removeItem(WIZARD_FLAG);
-      setTab(wantsWizard ? 'wizard' : 'models');
+      setTab('wizard');
       setPresetId(PRESETS[0]!.id);
       setPresetName(PRESETS[0]!.name);
     }

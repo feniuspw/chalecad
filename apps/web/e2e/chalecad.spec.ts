@@ -123,8 +123,8 @@ test('9b. "Novo projeto" em /projetos abre o assistente', async ({ page }) => {
   await expect(page).toHaveURL(/\/editor/);
   const dlg = page.getByRole('dialog');
   await expect(dlg.getByText('Novo projeto')).toBeVisible();
-  // F8-W2: o diálogo abre em "Modelos prontos"; o assistente fica em "Do zero".
-  await expect(dlg.getByRole('tab', { name: 'Modelos prontos' })).toHaveAttribute('aria-selected', 'true');
+  // F11-W1: o diálogo abre no assistente "Me ajude a montar"; o passo a passo técnico fica em "Do zero".
+  await expect(dlg.getByRole('tab', { name: 'Me ajude a montar' })).toHaveAttribute('aria-selected', 'true');
   await dlg.getByRole('tab', { name: 'Do zero' }).click();
   await expect(dlg.getByRole('radio', { name: /A-frame/ })).toBeVisible();
 });
