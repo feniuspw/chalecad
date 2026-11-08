@@ -52,6 +52,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'orbit', group: 'Vista', context: 'editor', keys: ['Arrastar'], label: 'Girar a câmera (3D)', mouse: true },
   { id: 'pan', group: 'Vista', context: 'editor', keys: ['Botão direito + arrastar'], label: 'Deslocar a vista', mouse: true },
   { id: 'zoom', group: 'Vista', context: 'editor', keys: ['Roda'], label: 'Aproximar e afastar (até o cursor)', mouse: true },
+  { id: 'panel-left', group: 'Vista', context: 'editor', keys: ['['], label: 'Recolher/mostrar Propriedades' },
+  { id: 'panel-right', group: 'Vista', context: 'editor', keys: [']'], label: 'Recolher/mostrar Resultados' },
+  { id: 'panel-both', group: 'Vista', context: 'editor', keys: ['\\'], label: 'Esconder/mostrar os dois painéis (só o 3D)' },
 
   // Móveis
   { id: 'furn-rotate', group: 'Móveis', context: 'furniture', keys: ['R'], label: 'Girar 90° o móvel em colocação ou selecionado' },

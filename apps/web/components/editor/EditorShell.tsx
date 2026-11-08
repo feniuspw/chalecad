@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, LayoutPanelTop, Loader2, LocateFixed, MousePointer2, Ruler, RulerDimensionLine, Sofa, Sun, Wrench } from 'lucide-react';
+import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, LayoutPanelTop, Loader2, LocateFixed, MousePointer2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Ruler, RulerDimensionLine, Sofa, Sun, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { IconButton, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@chalecad/ui';
 import { ArtNotice } from '@/components/ArtNotice';
@@ -29,6 +29,7 @@ import { PropertiesPanel } from './properties/PropertiesPanel';
 import { ResultsPanel } from '@/components/results/ResultsPanel';
 import { TopBar } from './TopBar';
 import { useResizablePanel } from './useResizablePanel';
+import { usePanelVisibility } from './usePanelVisibility';
 import { ValidationBanner } from './ValidationBanner';
 
 const TOOLS: { id: Tool; label: string; shortcut: string; icon: typeof MousePointer2 }[] = (
@@ -96,6 +97,7 @@ export function EditorShell() {
   const viewport = useRef<ViewportHandle>(null);
   const [view, setView] = useState<ViewPreset>('3d');
   const { width, dragging, handleProps } = useResizablePanel({ initial: 340, min: 280, max: 560 });
+  const { panels, toggle: togglePanel } = usePanelVisibility();
 
   const model = useEditor((s) => s.results?.model);
   const tool = useEditor((s) => s.tool);
@@ -151,6 +153,19 @@ export function EditorShell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [toolPicked]);
+
+  // "[" recolhe Propriedades, "]" recolhe Resultados, "\" esconde os dois (mais área para o 3D).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const which = e.key === '[' ? 'left' : e.key === ']' ? 'right' : e.key === '\\' ? 'both' : null;
+      if (!which || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
+      e.preventDefault();
+      togglePanel(which);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [togglePanel]);
 
   // "?" abre a lista de atalhos (fora de campos de texto e com nenhum diálogo aberto).
   useEffect(() => {
@@ -253,7 +268,7 @@ export function EditorShell() {
           </nav>
 
           {/* Propriedades */}
-          <aside aria-label="Propriedades" data-tour="properties" className="flex w-[19rem] shrink-0 flex-col border-r border-border bg-white">
+          <aside aria-label="Propriedades" data-tour="properties" hidden={!panels.left} className="flex w-[19rem] shrink-0 flex-col border-r border-border bg-white">
             <PropertiesPanel />
           </aside>
 
@@ -281,7 +296,9 @@ export function EditorShell() {
             {model && viewMode === 'presentation' ? <SunPanel /> : null}
             {model && tool === 'furniture' && viewMode !== 'presentation' ? <FurnitureLibrary /> : null}
 
-            <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between">
+            <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+              <div className="flex items-start gap-1.5">
+                <PanelToggle side="left" open={panels.left} onClick={() => togglePanel('left')} />
               {model ? (
                 <div className="pointer-events-auto rounded-lg border border-border bg-white/90 px-3 py-1.5 text-xs text-stone-600 shadow-float backdrop-blur tabular-nums">
                   <span className="font-medium text-stone-900">
@@ -292,10 +309,10 @@ export function EditorShell() {
                   <span className="mx-2 text-stone-300">|</span>
                   cumeeira {fmt(model.ridgeHeight, 2)} m
                 </div>
-              ) : (
-                <span />
-              )}
+              ) : null}
+              </div>
 
+              <div className="flex items-start gap-1.5">
               <div role="group" aria-label="Vistas" className="pointer-events-auto flex items-center rounded-lg border border-border bg-white/90 p-0.5 shadow-float backdrop-blur">
                 {VIEWS.map((v) => (
                   <button
@@ -309,6 +326,8 @@ export function EditorShell() {
                     {v.label}
                   </button>
                 ))}
+              </div>
+                <PanelToggle side="right" open={panels.right} onClick={() => togglePanel('right')} />
               </div>
             </div>
 
@@ -362,7 +381,7 @@ export function EditorShell() {
           </main>
 
           {/* Painel direito redimensionável */}
-          <aside style={{ width }} data-tour="results" className="relative flex shrink-0 flex-col border-l border-border bg-white">
+          <aside style={{ width }} data-tour="results" hidden={!panels.right} className="relative flex shrink-0 flex-col border-l border-border bg-white">
             <div
               {...handleProps}
               className={
@@ -404,5 +423,29 @@ export function EditorShell() {
       <Tour open={tourOpen} onClose={() => setTourOpen(false)} />
       <NewProjectDialog open={newOpen || showWelcome} onOpenChange={closeNew} onCreate={handleCreate} firstAccess={showWelcome} />
     </TooltipProvider>
+  );
+}
+
+/** Botão de recolher/mostrar um painel lateral (atalhos `[` e `]`; `\\` alterna os dois). */
+function PanelToggle({ side, open, onClick }: { side: 'left' | 'right'; open: boolean; onClick: () => void }) {
+  const label = side === 'left' ? (open ? 'Recolher propriedades' : 'Mostrar propriedades') : open ? 'Recolher resultados' : 'Mostrar resultados';
+  const Icon = side === 'left' ? (open ? PanelLeftClose : PanelLeftOpen) : open ? PanelRightClose : PanelRightOpen;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={label}
+          aria-pressed={!open}
+          className="pointer-events-auto grid size-8 place-items-center rounded-lg border border-border bg-white/90 text-stone-600 shadow-float backdrop-blur transition-colors outline-none hover:text-stone-900 focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          <Icon className="size-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {label} <kbd className="ml-1 opacity-70">{side === 'left' ? '[' : ']'}</kbd>
+      </TooltipContent>
+    </Tooltip>
   );
 }
