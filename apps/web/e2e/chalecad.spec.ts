@@ -121,13 +121,19 @@ test('9b. "Novo projeto" em /projetos abre o assistente', async ({ page }) => {
   await page.goto('/projetos');
   await page.getByRole('link', { name: /Novo projeto/ }).first().click();
   await expect(page).toHaveURL(/\/editor/);
-  await expect(page.getByRole('dialog').getByText('Novo projeto')).toBeVisible();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg.getByText('Novo projeto')).toBeVisible();
+  // F8-W2: o diálogo abre em "Modelos prontos"; o assistente fica em "Do zero".
+  await expect(dlg.getByRole('tab', { name: 'Modelos prontos' })).toHaveAttribute('aria-selected', 'true');
+  await dlg.getByRole('tab', { name: 'Do zero' }).click();
+  await expect(dlg.getByRole('radio', { name: /A-frame/ })).toBeVisible();
 });
 
 test('10. novo projeto A-frame calcula sem alertas de erro', async ({ page }) => {
   await openExample(page);
   await page.getByRole('button', { name: 'Novo', exact: true }).click();
   const dlg = page.getByRole('dialog');
+  await dlg.getByRole('tab', { name: 'Do zero' }).click();
   await dlg.getByRole('radio', { name: /A-frame/ }).click();
   await dlg.getByRole('button', { name: 'Continuar' }).click();
   await dlg.getByRole('button', { name: 'Continuar' }).click();
