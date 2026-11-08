@@ -87,13 +87,14 @@ export function computeInstallations(project: Project, model: BuildingModel, cat
       refs: [tank.towerId ?? tank.roomId],
     });
   }
-  // Cálculo de engenharia (F16): quando disponível, substitui a estimativa de circuitos, pressão e tubos.
-  const elec = computeElectrical(project, model, catalog);
+  // Cálculo de engenharia (F16): quando disponível, substitui a estimativa elétrica (itens e avisos), a de pressão e a de tubos.
+  const elec = computeElectrical(project, model, catalog, placed);
   const plumb = computePlumbing(project, model, catalog);
-  let items = installationItems(project, report, placed, catalog, { hydraulic: !plumb });
   if (elec) {
     report.electrical = elec.report;
-    warnings.push(...elec.warnings);
+    // os avisos da estimativa antiga de circuitos (bitola, chuveiro, demanda) saem: o cálculo novo tem os seus
+    const old = new Set(['install.wire_table', 'install.shower_wire', 'install.demand']);
+    warnings.splice(0, warnings.length, ...warnings.filter((w) => !old.has(w.code)), ...elec.warnings);
   }
   if (plumb) {
     report.plumbing = plumb.report;
@@ -111,6 +112,8 @@ export function computeInstallations(project: Project, model: BuildingModel, cat
     }
     report.pipes = len;
   }
+  // depois de `report.electrical`: a estimativa elétrica antiga sai quando o cálculo novo existe
+  let items = installationItems(project, report, placed, catalog, { hydraulic: !plumb });
   if (elec || plumb) items = [...items, ...(elec?.items ?? []), ...(plumb?.items ?? [])];
   return {
     report,

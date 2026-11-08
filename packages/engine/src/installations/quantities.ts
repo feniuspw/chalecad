@@ -35,26 +35,33 @@ export function installationItems(
   const eachRoom = (m: Map<string, number>, itemId: string) => m.forEach((n, h) => put(h, itemId, n));
   const roomUse = new Map(placed.rooms.map((r) => [r.id, r.use]));
 
+  // Com o projeto elétrico calculado (F16), os itens elétricos vêm dele e os estimados saem (sem contar duas vezes).
+  const estimateElectrical = !report.electrical;
+
   // Cabos por bitola
   const bySection = new Map<number, number>();
   for (const c of report.circuits) bySection.set(c.wire, (bySection.get(c.wire) ?? 0) + c.cableLength);
-  for (const [s, len] of [...bySection].sort((a, b) => a[0] - b[0])) put(GENERAL, wireId(s), len);
-  put(GENERAL, 'conduit_25', report.conduit);
+  if (estimateElectrical) {
+    for (const [s, len] of [...bySection].sort((a, b) => a[0] - b[0])) put(GENERAL, wireId(s), len);
+    put(GENERAL, 'conduit_25', report.conduit);
+  }
 
   // Caixas e peças elétricas
-  eachRoom(byRoom(['outlet', 'outlet_high', 'switch', 'tue']), 'box_4x2');
-  const wetHigh = (p: PlacedPoints['points'][number]) => p.kind === 'outlet_high' && p.roomId !== null && roomUse.get(p.roomId) !== 'bathroom';
-  eachRoom(byRoom(['outlet', 'outlet_high'], (p) => !wetHigh(p)), 'outlet_2pt');
-  const high = new Map<string, number>();
-  for (const p of placed.points) {
-    if (wetHigh(p) || p.kind === 'tue') high.set(p.roomId ?? GENERAL, (high.get(p.roomId ?? GENERAL) ?? 0) + 1);
+  if (estimateElectrical) {
+    eachRoom(byRoom(['outlet', 'outlet_high', 'switch', 'tue']), 'box_4x2');
+    const wetHigh = (p: PlacedPoints['points'][number]) => p.kind === 'outlet_high' && p.roomId !== null && roomUse.get(p.roomId) !== 'bathroom';
+    eachRoom(byRoom(['outlet', 'outlet_high'], (p) => !wetHigh(p)), 'outlet_2pt');
+    const high = new Map<string, number>();
+    for (const p of placed.points) {
+      if (wetHigh(p) || p.kind === 'tue') high.set(p.roomId ?? GENERAL, (high.get(p.roomId ?? GENERAL) ?? 0) + 1);
+    }
+    eachRoom(high, 'outlet_20a');
+    eachRoom(byRoom(['switch']), 'switch_simple');
+    eachRoom(byRoom(['light']), 'light_fixture');
+    put(GENERAL, 'breaker', report.circuits.length + 1);
+    put(GENERAL, 'breaker_dr', report.circuits.length > 8 ? 2 : 1);
+    put(GENERAL, 'panel_box', 1);
   }
-  eachRoom(high, 'outlet_20a');
-  eachRoom(byRoom(['switch']), 'switch_simple');
-  eachRoom(byRoom(['light']), 'light_fixture');
-  put(GENERAL, 'breaker', report.circuits.length + 1);
-  put(GENERAL, 'breaker_dr', report.circuits.length > 8 ? 2 : 1);
-  put(GENERAL, 'panel_box', 1);
 
   // Hidráulica estimada: só quando o cálculo de engenharia (installations/plumbing) não roda; senão ele orça tubos,
   // conexões, registros e caixas pelo traçado.
