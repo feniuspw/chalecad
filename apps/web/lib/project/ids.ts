@@ -1,4 +1,4 @@
-export type IdPrefix = 'w' | 'o' | 's' | 'u' | 'L' | 'x' | 'r';
+export type IdPrefix = 'w' | 'o' | 's' | 'u' | 'L' | 'x' | 'r' | 'f';
 export type IdGen = (prefix: IdPrefix) => string;
 
 /** IDs curtos e únicos: prefixo + 8 caracteres de um UUID. */

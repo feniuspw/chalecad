@@ -15,6 +15,8 @@ import { BuildingView } from './BuildingView';
 import { CameraRig } from './CameraRig';
 import { ExtrasView } from './ExtrasView';
 import { FinishesView } from './FinishesView';
+import { useFurnitureAlertLevels, useFurnitureModels } from './furnitureData';
+import { FurnitureView } from './FurnitureView';
 import { MotorGroup } from './MotorGroup';
 import { PresentationFx } from './PresentationFx';
 import { PresentationLights } from './PresentationLights';
@@ -25,6 +27,8 @@ import { SkeletonView } from './SkeletonView';
 import { TerrainView } from './TerrainView';
 import { MeasurementsLayer } from './tools/MeasureTool';
 import { PathDrawLayer } from './tools/PathDrawLayer';
+import { envFloorZ, FurnitureDropTarget, FurnitureGhostLayer } from './tools/FurnitureTool';
+import { useToolEnv } from './tools/env';
 import { ToolLayer } from './tools/ToolLayer';
 import type { ViewportHandle } from './types';
 
@@ -89,6 +93,11 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const pieces = results?.pieces;
   const terrain = results?.terrain ?? null;
   const extras = model.extras;
+  const furniture = project.furniture;
+  const furnitureModels = useFurnitureModels();
+  const furnitureAlerts = useFurnitureAlertLevels();
+  const toolEnv = useToolEnv(model);
+  const showFurniture = furniture.length > 0 && !plan && (viewMode === 'finished' || viewMode === 'presentation' || exploded);
 
   useEffect(() => {
     gl.localClippingEnabled = true;
@@ -228,11 +237,26 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
         </MotorGroup>
       ) : null}
 
+      {showFurniture ? (
+        <FurnitureView
+          models={furnitureModels}
+          furniture={furniture}
+          walls={model.walls}
+          selectedId={selection?.kind === 'furniture' ? selection.id : null}
+          alerts={furnitureAlerts}
+          interactive={selectingEnabled}
+          exploded={exploded}
+          ridgeHeight={model.ridgeHeight}
+        />
+      ) : null}
+
       {plan ? <PlanOverlay model={model} level={activeLevelId} elevation={elevation} /> : null}
       {presentation ? null : (
         <>
           <MeasurementsLayer />
           <ToolLayer model={model} />
+          <FurnitureDropTarget env={toolEnv} />
+          <FurnitureGhostLayer z={envFloorZ(toolEnv)} />
           <PathDrawLayer model={model} />
         </>
       )}

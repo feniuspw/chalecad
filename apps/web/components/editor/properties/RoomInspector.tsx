@@ -1,10 +1,14 @@
 'use client';
 import { useMemo } from 'react';
-import { AlertTriangle, Trash2 } from 'lucide-react';
+import { AlertTriangle, Sofa, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge, Button, cn } from '@chalecad/ui';
 import type { EngineWarning, Project, RoomUse } from '@chalecad/engine';
+import { getCatalog } from '@chalecad/catalog';
 import { fmt } from '@/lib/project/format';
+import { furnishRoom, specOf } from '@/lib/project/furniture';
 import { finishOptions, patchRoom, ROOM_USE_ORDER, ROOM_USES, roomDisplayName } from '@/lib/project/rooms';
+import { useFurnitureModels } from '@/components/scene/furnitureData';
 import { useEditor, type SelectedObject } from '@/lib/store/editor';
 import { Field, Notice } from './fields';
 import { FinishSelect } from './FinishSelect';
@@ -54,6 +58,19 @@ export function RoomInspector({ obj, project }: { obj: RoomObj; project: Project
   const walls = useMemo(() => finishOptions(project, 'finish_wall_'), [project]);
   const alerts = useMemo(() => roomWarnings(warnings, room.id), [warnings, room.id]);
   const level = project.levels.find((l) => l.id === room.level);
+  const furnitureModels = useFurnitureModels();
+  const select = useEditor((s) => s.select);
+  const inRoom = useMemo(() => furnitureModels.filter((m) => m.roomId === room.id), [furnitureModels, room.id]);
+
+  /** Sugere o layout do cômodo e adiciona só o que cabe, numa única alteração desfazível. */
+  const furnish = () => {
+    const model = useEditor.getState().results?.model;
+    if (!resolved?.polygon || !model) return toast.info('Feche o ambiente com paredes para mobiliar.');
+    const list = furnishRoom(project, getCatalog(), resolved, { walls: model.walls, openings: model.openings });
+    if (list.length === 0) return toast.info('Nada novo coube neste cômodo (ou ele já está mobiliado).');
+    update('Mobiliar cômodo', (d) => void d.furniture.push(...list));
+    toast.success(`${list.length} ${list.length === 1 ? 'item adicionado' : 'itens adicionados'} em ${name}.`, { action: { label: 'Desfazer', onClick: () => useEditor.getState().undo() } });
+  };
 
   const patch = (label: string, p: Parameters<typeof patchRoom>[2]) => update(label, (d) => void patchRoom(d, room.id, p));
   const glazedPct = resolved && resolved.area > 0 ? (resolved.glazing / resolved.area) * 100 : 0;
@@ -114,6 +131,30 @@ export function RoomInspector({ obj, project }: { obj: RoomObj; project: Project
         ) : !resolved ? (
           <Notice>O resumo (área, pé-direito, vidro) aparece quando o cálculo terminar.</Notice>
         ) : null}
+
+        <div className="space-y-1.5">
+          <h3 className="text-xs font-semibold tracking-wide text-stone-700 uppercase">Móveis ({inRoom.length})</h3>
+          <Button variant="outline" size="sm" onClick={furnish} disabled={!resolved?.polygon} className="w-full">
+            <Sofa /> Mobiliar
+          </Button>
+          {inRoom.length > 0 ? (
+            <ul className="space-y-1">
+              {inRoom.map((m) => (
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    onClick={() => select({ kind: 'furniture', id: m.id })}
+                    className="flex w-full items-center justify-between rounded-md border border-border px-2.5 py-1.5 text-left text-xs outline-none hover:bg-stone-50 focus-visible:ring-2 focus-visible:ring-accent/50"
+                  >
+                    <span className="font-medium text-stone-800">{specOf(getCatalog(), m.item)?.name ?? m.item}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[11px] text-stone-500">Sugere um layout pelo uso do cômodo. Só entra o que cabe; desfaz com Ctrl/⌘+Z.</p>
+          )}
+        </div>
 
         {alerts.length > 0 ? (
           <div className="space-y-1.5">

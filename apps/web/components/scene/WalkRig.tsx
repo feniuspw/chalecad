@@ -3,10 +3,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PerspectiveCamera, PointerLockControls } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { getCatalog } from '@chalecad/catalog';
 import type { BuildingModel } from '@chalecad/engine';
 import { isTyping } from '@/hooks/useShortcuts';
 import { useEditor } from '@/lib/store/editor';
-import { buildWalkWalls, levelFloorZ, moveWithCollision, walkStart, WALK, yawFromHeading, type V2 } from '@/lib/three/walk';
+import { useFurnitureModels } from './furnitureData';
+import { buildFurnitureWalkRects, buildWalkWalls, levelFloorZ, moveWithCollision, walkStart, WALK, yawFromHeading, type V2 } from '@/lib/three/walk';
 
 type PLC = React.ComponentRef<typeof PointerLockControls>;
 
@@ -24,7 +26,13 @@ export function WalkRig({ model, levelId, far }: { model: BuildingModel; levelId
   const controls = useRef<PLC>(null);
   const [ready, setReady] = useState(false);
 
-  const walls = useMemo(() => buildWalkWalls(model.walls, model.openings, levelId), [model.walls, model.openings, levelId]);
+  const furniture = useFurnitureModels();
+  // paredes (com as portas recortadas) e móveis do nível como obstáculos; tapete não conta
+  const walls = useMemo(() => {
+    const catalog = getCatalog();
+    const passable = (item: string) => catalog.furniture.find((f) => f.id === item)?.collides === false;
+    return [...buildWalkWalls(model.walls, model.openings, levelId), ...buildFurnitureWalkRects(furniture, levelId, passable)];
+  }, [model.walls, model.openings, levelId, furniture]);
   const floorZ = levelFloorZ(model.walls, levelId, elevation);
   const state = useRef<{ pos: V2 }>({ pos: [0, 0] });
   const keys = useRef(new Set<string>());

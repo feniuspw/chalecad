@@ -50,3 +50,17 @@ describe('labels', () => {
     expect(openingLabel(project, project.openings[2]!.id)).toBe('Janela 2');
   });
 });
+
+describe('excluir móvel', () => {
+  it('remove o móvel selecionado pelo nome do catálogo', () => {
+    const p = produce(project, (d) => {
+      d.furniture.push({ id: 'f-12345678', level: d.levels[0]!.id, item: 'furn_sofa_3', position: [2, 2], rotation: 0 });
+    });
+    let out = p;
+    const r = deleteSelection({ kind: 'furniture', id: 'f-12345678' }, p, (_label, recipe) => {
+      out = produce(out, recipe);
+    });
+    expect(r).toEqual({ ok: true, message: 'Sofá 3 lugares removido.' });
+    expect(out.furniture).toHaveLength(0);
+  });
+});
