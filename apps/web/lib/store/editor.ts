@@ -5,7 +5,7 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { applyPatches as immerApplyPatches, enablePatches, produceWithPatches, type Patch } from 'immer';
-import { loadProject, type Opening, type Project, type ResolvedOpening, type Room, type RoomModel, type Stair, type Wall } from '@chalecad/engine';
+import { loadProject, type Furniture, type FurnitureModel, type Opening, type Project, type ResolvedOpening, type Room, type RoomModel, type Stair, type Wall } from '@chalecad/engine';
 import { createProject } from '../project/templates';
 import { groundLevel } from '../project/edit';
 import type {
@@ -29,6 +29,7 @@ export const DEFAULT_TOOL_OPTIONS: ToolOptions = {
   wallWet: false,
   snapGrid: true,
   snapModulation: true,
+  furnitureItem: 'furn_sofa_3',
 };
 
 /** Data inicial do sol: hoje, em AAAA-MM-DD (horário local). */
@@ -267,7 +268,8 @@ export type SelectedObject =
   | { kind: 'level'; id: string }
   | { kind: 'extra'; id: string }
   | { kind: 'piece'; id: string }
-  | { kind: 'room'; room: Room; resolved: RoomModel | null };
+  | { kind: 'room'; room: Room; resolved: RoomModel | null }
+  | { kind: 'furniture'; furniture: Furniture; resolved: FurnitureModel | null };
 
 /** Resolve a seleção para o objeto do projeto (ou null). Função pura, testável. */
 export function resolveSelection(state: Pick<EditorStore, 'selection' | 'project' | 'results'>): SelectedObject | null {
@@ -292,6 +294,11 @@ export function resolveSelection(state: Pick<EditorStore, 'selection' | 'project
       const room = project.rooms.find((r) => r.id === sel.id);
       if (!room) return null;
       return { kind: 'room', room, resolved: state.results?.model.rooms.find((r) => r.id === sel.id) ?? null };
+    }
+    case 'furniture': {
+      const furniture = project.furniture.find((f) => f.id === sel.id);
+      if (!furniture) return null;
+      return { kind: 'furniture', furniture, resolved: state.results?.model.furniture.find((f) => f.id === sel.id) ?? null };
     }
     default:
       return { kind: sel.kind, id: sel.id };

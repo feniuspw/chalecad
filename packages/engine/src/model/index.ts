@@ -390,6 +390,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     stairs,
     extras: buildExtraModels(project, catalog.constants.extras),
     rooms: [],
+    furniture: [],
     ridgeHeight,
     bbox: bbox3(pts),
   };

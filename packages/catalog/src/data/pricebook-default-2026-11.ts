@@ -1,4 +1,5 @@
 import type { LaborRate, PriceBook, PriceItem } from '../schema';
+import { furniture } from './furniture';
 import { materials } from './materials';
 import { profiles } from './profiles';
 
@@ -140,7 +141,7 @@ for (const p of profiles) {
 }
 
 for (const mat of materials) {
-  const pr = MATERIAL_PRICES[mat.id];
+  const pr = MATERIAL_PRICES[mat.id] ?? furniture.find((x) => x.id === mat.id)?.price;
   if (!pr) throw new Error(`Sem preço de referência para ${mat.id}`);
   const note =
     mat.id === 'drywall_st_12'

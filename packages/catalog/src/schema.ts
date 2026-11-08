@@ -106,6 +106,7 @@ export const Material = z.object({
     'earthwork',
     'service',
     'opening',
+    'furniture',
     'misc',
   ]),
   baseUnit: BaseUnit,
@@ -321,6 +322,10 @@ export const TechnicalConstants = z.object({
       z.string(),
       z.object({ ceiling: pos, light: z.boolean(), vent: z.boolean(), wet: z.boolean(), minArea: nonneg }),
     ),
+    /** Fração do vão que abre para ventilação, por tipo de abertura (janela de correr abre metade). */
+    openableFraction: z.record(z.string(), z.number().min(0).max(1)),
+    /** Passagem livre mínima entre móveis e paredes (NBR 9050 usa 0,90 m; 0,80 m é o usual residencial). */
+    circulationMin: pos,
   }),
   /** Piso de concreto sobre o radier: consumos por m². */
   floor: z.object({ hardenerKgPerM2: pos, sealerLPerM2: pos }),
@@ -461,11 +466,69 @@ export const TechnicalConstants = z.object({
 });
 export type TechnicalConstants = z.infer<typeof TechnicalConstants>;
 
+// ---------------------------------------------------------------------------
+// Móveis (modelos procedurais, tamanho real e folga de uso)
+// ---------------------------------------------------------------------------
+
+export const FurnitureGroup = z.enum(['living', 'dining', 'bedroom', 'kitchen', 'bathroom', 'laundry', 'outdoor', 'decor']);
+export type FurnitureGroup = z.infer<typeof FurnitureGroup>;
+
+/** Forma do modelo 3D/planta desenhado em código pela web (sem arquivo externo). */
+export const FurnitureModelKind = z.enum([
+  'sofa',
+  'armchair',
+  'coffee_table',
+  'rack',
+  'shelf',
+  'dining',
+  'round_table',
+  'bed',
+  'bunk',
+  'nightstand',
+  'wardrobe',
+  'desk',
+  'counter',
+  'counter_sink',
+  'stove',
+  'fridge',
+  'island',
+  'toilet',
+  'basin',
+  'shower',
+  'bathtub',
+  'washer',
+  'tank',
+  'lounger',
+  'plant',
+  'rug',
+]);
+export type FurnitureModelKind = z.infer<typeof FurnitureModelKind>;
+
+export const FurnitureSpec = z.object({
+  /** Mesmo ID do material (`furn_*`), que leva massa e preço. */
+  id: z.string(),
+  name: z.string(),
+  group: FurnitureGroup,
+  model: FurnitureModelKind,
+  /** Largura (x), profundidade (y) e altura (m), em rotação 0. */
+  size: z.object({ w: pos, d: pos, h: pos }),
+  /** Faixa de uso livre (m): à frente (−y), atrás e de cada lado. */
+  clearance: z.object({ front: nonneg, back: nonneg.default(0), sides: nonneg.default(0) }),
+  /** Encosta o fundo na parede ao posicionar. */
+  wall: z.boolean(),
+  /** Pede ponto de água (pia, vaso, chuveiro, máquina). */
+  water: z.boolean().default(false),
+  /** Tapete e afins: não colide com outros móveis. */
+  collides: z.boolean().default(true),
+});
+export type FurnitureSpec = z.infer<typeof FurnitureSpec>;
+
 export const Catalog = z.object({
   version: z.string(),
   profiles: z.array(Profile),
   materials: z.array(Material),
   assemblies: z.array(Assembly),
+  furniture: z.array(FurnitureSpec),
   priceBooks: z.array(PriceBook),
   constants: TechnicalConstants,
 });

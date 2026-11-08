@@ -2,13 +2,14 @@ import { Catalog } from './schema';
 import type { Assembly, Material, PriceBook, PriceItem, Profile } from './schema';
 import { assemblies } from './data/assemblies';
 import { constants } from './data/constants';
+import { furniture } from './data/furniture';
 import { materials } from './data/materials';
 import { priceBookDefault202611 } from './data/pricebook-default-2026-11';
 import { profiles } from './data/profiles';
 
 export const CATALOG_VERSION = '2026.11.0';
 export * from './schema';
-export { assemblies, constants, materials, priceBookDefault202611, profiles };
+export { assemblies, constants, furniture, materials, priceBookDefault202611, profiles };
 export { sectionProperties } from './data/section';
 export type { SectionProps } from './data/section';
 
@@ -22,6 +23,7 @@ export function getCatalog(): Catalog {
       profiles,
       materials,
       assemblies,
+      furniture: furniture.map(({ mass: _m, price: _p, ...spec }) => spec),
       priceBooks: [priceBookDefault202611],
       constants,
     });

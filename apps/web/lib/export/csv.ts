@@ -80,6 +80,7 @@ const SUPPLIER_BY_CATEGORY: Record<Material['category'], Supplier> = {
   finishing: 'Acabamento',
   fence: 'Acabamento',
   wood: 'Acabamento',
+  furniture: 'Acabamento',
   misc: 'Acabamento',
   service: 'Serviços',
   earthwork: 'Serviços',

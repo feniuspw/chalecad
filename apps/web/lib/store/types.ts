@@ -17,9 +17,9 @@ export interface SunState {
 /** Câmera: 3D orbital ou ortográficas 2D. `plan` mostra o nível ativo em planta. */
 export type CameraView = '3d' | 'plan' | 'front' | 'back' | 'left' | 'right';
 
-export type Tool = 'select' | 'wall' | 'opening' | 'stair' | 'mezzanine' | 'measure' | 'dimension' | 'room';
+export type Tool = 'select' | 'wall' | 'opening' | 'stair' | 'mezzanine' | 'measure' | 'dimension' | 'room' | 'furniture';
 
-export type SelectionKind = 'host' | 'opening' | 'wall' | 'stair' | 'level' | 'extra' | 'piece' | 'roof' | 'slab' | 'room';
+export type SelectionKind = 'host' | 'opening' | 'wall' | 'stair' | 'level' | 'extra' | 'piece' | 'roof' | 'slab' | 'room' | 'furniture';
 export interface Selection {
   kind: SelectionKind;
   id: string;
@@ -50,6 +50,8 @@ export interface ToolOptions {
   /** Snap: grade de 10 cm e modulação dos montantes. */
   snapGrid: boolean;
   snapModulation: boolean;
+  /** Ferramenta Móvel: item do catálogo a posicionar (`furn_*`). */
+  furnitureItem: string;
 }
 
 export interface ValidationIssue {

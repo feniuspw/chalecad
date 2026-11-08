@@ -90,6 +90,22 @@ export interface RoomModel {
   wet: boolean;
 }
 
+/** Móvel resolvido: contorno em planta, folga de uso e cômodo onde está. */
+export interface FurnitureModel {
+  id: string;
+  item: string;
+  level: string;
+  /** Cota do piso onde o móvel está. */
+  z: number;
+  /** Contorno do móvel em planta (4 cantos, anti-horário). */
+  polygon: Vec2[];
+  /** Faixa de uso à frente do móvel (folga do catálogo); null se o móvel não pede folga. */
+  clearance: Vec2[] | null;
+  height: number;
+  /** Cômodo cujo polígono contém o centro; null se fora de cômodo marcado. */
+  roomId: string | null;
+}
+
 export interface SlabModel {
   id: string;
   kind: 'radier' | 'mezzanine' | 'deck' | 'platform';
@@ -159,6 +175,7 @@ export interface BuildingModel {
   /** Preenchido pelos extras (vazio até a Fase 2). */
   extras: ExtraModel[];
   rooms: RoomModel[];
+  furniture: FurnitureModel[];
   ridgeHeight: number;
   bbox: { min: Vec3; max: Vec3 };
 }

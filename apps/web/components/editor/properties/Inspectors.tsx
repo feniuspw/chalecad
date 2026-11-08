@@ -307,6 +307,9 @@ export function ObjectInspector() {
       return <ExtraInspector id={obj.id} project={project} />;
     case 'room':
       return <RoomInspector obj={obj} project={project} />;
+    case 'furniture':
+      // Inspetor de móvel: card F6-W1.
+      return null;
     default:
       return <HostInspector obj={obj} project={project} />;
   }

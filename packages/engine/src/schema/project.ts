@@ -436,6 +436,7 @@ const DEFAULT_BUDGET = {
   diyStages: [] as Stage[],
   freight: { distanceKm: 30, pricePerTonKm: 3.5 },
   durationsWeeks: {},
+  includeFurniture: false,
 };
 export const Budget = z
   .object({
@@ -447,6 +448,8 @@ export const Budget = z
       .default({ distanceKm: 30, pricePerTonKm: 3.5 }),
     /** Duração em semanas por etapa, para o cronograma de desembolso. */
     durationsWeeks: z.partialRecord(Stage, len(0, 52)).default({}),
+    /** Soma os móveis (preço do catálogo) ao orçamento, na etapa de acabamento. */
+    includeFurniture: z.boolean().default(false),
   })
   .default(DEFAULT_BUDGET);
 
@@ -490,6 +493,23 @@ export const Finishes = z.object({
 });
 export type Finishes = z.infer<typeof Finishes>;
 
+/**
+ * Móvel posicionado na planta. O tamanho, a folga de uso e o modelo 3D vêm do catálogo (`catalog.furniture`).
+ * Em rotação 0 a largura fica em x, a profundidade em y e a frente (lado de uso) aponta para −y;
+ * `rotation` gira em graus, sentido anti-horário, em torno de `position` (centro do móvel).
+ */
+export const Furniture = z.object({
+  id: Id,
+  level: Id,
+  /** ID do móvel no catálogo (`furn_*`). */
+  item: Id,
+  position: Vec2,
+  rotation: z.number().min(-360).max(360).default(0),
+  /** Acabamento visual (só 3D). */
+  tone: z.enum(['light', 'wood', 'dark', 'white', 'color']).optional(),
+});
+export type Furniture = z.infer<typeof Furniture>;
+
 export const ProjectBase = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   meta: Meta,
@@ -512,6 +532,7 @@ export const ProjectBase = z.object({
   extras: z.array(Extra).default([]),
   rooms: z.array(Room).default([]),
   finishes: Finishes.default({}),
+  furniture: z.array(Furniture).default([]),
   design: Design,
   budget: Budget,
   priceBookId: Id.default('default-2026-11'),
@@ -534,6 +555,7 @@ export const Project = ProjectBase.superRefine((p, ctx) => {
   dup(p.stairs.map((s) => s.id), 'stairs');
   dup(p.extras.map((e) => e.id), 'extras');
   dup(p.rooms.map((r) => r.id), 'rooms');
+  dup(p.furniture.map((f) => f.id), 'furniture');
 
   const levelIds = new Set(p.levels.map((l) => l.id));
   const wallIds = new Set(p.walls.map((w) => w.id));
@@ -571,6 +593,9 @@ export const Project = ProjectBase.superRefine((p, ctx) => {
   }
   p.rooms.forEach((r, i) => {
     if (!levelIds.has(r.level)) ctx.addIssue({ code: 'custom', path: ['rooms', i, 'level'], message: `Nível inexistente: ${r.level}` });
+  });
+  p.furniture.forEach((f, i) => {
+    if (!levelIds.has(f.level)) ctx.addIssue({ code: 'custom', path: ['furniture', i, 'level'], message: `Nível inexistente: ${f.level}` });
   });
   p.stairs.forEach((s, i) => {
     if (!levelIds.has(s.from)) ctx.addIssue({ code: 'custom', path: ['stairs', i, 'from'], message: `Nível inexistente: ${s.from}` });

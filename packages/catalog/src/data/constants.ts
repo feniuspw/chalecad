@@ -84,6 +84,9 @@ export const constants: TechnicalConstants = {
       storage: { ceiling: 2.3, light: false, vent: false, wet: false, minArea: 0 },
       other: { ceiling: 2.3, light: false, vent: false, wet: false, minArea: 0 },
     },
+    // Janela de correr e porta de correr abrem metade do vão; claraboia basculante ~50%; porta cega não ventila pela regra.
+    openableFraction: { window: 0.5, sliding_door: 0.5, skylight: 0.5, door: 0 },
+    circulationMin: 0.8,
   },
   floor: { hardenerKgPerM2: 4, sealerLPerM2: 0.2 },
   defaultCeilingMax: 2.8,
