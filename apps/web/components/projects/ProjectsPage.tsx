@@ -7,6 +7,8 @@ import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogH
 import { loadProject } from '@chalecad/engine';
 import { ArtNotice } from '@/components/ArtNotice';
 import { Logo } from '@/components/Logo';
+import { PresetCard } from '@/components/onboarding/PresetCard';
+import { findPreset, type Preset } from '@/lib/project/presets';
 import { getStorage, type ProjectSummary } from '@/lib/storage';
 import { SyncedStorage } from '@/lib/storage';
 import { ProjectCard } from './ProjectCard';
@@ -18,6 +20,9 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: 'area', label: 'Maior área' },
   { id: 'total', label: 'Maior custo' },
 ];
+
+/** Modelos sugeridos na lista vazia: três tipologias bem diferentes. */
+const SUGGESTED_PRESETS = ['aframe-compact', 'gable-loft', 'l-house'].map(findPreset).filter((p): p is Preset => !!p);
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -201,25 +206,38 @@ export function ProjectsPage() {
             <Loader2 className="size-6 animate-spin" />
           </div>
         ) : total === 0 ? (
-          <section className="mt-10 grid place-items-center rounded-3xl border border-dashed border-border-strong bg-white px-6 py-20 text-center">
-            <div className="grid size-16 place-items-center rounded-2xl bg-accent-soft text-accent-hover">
-              <FolderPlus className="size-8" aria-hidden />
-            </div>
-            <h2 className="mt-5 text-xl font-semibold tracking-tight text-stone-900">Comece o seu primeiro chalé</h2>
-            <p className="mt-2 max-w-md text-sm leading-relaxed text-stone-600">
-              Escolha uma tipologia, ajuste as medidas e veja lista de materiais, peso e orçamento aparecerem na hora. Tudo fica salvo aqui.
-            </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Button asChild variant="accent" size="lg">
-                <Link href="/editor?new=1">
-                  <Plus /> Novo projeto
-                </Link>
-              </Button>
-              <Button variant="outline" size="lg" onClick={() => fileInput.current?.click()}>
-                <FileUp /> Importar JSON
-              </Button>
-            </div>
-          </section>
+          <>
+            <section className="mt-10 grid place-items-center rounded-3xl border border-dashed border-border-strong bg-white px-6 py-14 text-center">
+              <div className="grid size-16 place-items-center rounded-2xl bg-accent-soft text-accent-hover">
+                <FolderPlus className="size-8" aria-hidden />
+              </div>
+              <h2 className="mt-5 text-xl font-semibold tracking-tight text-stone-900">Comece o seu primeiro chalé</h2>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-stone-600">
+                Escolha um modelo pronto ou desenhe do zero. Ajuste as medidas e veja lista de materiais, peso e orçamento aparecerem na hora. Tudo fica salvo aqui.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
+                <Button asChild variant="accent" size="lg">
+                  <Link href="/editor?new=1">
+                    <Plus /> Novo projeto
+                  </Link>
+                </Button>
+                <Button variant="outline" size="lg" onClick={() => fileInput.current?.click()}>
+                  <FileUp /> Importar JSON
+                </Button>
+              </div>
+            </section>
+            <section aria-labelledby="modelos-prontos" className="mt-10">
+              <h2 id="modelos-prontos" className="text-lg font-semibold tracking-tight text-stone-900">
+                Comece por um modelo pronto
+              </h2>
+              <p className="mt-1 text-sm text-stone-600">Já vêm com cômodos, acabamentos e móveis. Dá para mudar tudo no editor.</p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {SUGGESTED_PRESETS.map((pr) => (
+                  <PresetCard key={pr.id} preset={pr} href={`/editor?new=1&template=${pr.id}`} />
+                ))}
+              </div>
+            </section>
+          </>
         ) : visible.length === 0 ? (
           <p className="mt-16 text-center text-sm text-stone-500">Nenhum projeto encontrado para “{query}”.</p>
         ) : (

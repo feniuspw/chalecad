@@ -1,12 +1,14 @@
 'use client';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, cn } from '@chalecad/ui';
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Tabs, TabsList, TabsTrigger, cn } from '@chalecad/ui';
 import { buildModel, type Project, type Site, type UF } from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
 import { aFramePitchDeg, degToPct, pctToDeg, round } from '@/lib/project/geometry';
 import { fmt } from '@/lib/project/format';
 import { makeSlopedSite } from '@/lib/project/terrain';
+import { PresetCard } from '@/components/onboarding/PresetCard';
+import { PRESETS, findPreset } from '@/lib/project/presets';
 import { createProject, DEFAULT_PARAMS, TEMPLATE_LABELS, TYPOLOGY_DESCRIPTIONS, type TemplateKind, type TemplateParams } from '@/lib/project/templates';
 import { DownhillPicker } from './properties/DownhillPicker';
 import { Field, Notice, SelectField, Segmented, SliderField, SwitchField } from './properties/fields';
@@ -139,7 +141,11 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
   const [kind, setKind] = useState<TemplateKind>('gable_mezzanine');
   const [params, setParams] = useState<TemplateParams>(DEFAULT_PARAMS.gable_mezzanine);
   const [nameTouched, setNameTouched] = useState(false);
+  const [tab, setTab] = useState<'models' | 'scratch'>('models');
+  const [presetId, setPresetId] = useState<string>(PRESETS[0]!.id);
+  const [presetName, setPresetName] = useState<string>(PRESETS[0]!.name);
   const nameId = useId();
+  const presetNameId = useId();
 
   // Cada abertura recomeça do zero.
   useEffect(() => {
@@ -148,8 +154,23 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
       setKind('gable_mezzanine');
       setParams(DEFAULT_PARAMS.gable_mezzanine);
       setNameTouched(false);
+      setTab('models');
+      setPresetId(PRESETS[0]!.id);
+      setPresetName(PRESETS[0]!.name);
     }
   }, [open]);
+
+  const pickPreset = (id: string) => {
+    setPresetId(id);
+    setPresetName(findPreset(id)?.name ?? '');
+  };
+  const presetNameValid = presetName.trim().length > 0 && presetName.length <= 120;
+  const createFromPreset = () => {
+    const preset = findPreset(presetId);
+    if (!preset || !presetNameValid) return;
+    const p = preset.build();
+    onCreate({ ...p, meta: { ...p.meta, name: presetName.trim() } });
+  };
 
   const patch = (p: Partial<TemplateParams>) =>
     setParams((cur) => {
@@ -187,11 +208,12 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-2xl gap-5 p-0"
+        className={cn('gap-5 p-0', tab === 'models' ? 'max-w-4xl' : 'max-w-2xl')}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof HTMLTextAreaElement)) {
             e.preventDefault();
-            if (!last) setStep(step + 1);
+            if (tab === 'models') createFromPreset();
+            else if (!last) setStep(step + 1);
             else if (nameValid) create();
           }
         }}
@@ -199,9 +221,16 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
         <DialogHeader className="px-6 pt-6">
           <DialogTitle>{firstAccess ? 'Bem-vindo ao ChaléCAD' : 'Novo projeto'}</DialogTitle>
           <DialogDescription>
-            {firstAccess ? 'Vamos começar pelo desenho do seu chalé. ' : ''}Passo {step + 1} de {STEPS.length}: {STEPS[step]?.toLowerCase()}.
+            {firstAccess ? 'Vamos começar pelo seu chalé. ' : ''}
+            {tab === 'models' ? 'Escolha um modelo pronto, já com cômodos, acabamentos e móveis. Dá para mudar tudo depois.' : `Passo ${step + 1} de ${STEPS.length}: ${STEPS[step]?.toLowerCase()}.`}
           </DialogDescription>
-          <ol className="mt-2 flex items-center gap-2" aria-label="Passos">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as 'models' | 'scratch')} className="mt-1">
+            <TabsList className="w-full sm:w-auto" aria-label="Como começar">
+              <TabsTrigger value="models">Modelos prontos</TabsTrigger>
+              <TabsTrigger value="scratch">Do zero</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <ol className={cn('mt-2 flex items-center gap-2', tab === 'models' && 'hidden')} aria-label="Passos">
             {STEPS.map((s, i) => (
               <li key={s} className="flex flex-1 items-center gap-2" aria-current={i === step ? 'step' : undefined}>
                 <span className={cn('grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold', i < step ? 'bg-accent text-white' : i === step ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500')}>
@@ -215,7 +244,26 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
         </DialogHeader>
 
         <div className="max-h-[62vh] min-h-[19rem] overflow-y-auto px-6 pb-1">
-          {step === 0 ? (
+          {tab === 'models' ? (
+            <div className="space-y-4">
+              <div role="radiogroup" aria-label="Modelos prontos" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {PRESETS.map((pr) => (
+                  <PresetCard key={pr.id} preset={pr} selected={pr.id === presetId} onSelect={() => pickPreset(pr.id)} onOpen={createFromPreset} />
+                ))}
+              </div>
+              <Field label="Nome do projeto" htmlFor={presetNameId}>
+                <input
+                  id={presetNameId}
+                  value={presetName}
+                  maxLength={120}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  className="h-9 w-full max-w-sm rounded-md border border-border bg-white px-3 text-sm text-stone-900 shadow-sm outline-none hover:border-stone-300 focus:ring-2 focus:ring-accent/50"
+                />
+              </Field>
+            </div>
+          ) : null}
+
+          {tab === 'scratch' && step === 0 ? (
             <div role="radiogroup" aria-label="Tipologia" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {KINDS.map((k) => {
                 const Card = TYPOLOGY_ART[k];
@@ -249,7 +297,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
             </div>
           ) : null}
 
-          {step === 1 ? (
+          {tab === 'scratch' && step === 1 ? (
             <div className="grid gap-6 sm:grid-cols-[1fr_14rem]">
               <div className="space-y-4">
                 <SliderField label={kind === 'combined' ? 'Largura do corpo principal' : 'Largura'} value={params.width} min={2} max={30} unit="m" hint="eixo a eixo" onChange={(v) => patch({ width: v })} />
@@ -279,7 +327,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
             </div>
           ) : null}
 
-          {step === 2 ? (
+          {tab === 'scratch' && step === 2 ? (
             <div className="grid gap-6 sm:grid-cols-[1fr_14rem]">
               <div className="space-y-4">
                 <Segmented<'flat' | 'sloped'>
@@ -313,7 +361,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
             </div>
           ) : null}
 
-          {step === 3 ? (
+          {tab === 'scratch' && step === 3 ? (
             <div className="mx-auto max-w-sm space-y-5 pt-2">
               <Field label="Nome do projeto" htmlFor={nameId}>
                 <input
@@ -337,28 +385,43 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, firstAccess = f
         </div>
 
         <DialogFooter className="border-t border-border px-6 py-4">
-          {firstAccess && step === 0 ? (
+          {firstAccess && (tab === 'models' || step === 0) ? (
             <Button variant="ghost" className="mr-auto" onClick={() => onOpenChange(false)}>
               Usar o chalé de exemplo
             </Button>
           ) : null}
-          {step > 0 ? (
-            <Button variant="outline" onClick={() => setStep(step - 1)}>
-              <ArrowLeft /> Voltar
-            </Button>
+          {tab === 'models' ? (
+            <>
+              {!firstAccess ? (
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancelar
+                </Button>
+              ) : null}
+              <Button variant="accent" disabled={!presetNameValid} onClick={createFromPreset}>
+                <Check /> Criar a partir do modelo
+              </Button>
+            </>
           ) : (
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-          )}
-          {last ? (
-            <Button variant="accent" disabled={!nameValid} onClick={create}>
-              <Check /> Criar projeto
-            </Button>
-          ) : (
-            <Button variant="accent" onClick={() => setStep(step + 1)}>
-              Continuar <ArrowRight />
-            </Button>
+            <>
+              {step > 0 ? (
+                <Button variant="outline" onClick={() => setStep(step - 1)}>
+                  <ArrowLeft /> Voltar
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancelar
+                </Button>
+              )}
+              {last ? (
+                <Button variant="accent" disabled={!nameValid} onClick={create}>
+                  <Check /> Criar projeto
+                </Button>
+              ) : (
+                <Button variant="accent" onClick={() => setStep(step + 1)}>
+                  Continuar <ArrowRight />
+                </Button>
+              )}
+            </>
           )}
         </DialogFooter>
       </DialogContent>

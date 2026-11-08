@@ -265,3 +265,6 @@ export function createProject(kind: TemplateKind, params: Partial<TemplateParams
   };
   return Project.parse(input);
 }
+
+// Modelos prontos (cômodos, acabamentos e móveis): ver `./presets`.
+export { PRESETS, findPreset, type Preset } from './presets';
