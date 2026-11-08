@@ -1,7 +1,7 @@
 /**
  * Vistas de câmera prontas, órbita e nomes de arquivo da apresentação (puro, cena y-up, sem three nem DOM).
  */
-import type { BuildingModel, Vec3 } from '@chalecad/engine';
+import { roofBelowAt, type BuildingModel, type Vec3 } from '@chalecad/engine';
 import { bboxToThree, toThree, wallBasis } from './convert';
 
 export type ViewpointId = 'front' | 'corner' | 'back' | 'top' | 'interior';
@@ -155,6 +155,44 @@ function interiorPoint(poly: [number, number][]): [number, number] {
   return best;
 }
 
+const segCross = (a: [number, number], b: [number, number], c: [number, number], d: [number, number]): boolean => {
+  const o = (p: [number, number], q: [number, number], r: [number, number]) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+  return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+};
+
+/**
+ * Ponto do cômodo para a foto interna: o mais longe possível do vidro (enquadra o ambiente todo), com 0,9 m das
+ * paredes, pé-direito para o olho, fora da escada e dos móveis e com visão livre até o vidro (nenhuma parede
+ * interna no caminho). Sem vidro, o mais afastado da frente. Null se nenhum ponto servir.
+ */
+function photographerSpot(model: BuildingModel, poly: [number, number][], level: string, floor: number, glass: V3 | null): [number, number] | null {
+  const xs = poly.map((p) => p[0]);
+  const ys = poly.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const blockers = [...(model.stairs ?? []).map((s) => s.footprint), ...(model.furniture ?? []).filter((f) => f.level === level).map((f) => f.polygon)] as [number, number][][];
+  const walls = model.walls.filter((w) => w.level === level && w.kind === 'interior');
+  const target: [number, number] = glass ? [glass[0], glass[1]] : [(x0 + x1) / 2, y0 - 5];
+  let best: [number, number] | null = null;
+  let bestD = -1;
+  const N = 24;
+  for (let i = 0; i <= N; i++)
+    for (let j = 0; j <= N; j++) {
+      const p: [number, number] = [x0 + ((x1 - x0) * i) / N, y0 + ((y1 - y0) * j) / N];
+      if (!inside(p, poly)) continue;
+      if (Math.min(...poly.map((q, k) => segDist(p, q, poly[(k + 1) % poly.length]!))) < 0.9) continue;
+      const roof = roofBelowAt(model.roofPlanes ?? [], p);
+      if (roof !== null && roof - floor < EYE_HEIGHT + 0.8) continue;
+      if (blockers.some((b) => b.length >= 3 && (inside(p, b) || Math.min(...b.map((q, k) => segDist(p, q, b[(k + 1) % b.length]!))) < 0.35))) continue;
+      if (walls.some((w) => segCross(p, target, [w.from[0], w.from[1]], [w.to[0], w.to[1]]))) continue;
+      const d = Math.hypot(p[0] - target[0], p[1] - target[1]);
+      if (d > bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+  return best;
+}
+
 /** Cômodo do térreo com maior área e polígono. */
 export function largestGroundRoom(model: BuildingModel, groundLevelId?: string) {
   const withPoly = model.rooms.filter((r) => r.polygon && r.polygon.length >= 3);
@@ -201,12 +239,14 @@ export function autoViewpoints(model: BuildingModel, opts: ViewpointOptions = {}
     { id: 'top', label: VIEWPOINT_LABELS.top, position: top, target: aim },
   ];
 
-  // interior: do centro do maior cômodo do térreo, olhando para o vidro (ou para a fachada da frente)
+  // interior: como um fotógrafo, do fundo do maior cômodo do térreo olhando para o vidro (ou para a fachada da frente)
   const room = largestGroundRoom(model, opts.groundLevelId);
   const floor = opts.groundElevation ?? 0;
-  const [px, py] = room?.polygon ? interiorPoint(room.polygon as [number, number][]) : [(model.bbox.min[0] + model.bbox.max[0]) / 2, (model.bbox.min[1] + model.bbox.max[1]) / 2];
-  const eye: V3 = [px, py, floor + EYE_HEIGHT];
   const glass = glassCenter(model, room?.openingIds ?? []);
+  const poly = room?.polygon as [number, number][] | undefined;
+  const fallback: [number, number] = poly ? interiorPoint(poly) : [(model.bbox.min[0] + model.bbox.max[0]) / 2, (model.bbox.min[1] + model.bbox.max[1]) / 2];
+  const [px, py] = poly && room ? (photographerSpot(model, poly, room.level, floor, glass) ?? fallback) : fallback;
+  const eye: V3 = [px, py, floor + EYE_HEIGHT];
   const look: V3 = glass ?? [px, model.bbox.min[1] - 5, floor + EYE_HEIGHT];
   const eye3 = toThree(eye);
   const look3 = toThree(look);

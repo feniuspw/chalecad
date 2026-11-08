@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Html } from '@react-three/drei';
+import { SafeHtml as Html } from './SafeHtml';
 import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { BuildingModel, InstallationPoint, InstallationPointKind, InstallationsReport } from '@chalecad/engine';

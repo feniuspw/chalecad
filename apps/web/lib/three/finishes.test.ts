@@ -90,3 +90,17 @@ describe('cota do piso', () => {
     expect(roomFloorZ({ ...room, level: 'L0', edges: [] }, walls, slabs)).toBe(0.12);
   });
 });
+
+describe('revestimento de cômodo do mezanino', () => {
+  it('sobre parede externa que nasce no térreo, começa no piso do mezanino', () => {
+    const ext = { id: 'e', kind: 'exterior', level: 'L0', from: [0, 4] as Vec2, to: [4, 4] as Vec2, length: 4, baseZ: 0, thickness: 0.12, outline: [[0, 0], [4, 0], [4, 5], [0, 5]] as Vec2[], assemblyId: 'x' } as unknown as HostWall;
+    const room = { id: 'r', level: 'L1', polygon: [[0, 2], [4, 2], [4, 4], [0, 4]], edges: [{ from: [4, 4], to: [0, 4], hostId: 'e' }], ceiling: { min: 2, max: 2.2, avg: 2.1 } } as unknown as RoomModel;
+    const slabs = [{ level: 'L1', kind: 'mezzanine', topZ: 2.8 }] as unknown as SlabModel[];
+    const floor = roomFloorZ(room, [ext], slabs);
+    expect(floor).toBe(2.8);
+    const m = roomWallMesh(room, [ext], [], floor);
+    const zs = m.positions.filter((_, i) => i % 3 === 2);
+    expect(Math.min(...zs)).toBeCloseTo(2.8, 6);
+    expect(Math.max(...zs)).toBeCloseTo(5, 6);
+  });
+});

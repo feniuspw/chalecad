@@ -1,6 +1,6 @@
 'use client';
 import type { ReactNode } from 'react';
-import { Html } from '@react-three/drei';
+import { SafeHtml as Html } from './SafeHtml';
 
 type Tone = 'dim' | 'live' | 'ok' | 'bad' | 'hint';
 

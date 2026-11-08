@@ -753,6 +753,8 @@ const LOFT_BATH_D = 2.2;
 /** Largura da escada e folga até a parede em que ela se encosta. */
 const STAIR_W = 0.8;
 const STAIR_HUG = 0.1;
+/** Altura da meia-parede do núcleo na frente do mezanino (balcão). */
+const SPINE_COUNTER = 1.1;
 
 function genAFrame(g: Gen, a: WizardAnswers, p: Program): void {
   const hasMezz = p.mezz !== 'none';
@@ -840,10 +842,17 @@ function genAFrame(g: Gen, a: WizardAnswers, p: Program): void {
       y = y1;
     });
   }
-  // portas e janelas do corpo
-  g.openAt('ext-front', [W / 2, 0], 'door', 0.9, 2.1, 0);
-  g.openAt('ext-front', [W / 2 - 1.6, 0], 'window', 1.4, 1.0, 0.9);
-  g.openAt('ext-front', [W / 2 + 1.5, 0], 'sliding_door', 1.5, 2.1, 0);
+  // portas e janelas do corpo. Com mezanino, a porta entra pelo lado da sala (a oeste da escada), não de frente para
+  // a ponta da parede do núcleo; a porta de correr dá para o lado da cozinha.
+  if (hasMezz) {
+    const stairX0 = xs - STAIR_HUG - STAIR_W;
+    g.openAt('ext-front', [round(Math.max(1.35, stairX0 - 0.9), 2), 0], 'door', 0.9, 2.1, 0);
+    g.openAt('ext-front', [round(Math.min(W - 1.6, xs + 1.3), 2), 0], 'sliding_door', 1.5, 2.1, 0);
+  } else {
+    g.openAt('ext-front', [W / 2, 0], 'door', 0.9, 2.1, 0);
+    g.openAt('ext-front', [W / 2 - 1.6, 0], 'window', 1.4, 1.0, 0.9);
+    g.openAt('ext-front', [W / 2 + 1.5, 0], 'sliding_door', 1.5, 2.1, 0);
+  }
 
   const livingSeed: Vec2 = hasMezz ? [round(Math.max(0.6, (xs - STAIR_W) / 2), 2), round(STAIR_FOOT + 1, 2)] : [round(W * 0.3, 2), round(4.6 * 0.4, 2)];
   if (hasMezz) {
@@ -853,7 +862,10 @@ function genAFrame(g: Gen, a: WizardAnswers, p: Program): void {
     const yb = round(D - bathD, 2);
     const xmax = lastX(g, D / 2, 0, 2.15, W / 2, W);
     const xe = round(Math.min(xs + 2.0, xmax), 2);
-    const spine = g.wall([xs, yS], [xs, D], true);
+    // na frente do mezanino a parede é meia-parede (balcão de 1,10 m): a escada segue a parede e a sala fica aberta;
+    // sob o mezanino ela vai até o piso de cima e fecha cozinha e banheiro
+    b.wall([xs, yS], [xs, y0], { wet: true, height: SPINE_COUNTER });
+    const spine = g.wall([xs, y0], [xs, D], true);
     g.wall([xe, yb], [xe, D], true);
     const front = g.wall([xs, yb], [xe, yb], true);
     g.doorOn(front, [xs, yb], [xe - 0.45, yb], 0.7);

@@ -34,9 +34,10 @@ export function outlineTop(outline: Vec2[], u: number): number | null {
 
 /** Cota do piso acabado do cômodo: base das paredes do contorno; senão a laje do nível; senão o radier. */
 export function roomFloorZ(room: RoomModel, walls: HostWall[], slabs: SlabModel[]): number {
+  // só paredes do próprio nível: num mezanino, a parede externa que o contorna nasce no térreo (base 0)
   for (const e of room.edges) {
     const w = e.hostId ? walls.find((x) => x.id === e.hostId) : undefined;
-    if (w) return w.baseZ;
+    if (w && w.level === room.level) return w.baseZ;
   }
   const own = slabs.find((s) => s.level === room.level && s.kind !== 'radier');
   if (own) return own.topZ;
@@ -50,7 +51,7 @@ const signedArea = (p: Vec2[]) => p.reduce((s, a, i) => s + (a[0] * p[(i + 1) % 
  * recuada `LINING_GAP` da face interna, com vãos de portas e janelas recortados. A altura segue o topo do
  * contorno da parede (empenas) e é limitada pelo teto do cômodo.
  */
-export function roomWallMesh(room: RoomModel, walls: HostWall[], openings: ResolvedOpening[]): MeshData {
+export function roomWallMesh(room: RoomModel, walls: HostWall[], openings: ResolvedOpening[], floorZ?: number): MeshData {
   const out: MeshData = { positions: [], uvs: [], indices: [] };
   if (!room.polygon || room.polygon.length < 3) return out;
   const ccw = signedArea(room.polygon) >= 0;
@@ -86,6 +87,8 @@ export function roomWallMesh(room: RoomModel, walls: HostWall[], openings: Resol
     const [ua, ub] = [proj(e.from), proj(e.to)].sort((x, y) => x - y) as [number, number];
     if (ub - ua < 1e-4) continue;
 
+    // a faixa começa no piso do cômodo (mezanino sobre parede que nasce no térreo) e vai até o teto dele
+    const lo = floorZ === undefined ? 0 : Math.max(0, floorZ - wall.baseZ);
     const own = openings.filter((o) => o.valid && o.hostKind === 'wall' && o.hostId === wall.id && o.u1 > ua && o.u0 < ub);
     const cuts = new Set<number>([ua, ub]);
     for (const p of wall.outline) if (p[0] > ua + 1e-6 && p[0] < ub - 1e-6) cuts.add(p[0]);
@@ -96,12 +99,12 @@ export function roomWallMesh(room: RoomModel, walls: HostWall[], openings: Resol
       const a = us[i]!;
       const b = us[i + 1]!;
       const dl = (b - a) * 1e-4;
-      const topA = Math.min(outlineTop(wall.outline, a + dl) ?? 0, cap);
-      const topB = Math.min(outlineTop(wall.outline, b - dl) ?? 0, cap);
-      if (topA <= 1e-3 && topB <= 1e-3) continue;
+      const topA = Math.min(outlineTop(wall.outline, a + dl) ?? 0, lo + cap);
+      const topB = Math.min(outlineTop(wall.outline, b - dl) ?? 0, lo + cap);
+      if (topA <= lo + 1e-3 && topB <= lo + 1e-3) continue;
       const mid = (a + b) / 2;
-      const holes = own.filter((o) => o.u0 <= mid && o.u1 >= mid).sort((x, y) => x.v0 - y.v0);
-      let cur = 0;
+      const holes = own.filter((o) => o.u0 <= mid && o.u1 >= mid && o.v1 > lo).sort((x, y) => x.v0 - y.v0);
+      let cur = lo;
       for (const h of holes) {
         if (h.v0 > cur + 1e-3) quad(wall, d, n, off, a, b, cur, cur, Math.min(h.v0, topA), Math.min(h.v0, topB));
         cur = Math.max(cur, h.v1);

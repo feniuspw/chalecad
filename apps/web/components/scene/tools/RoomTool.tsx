@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useRef, useState } from 'react';
-import { Html, Line } from '@react-three/drei';
+import { Line } from '@react-three/drei';
+import { SafeHtml as Html } from '../SafeHtml';
 import * as THREE from 'three';
 import { toast } from 'sonner';
 import type { RoomUse, Vec2 } from '@chalecad/engine';

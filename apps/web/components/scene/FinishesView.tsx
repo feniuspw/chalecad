@@ -63,7 +63,7 @@ function RoomFloor({ rm, room, z, clip, hoverable, selected, onSelect }: { rm: R
 function RoomWalls({ rm, room, model, clip }: { rm: RoomModel; room: Room; model: BuildingModel; clip?: THREE.Plane[] }) {
   const geometry = useMemo(() => {
     if (!room.walls) return undefined;
-    const m = roomWallMesh(rm, model.walls, model.openings);
+    const m = roomWallMesh(rm, model.walls, model.openings, roomFloorZ(rm, model.walls, model.slabs));
     if (m.indices.length === 0) return undefined;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(m.positions, 3));
@@ -71,7 +71,7 @@ function RoomWalls({ rm, room, model, clip }: { rm: RoomModel; room: Room; model
     g.setIndex(m.indices);
     g.computeVertexNormals();
     return g;
-  }, [rm, room.walls, model.walls, model.openings]);
+  }, [rm, room.walls, model.walls, model.openings, model.slabs]);
   const pbr = usePbrProps(room.walls);
   if (!geometry || !pbr) return <Dispose geometry={geometry} />;
   return (
