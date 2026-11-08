@@ -29,6 +29,7 @@ import { slopedGeometry } from './sloped';
 import { gambrelGeometry } from './gambrel';
 import { combinedGeometry, type CombinedGeometry } from './combined';
 import { annexGeometry, type AnnexGeometry } from './annex';
+import { annexAxisPolygon, completeRooms, resolveRoomLayouts, wetInteriorWallIds } from './rooms';
 
 const DEG = Math.PI / 180;
 
@@ -275,6 +276,15 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
 
   // --- Paredes do usuário ---------------------------------------------------
   const sortedElevs = [...new Set(levels.map((l) => l.elevation))].sort((a, b) => a - b);
+  // Cômodos: contornos antes das paredes internas, para marcar as molhadas (banheiro, cozinha, lavanderia).
+  const groundContour: Vec2[] = combined
+    ? combined.axisPolygon
+    : annexes.length > 0
+      ? annexAxisPolygon(W, D, annexes)
+      : [[0, 0], [W, 0], [W, D], [0, D]];
+  const roomLayouts = resolveRoomLayouts({ project, exteriorWalls: walls, groundContour });
+  const wetWallIds = wetInteriorWallIds(roomLayouts, catalog);
+
   const mezzEdges: [Vec2, Vec2][] = [];
   for (const l of mezzLevels) {
     l.polygon.forEach((p, i) => mezzEdges.push([p, l.polygon[(i + 1) % l.polygon.length]!]));
@@ -287,7 +297,7 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
   for (const w of project.walls) {
     const lvl = levels.find((l) => l.id === w.level);
     if (!lvl) throw new Error(`Nível inexistente: ${w.level}`);
-    const assemblyId = w.assembly ?? (w.wet ? system.assemblies.wet : system.assemblies.interior);
+    const assemblyId = w.assembly ?? (w.wet || wetWallIds.has(w.id) ? system.assemblies.wet : system.assemblies.interior);
     const asm = findAssembly(catalog, assemblyId);
     const next = sortedElevs.find((e) => e > lvl.elevation);
     let height: number;
@@ -379,33 +389,15 @@ export function buildModel(project: Project, catalog: Catalog): BuildingModel {
     openings,
     stairs,
     extras: buildExtraModels(project, catalog.constants.extras),
-    rooms: [], // F5-E1: resolvido por model/rooms.ts
+    rooms: [],
     ridgeHeight,
     bbox: bbox3(pts),
   };
+  model.rooms = completeRooms(roomLayouts, { project, catalog, model, roofZ });
   return normalizeZero(model);
-}
-
-/** Contorno (eixo das paredes, anti-horário) do A-frame com anexos laterais. */
-function annexAxisPolygon(W: number, D: number, annexes: AnnexGeometry[]): Vec2[] {
-  const r = annexes.find((g) => g.side === 'right');
-  const l = annexes.find((g) => g.side === 'left');
-  const poly: Vec2[] = [[0, 0], [W, 0]];
-  if (r) poly.push([W, r.y0], [r.rect.x1, r.y0], [r.rect.x1, r.y1], [W, r.y1]);
-  poly.push([W, D], [0, D]);
-  if (l) poly.push([0, l.y1], [l.rect.x0, l.y1], [l.rect.x0, l.y0], [0, l.y0]);
-  // remove vértices repetidos e colineares (anexo encostado na frente ou no fundo)
-  const dedup = poly.filter((p, i) => {
-    const q = poly[(i + 1) % poly.length]!;
-    return Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-9;
-  });
-  return dedup.filter((p, i) => {
-    const a = dedup[(i + dedup.length - 1) % dedup.length]!;
-    const b = dedup[(i + 1) % dedup.length]!;
-    return Math.abs((p[0] - a[0]) * (b[1] - a[1]) - (p[1] - a[1]) * (b[0] - a[0])) > 1e-9;
-  });
 }
 
 export { combinedGeometry, type CombinedGeometry, type Valley } from './combined';
 export { annexGeometry, type AnnexGeometry } from './annex';
 export { gambrelGeometry, type GambrelGeometry } from './gambrel';
+export { annexAxisPolygon, roofBelowAt } from './rooms';

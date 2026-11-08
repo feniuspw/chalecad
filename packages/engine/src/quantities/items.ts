@@ -9,6 +9,7 @@ import { distToSegment, length2, polygonArea, polylineLength, type Vec2 } from '
 import type { Project, Stage } from '../schema/project';
 import type { BuildingModel, HostWall, ResolvedOpening, RoofPlane } from '../schema/results';
 import { combinedGeometry } from '../model/combined';
+import { alongWall, openingsOnEdge, wallTopAt } from '../model/rooms';
 import { paginateSheets, type Rect } from './paginate';
 
 /**
@@ -300,6 +301,43 @@ export function collectItems(model: BuildingModel, project: Project, catalog: Ca
       simple(out, catalog, s.id, 'finishing', 'ladder', s.steps * s.riser, { inWeight: true });
     } else {
       simple(out, catalog, s.id, 'finishing', 'stair_tread', s.treads.length, { inWeight: true });
+    }
+  }
+
+  // --- Acabamentos escolhidos (sem escolha, nada é orçado) ---------------------------
+  const finish = (hostId: string, itemId: string, net: number) =>
+    simple(out, catalog, hostId, 'finishing', itemId, net, { inWeight: true });
+  const levelElev = (id: string) => project.levels.find((l) => l.id === id)?.elevation ?? 0;
+  const wallOps = model.openings.filter((o) => o.valid && o.hostKind === 'wall');
+  for (const r of project.rooms) {
+    const rm = model.rooms.find((x) => x.id === r.id);
+    if (!rm || !rm.polygon) continue;
+    if (r.floor) finish(rm.id, r.floor, rm.area);
+    if (!r.walls) continue;
+    const elev = levelElev(rm.level);
+    let area = 0;
+    for (const e of rm.edges) {
+      const w = e.hostId ? wallById.get(e.hostId) : undefined;
+      if (!w || w.assemblyId === 'gable_glazed') continue;
+      const [ua, ub] = [alongWall(w, e.from), alongWall(w, e.to)].sort((a, b) => a - b) as [number, number];
+      const top = w.baseZ + wallTopAt(w.outline, (ua + ub) / 2) - elev;
+      const h = Math.max(0, Math.min(rm.ceiling.avg, top));
+      const holes = openingsOnEdge(e, w, wallOps).reduce((s, o) => s + openingArea(o), 0);
+      area += Math.max(0, length2(e.from, e.to) * h - holes);
+    }
+    finish(rm.id, r.walls, area);
+  }
+  const { facade, interiorRoof } = project.finishes;
+  if (facade) {
+    for (const w of model.walls) {
+      if (w.kind === 'interior' || w.assemblyId === 'gable_glazed') continue;
+      finish(w.id, facade, wallAreas(w, (ops.get(w.id) ?? []).filter((o) => o.hostKind === 'wall')).net);
+    }
+  }
+  if (interiorRoof) {
+    for (const r of model.roofPlanes) {
+      if (!r.isWall) continue;
+      finish(r.id, interiorRoof, Math.max(0, r.area - (ops.get(r.id) ?? []).reduce((s, o) => s + openingArea(o), 0)));
     }
   }
 

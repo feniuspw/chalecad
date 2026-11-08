@@ -135,6 +135,13 @@ export function buildEngineerPackage(project: Project, results: Results, _catalo
       ask('aframe-glazing', 'Fachada envidraçada: definir caixilharia (perfis, ancoragem na estrutura) e vidro de segurança para o vento do local.');
     }
   }
+  const rooms = model.rooms.filter((r) => r.polygon);
+  if (rooms.length > 0) {
+    const list = rooms
+      .map((r) => `${r.name} (${r.use}; ${fmt(r.area, 1)} m²; pé-direito médio ${fmt(r.ceiling.avg)} m; vidro ${fmt(r.glazing)} m²)`)
+      .join('; ');
+    ask('rooms', `Cômodos do projeto: ${list}. Conferir pé-direito, iluminação e ventilação de cada um com o código de obras do município e as cargas das paredes internas molhadas.`);
+  }
   const spliced = quantities.lines.filter((l) => l.note?.includes('emenda'));
   if (spliced.length > 0) {
     ask('splices', `Há peças maiores que a barra comercial (${spliced.map((l) => l.name).join(', ')}): definir o detalhe de emenda.`);

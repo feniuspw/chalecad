@@ -1,25 +1,12 @@
 import type { Catalog } from '@chalecad/catalog';
 import { pointInPolygon, polygonArea, type Vec2 } from '../geometry';
 import { annexGeometry } from '../model/annex';
+import { roofBelowAt } from '../model/rooms';
 import type { Project } from '../schema/project';
-import type { BuildingModel, EngineWarning, ResolvedOpening, RoofPlane, StructuralReport } from '../schema/results';
+import type { BuildingModel, EngineWarning, ResolvedOpening, StructuralReport } from '../schema/results';
 
 const EPS = 1e-9;
 const fmt = (n: number, d = 2) => n.toFixed(d).replace('.', ',');
-
-/** Cota do telhado (menor, se houver mais de uma água) sobre um ponto, ou null. */
-function roofBelowAt(planes: RoofPlane[], p: Vec2): number | null {
-  let best: number | null = null;
-  for (const r of planes) {
-    const [u, v, o] = [r.uAxis, r.vAxis, r.origin];
-    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]] as const;
-    if (Math.abs(n[2]) < EPS) continue;
-    if (!pointInPolygon(p, r.vertices.map((x): Vec2 => [x[0], x[1]]))) continue;
-    const z = o[2] - (n[0] * (p[0] - o[0]) + n[1] * (p[1] - o[1])) / n[2];
-    if (best === null || z < best) best = z;
-  }
-  return best;
-}
 
 const openingArea = (o: ResolvedOpening) => (o.u1 - o.u0) * (o.v1 - o.v0);
 const LIGHTING = new Set<ResolvedOpening['type']>(['window', 'sliding_door', 'skylight']);
@@ -52,8 +39,8 @@ export function normWarnings(ctx: NormContext): EngineWarning[] {
         code: 'norm.ceiling',
         severity: 'info',
         message:
-          `Pé-direito sob o mezanino de ${fmt(under)} m: serve para cozinha, banheiro e circulação (${fmt(nm.ceilingService)} m), ` +
-          `mas sala e quartos pedem ${fmt(nm.ceilingLiving)} m (NBR 15575). Para sala embaixo, suba o mezanino.`,
+          `Pé-direito sob o mezanino de ${fmt(under)} m: serve para banheiro, lavanderia, circulação e depósito (${fmt(nm.ceilingService)} m), ` +
+          `mas sala, cozinha e quartos pedem ${fmt(nm.ceilingLiving)} m (NBR 15575). Para sala ou cozinha embaixo, suba o mezanino.`,
         refs: [slab.id],
       });
     }
@@ -136,25 +123,95 @@ export function normWarnings(ctx: NormContext): EngineWarning[] {
     );
   }
 
+  // --- Cômodos: pé-direito, iluminação, ventilação, área mínima ---------------------
+  for (const r of model.rooms) {
+    const rule = nm.rooms[r.use]!;
+    if (!r.polygon) {
+      out.push({
+        code: 'room.open',
+        severity: 'warn',
+        message: `Cômodo "${r.name}": o ponto de referência não está dentro de um ambiente fechado por paredes. Feche o contorno com paredes ou mova o ponto para dentro de um ambiente.`,
+        refs: [r.id],
+      });
+      continue;
+    }
+    if (r.ceiling.avg < rule.ceiling - EPS) {
+      const slanted = r.ceiling.max - r.ceiling.min > 0.05;
+      out.push({
+        code: 'room.ceiling',
+        severity: r.ceiling.avg < nm.ceilingService - EPS ? 'warn' : 'info',
+        message:
+          `${r.name}: pé-direito ${slanted ? `mínimo de ${fmt(r.ceiling.min)} m e médio de ${fmt(r.ceiling.avg)} m (teto inclinado)` : `de ${fmt(r.ceiling.avg)} m`}; ` +
+          `${r.use === 'living' || r.use === 'bedroom' || r.use === 'kitchen' ? 'sala, cozinha e quartos pedem' : 'este uso pede'} ${fmt(rule.ceiling)} m (NBR 15575). ` +
+          `Alguns códigos aceitam a média em teto inclinado; confirme com o município.`,
+        refs: [r.id],
+      });
+    }
+    if (rule.light && r.glazing < r.area * nm.lightRatio - EPS) {
+      out.push({
+        code: 'room.lighting',
+        severity: 'warn',
+        message:
+          `${r.name}: ${fmt(r.glazing)} m² de vidro para ${fmt(r.area, 1)} m² de piso. Iluminação pede 1/${fmt(1 / nm.lightRatio, 0)} da área ` +
+          `(${fmt(r.area * nm.lightRatio)} m²) e ventilação 1/${fmt(1 / nm.ventRatio, 0)} (${fmt(r.area * nm.ventRatio)} m²), conforme o código de obras.`,
+        refs: [r.id],
+      });
+    } else if (!rule.light && rule.vent && r.glazing < r.area * nm.ventRatio - EPS) {
+      out.push({
+        code: 'room.ventilation',
+        severity: 'info',
+        message:
+          `${r.name}: sem abertura de ${fmt(r.area * nm.ventRatio)} m² (1/${fmt(1 / nm.ventRatio, 0)} da área) para ventilação. ` +
+          `Prever janela ou exaustão mecânica, se o código de obras do município permitir.`,
+        refs: [r.id],
+      });
+    }
+    if (rule.minArea > 0 && r.area < rule.minArea - EPS) {
+      out.push({
+        code: 'room.area',
+        severity: 'info',
+        message: `${r.name}: ${fmt(r.area, 1)} m² é menos que a área mínima usual de ${fmt(rule.minArea, 1)} m² para este uso (código de obras).`,
+        refs: [r.id],
+      });
+    }
+  }
+  const groundId = project.levels.find((l) => l.elevation === 0)?.id;
+  const groundRooms = model.rooms.filter((r) => r.level === groundId && r.polygon);
+
   // --- Iluminação e ventilação por volume ----------------------------------------
   interface Zone {
     name: string;
     area: number;
     hosts: (id: string) => boolean;
+    /** Cômodo do térreo pertence a esta zona (pelo centro do contorno). */
+    has: (c: Vec2) => boolean;
   }
   const zones: Zone[] = [];
   if (t.kind === 'a_frame' && t.annexes.length > 0) {
-    zones.push({ name: 'Corpo do A-frame', area: t.width * t.depth, hosts: (id) => !id.startsWith('annex-') });
+    zones.push({ name: 'Corpo do A-frame', area: t.width * t.depth, hosts: (id) => !id.startsWith('annex-'), has: (c) => c[0] >= 0 && c[0] <= t.width });
     for (const a of t.annexes) {
       const lado = a.side === 'left' ? 'esquerda' : 'direita';
-      zones.push({ name: `Cômodo à ${lado}`, area: a.width * a.length, hosts: (id) => id.startsWith(`annex-${a.side}-`) });
+      zones.push({
+        name: `Cômodo à ${lado}`,
+        area: a.width * a.length,
+        hosts: (id) => id.startsWith(`annex-${a.side}-`),
+        has: (c) => (a.side === 'left' ? c[0] < 0 : c[0] > t.width),
+      });
     }
   } else {
-    zones.push({ name: 'Térreo', area: polygonArea(model.footprint), hosts: () => true });
+    zones.push({ name: 'Térreo', area: polygonArea(model.footprint), hosts: () => true, has: () => true });
   }
   const glazedWalls = model.walls.filter((w) => w.assemblyId === 'gable_glazed');
   for (const z of zones) {
     if (!(z.area > 0)) continue;
+    // cômodos resolvidos: o alerta por volume só cobre o que sobra fora deles
+    const inZone = groundRooms.filter((r) => {
+      const poly = r.polygon!;
+      return z.has([poly.reduce((a, p) => a + p[0], 0) / poly.length, poly.reduce((a, p) => a + p[1], 0) / poly.length]);
+    });
+    const roomsArea = inZone.reduce((a, r) => a + r.area, 0);
+    if (inZone.length > 0 && roomsArea >= 0.9 * z.area - EPS) continue;
+    const roomsGlass = inZone.reduce((a, r) => a + r.glazing, 0);
     let glass = model.openings
       .filter((o) => o.valid && LIGHTING.has(o.type) && z.hosts(o.hostId))
       .reduce((s, o) => s + openingArea(o), 0);
@@ -163,14 +220,16 @@ export function normWarnings(ctx: NormContext): EngineWarning[] {
       const holes = model.openings.filter((o) => o.valid && o.hostId === w.id).reduce((s, o) => s + openingArea(o), 0);
       glass += Math.max(0, polygonArea(w.outline) - holes);
     }
-    const need = z.area * nm.lightRatio;
-    if (glass < need - EPS) {
+    glass = Math.max(0, glass - roomsGlass);
+    const area = z.area - roomsArea;
+    const need = area * nm.lightRatio;
+    if (area > EPS && glass < need - EPS) {
       out.push({
         code: 'norm.lighting',
         severity: 'warn',
         message:
-          `${z.name}: ${fmt(glass)} m² de janelas para ${fmt(z.area, 1)} m² de piso. Iluminação pede cerca de 1/${fmt(1 / nm.lightRatio, 0)} da área ` +
-          `(${fmt(need)} m²) e ventilação 1/${fmt(1 / nm.ventRatio, 0)} (${fmt(z.area * nm.ventRatio)} m²), conforme o código de obras. ` +
+          `${z.name}: ${fmt(glass)} m² de janelas para ${fmt(area, 1)} m² de piso. Iluminação pede cerca de 1/${fmt(1 / nm.lightRatio, 0)} da área ` +
+          `(${fmt(need)} m²) e ventilação 1/${fmt(1 / nm.ventRatio, 0)} (${fmt(area * nm.ventRatio)} m²), conforme o código de obras. ` +
           `Cada cômodo fechado (quarto, banheiro) precisa da própria janela; banheiro pode usar exaustão mecânica.`,
       });
     }
