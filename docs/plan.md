@@ -32,6 +32,31 @@ Fluxos paralelos: motor (E) e editor (W).
 - [x] F4-E1 platô, corte/aterro, taludes, arrimo, máquinas
 - [x] F4-W* terreno no 3D e no assistente
 
+## Fase 5 — modo de edição e apresentação
+- [x] F5-E1/W1 cômodos, verificações por cômodo, acabamentos com texturas procedurais
+- [x] F5-W2 modo apresentação (sol real, céu, sombras, pós-processamento, primeira pessoa, imagem)
+
+## Fase 6 — móveis
+- [x] F6-E1 móveis no motor (circulação, porta, teto baixo, água) e ventilação pela área que abre
+- [x] F6-W1 biblioteca, arrastar e soltar, 3D procedural, Mobiliar
+- [x] F6-W2 acabamento visual (fachada por fora, estrelas, escadas no passeio)
+
+## Fase 7 — instalações e documentação técnica
+- [x] F7-E1/W1 instalações elétricas e hidráulicas estimadas
+- [x] F7-W2 exportação DXF
+
+## Fase 8 — wood frame, primeiros passos e obra
+- [x] F8-E1/W1 wood frame (NBR 7190)
+- [x] F8-W2 modelos prontos, tour e atalhos
+- [x] F8-W3 aba Obra (cronograma e compras)
+
+## Fase 9 — desempenho
+- [x] F9-E1/W1 térmico (NBR 15575), solar fotovoltaico e água de chuva
+
+## Fase 10 — compartilhar e qualidade
+- [ ] F10-W1 página Ver projeto (somente leitura)
+- [ ] F10-W2 e2e dos fluxos novos
+
 ## Fechamento (2026-11-07)
 - Critérios de saída verificados: JSON válido carrega e renderiza (F0); chalé 6,5 x 8,5 calcula tudo em ~3 ms (< 300 ms) (F1); verificações estruturais com taxas e cores, extras, meia-água, telhado plano e comparação de variantes (F2); IA com tool use citando ferramentas, gambrel e L/T, roteiro e pacote do engenheiro (F3); terreno com corte/aterro testado contra cálculo manual (F4).
 - Pendências conhecidas: índice de aço do exemplo (~15,5 kg/m²) abaixo da faixa 21,9–24,7 da spec (ver decisions.md #11); validação estrutural por engenheiro não feita; IA não testada com chave real; importação automática do SINAPI não implementada (importação de preços por CSV sim); Supabase não configurado (modo local SQLite).
