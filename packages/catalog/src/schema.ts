@@ -387,6 +387,175 @@ export const TechnicalConstants = z.object({
     tankSizes: z.array(pos).min(1),
   }),
   /**
+   * Projeto elétrico e luminotécnico (NBR 5410:2004, NBR ISO/CIE 8995-1). Fontes e incertezas em
+   * `docs/research/eletrica.md`. Tabelas de norma na forma publicada em manuais de fabricantes.
+   */
+  electrical: z.object({
+    normEdition: z.string(),
+    loads: z.object({
+      lighting: z.object({ baseVA: pos, baseArea: pos, stepVA: pos, stepArea: pos }),
+      sockets: z.object({
+        generalVA: pos,
+        wetVA: pos,
+        wetHighCount: nonneg,
+        perimeterStep: z.object({ wet: pos, other: pos }),
+        bathSocketMinDistFromShower: pos,
+        counterSockets: nonneg,
+      }),
+      /** Equipamento com corrente acima disso pede circuito exclusivo (A). */
+      tueSeparateAboveA: pos,
+      /** Corrente máxima recomendada por circuito de uso geral (A). */
+      circuitMaxA: z.object({ lighting: pos, sockets: pos, wet_sockets: pos }),
+    }),
+    /** Equipamentos (TUE e cargas conhecidas) por chave: potência, fator de potência, ligação e curva. */
+    appliances: z.record(
+      z.string(),
+      z.object({ w: pos, pf: z.number().min(0.1).max(1), voltage: z.enum(['FN', 'FF']).optional(), curve: z.enum(['B', 'C']).optional(), label: z.string() }),
+    ),
+    /** Liga móvel do catálogo a um equipamento (ex.: furn_stove → cooktop). */
+    applianceByFurniture: z.record(z.string(), z.string()),
+    /** Capacidade (A), Cu/PVC 70 °C a 30 °C: [seção, B1 2c, B1 3c, B2 2c, B2 3c, A1 2c, A1 3c]. */
+    ampacity: z.array(z.tuple([pos, pos, pos, pos, pos, pos, pos])).min(1),
+    /** Fator de temperatura ambiente (PVC) por °C. */
+    tempFactor: z.record(z.string(), pos),
+    /** Fator de agrupamento: índice = circuitos no mesmo eletroduto − 1 (último vale para mais). */
+    groupingFactor: z.array(pos).min(1),
+    minSection: z.object({ lighting: pos, power: pos }),
+    /** Resistência a 20 °C (Ω/km) por seção, e fator para 70 °C. */
+    resistance20: z.record(z.string(), pos),
+    resistanceTempFactor70: pos,
+    voltageDrop: z.object({ terminalMaxPct: pos, totalMaxPct: pos, warnAtPct: pos }),
+    breakers: z.object({ ratings: z.array(pos).min(1), defaultCurve: z.enum(['B', 'C']) }),
+    dr: z.object({ sensitivityMa: pos, ratings: z.array(pos).min(1), excludeLightingAboveM: pos, requiredRoomUses: z.array(z.string()), maxCircuitsPerDr: pos }),
+    dps: z.object({ ucByVoltage: z.record(z.string(), pos), inKa: pos }),
+    /** Reservas no quadro: [até N circuitos, reservas] (fração quando < 1). */
+    panelReserves: z.array(z.tuple([pos, pos])).min(1),
+    panelSizes: z.array(pos).min(1),
+    conduit: z.object({
+      fillMax: z.object({ one: pos, two: pos, many: pos }),
+      maxStraight: pos,
+      reducePerBend90: nonneg,
+      maxBends90: nonneg,
+      /** Eletroduto corrugado: DN e diâmetro interno (mm). */
+      sizes: z.array(z.object({ dn: pos, di: pos })).min(1),
+      minDn: pos,
+      wastePct: nonneg,
+    }),
+    /** Diâmetro externo do cabo flexível 750 V (mm) por seção. */
+    cableOuterDiameter: z.record(z.string(), pos),
+    cable: z.object({ slackPerBoxM: nonneg, wastePct: nonneg }),
+    heights: z.object({ low: pos, mid: pos, high: pos, switch: pos, wallLight: pos, panel: pos }),
+    /** Distância do interruptor ao batente da porta (m). */
+    switchOffsetFromJamb: pos,
+    /** Demanda (tabela de concessionária): [até kW, fator] para iluminação e tomadas; aquecimento por quantidade. */
+    demand: z.object({ lightingSockets: z.array(z.tuple([pos, pos])).min(1), heating: z.array(pos).min(1) }),
+    /** Categoria provável do padrão de entrada (genérica; confirmar com a concessionária). */
+    entranceCategories: z.array(z.object({ code: z.string(), phases: z.number().int().min(1).max(3), maxKw: pos, breakerA: pos, cableMm2: pos })).min(1),
+    /** Tensão fase-neutro sugerida por UF. */
+    voltageByUF: z.record(z.string(), z.union([z.literal(127), z.literal(220)])),
+    lighting: z.object({
+      /** Iluminância alvo e mínima (lux) por uso de cômodo. */
+      targetLux: z.record(z.string(), pos),
+      minLux: z.record(z.string(), pos),
+      workPlane: z.record(z.string(), nonneg),
+      maintenanceFactor: pos,
+      /** Índice do recinto K → fator de utilização. */
+      utilization: z.array(z.tuple([pos, pos])).min(2),
+      spacingToHeight: pos,
+      ledPowerFactor: pos,
+    }),
+    /** Luminárias típicas (LED). */
+    luminaires: z
+      .array(
+        z.object({
+          id: z.string(),
+          label: z.string(),
+          type: z.enum(['plafon', 'downlight', 'spot', 'pendant', 'wall', 'strip', 'flood']),
+          watts: pos,
+          lumens: pos,
+          cct: pos,
+          beamAngle: pos.optional(),
+          priceItem: z.string().optional(),
+        }),
+      )
+      .min(1),
+    defaultLuminaire: z.string(),
+  }),
+  /**
+   * Hidráulica (NBR 5626 água fria/quente, NBR 8160 esgoto). Fontes e incertezas em `docs/research/hidraulica.md`.
+   * Método dos pesos (NBR 5626:1998), ainda prática corrente.
+   */
+  plumbing: z.object({
+    kPaPerMca: pos,
+    water: z.object({
+      simultaneityC: pos,
+      minDynamicKpa: z.object({ default: pos, toilet_tank: pos, network: pos }),
+      maxStaticKpa: pos,
+      maxVelocity: pos,
+      velocityTarget: pos,
+      /** Aparelhos: vazão (L/s), peso, peso de água quente, DN mínimo, UHC, DN de esgoto, alturas de água e esgoto. */
+      fixtures: z.record(
+        z.string(),
+        z.object({
+          label: z.string(),
+          q: pos,
+          w: nonneg,
+          qHot: nonneg.optional(),
+          wHot: nonneg,
+          dnMin: pos,
+          uhc: nonneg,
+          sewerDn: pos.optional(),
+          waterH: pos,
+          sewerH: nonneg.optional(),
+          minKpa: pos.optional(),
+          /** Registro de pressão no sub-ramal (chuveiro). */
+          pressureValve: z.boolean().optional(),
+        }),
+      ),
+      /** Liga móvel do catálogo a um aparelho (ex.: furn_shower → shower_electric). */
+      fixtureByFurniture: z.record(z.string(), z.string()),
+      /** Tubos: DN comercial e diâmetro interno (m). */
+      pipes: z.record(z.string(), z.object({ label: z.string(), sizes: z.array(z.object({ dn: pos, di: pos })).min(1), hot: z.boolean() })),
+      /** Fair-Whipple-Hsiao J = k·Q^a/D^b (m/m, m³/s, m). */
+      fwh: z.object({ cold: z.object({ k: pos, qExp: pos, dExp: pos }), hot: z.object({ k: pos, qExp: pos, dExp: pos }) }),
+      /** Comprimentos equivalentes (m) por DN (`dn` dá os índices). */
+      leq: z.object({
+        dn: z.array(pos).min(1),
+        elbow90: z.array(pos),
+        elbow45: z.array(pos),
+        teeStraight: z.array(pos),
+        teeBranch: z.array(pos),
+        entrance: z.array(pos),
+        gateValve: z.array(pos),
+        pressureValve: z.array(pos),
+      }),
+      reservoir: z.object({ litersPerPerson: pos, reserveDays: pos, minLiters: pos, tankSizes: z.array(pos).min(1) }),
+      /** Altura do fundo da caixa sobre o forro quando não há torre (m). */
+      atticTankRise: nonneg,
+    }),
+    sewer: z.object({
+      slopeMin: z.object({ upTo75: pos, from100: pos }),
+      slopeMax: pos,
+      branchMaxUhc: z.record(z.string(), pos),
+      stackMaxUhc: z.record(z.string(), pos),
+      ventMaxDistance: z.record(z.string(), pos),
+      ventTerminalAboveRoof: pos,
+      siphonBoxMaxUhc: pos,
+      inspection: z.object({ maxDepth: pos, maxSpacing: pos, maxFromTrap: pos }),
+      /** Esgoto sob o radier: profundidade da geratriz inferior na saída do aparelho (m abaixo do piso). */
+      startDepth: nonneg,
+    }),
+    septic: z.object({
+      contributionLpd: pos,
+      sludgeLf: pos,
+      /** Período de detenção (dias) por contribuição diária: [até L/dia, T]. */
+      detention: z.array(z.tuple([pos, pos])).min(1),
+      /** Taxa de lodo K (limpeza a cada 2 anos, 10–20 °C). */
+      sludgeK: pos,
+    }),
+    colors: z.object({ cold: z.string(), hot: z.string(), sewer: z.string(), vent: z.string() }),
+  }),
+  /**
    * Desempenho: térmico (NBR 15575-4/5 procedimento simplificado, NBR 15220-2/3), energia solar fotovoltaica e
    * captação de água de chuva (NBR 15527). Valores por UF são da capital (o usuário pode trocar a zona).
    */

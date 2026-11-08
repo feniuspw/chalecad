@@ -6,6 +6,8 @@ import { buildCircuits } from './circuits';
 import { computePipes } from './pipes';
 import { placePoints, type PointEx } from './points';
 import { installationItems } from './quantities';
+import { computeElectrical } from './electrical';
+import { computePlumbing } from './plumbing';
 
 export { placePoints } from './points';
 export type { PointEx, PlacedPoints, TankInfo } from './points';
@@ -13,6 +15,10 @@ export { buildCircuits } from './circuits';
 export { computePipes } from './pipes';
 export { installationItems } from './quantities';
 export { sizeTank } from './tank';
+export { computeElectrical } from './electrical';
+export type { ElectricalResult } from './electrical';
+export { computePlumbing } from './plumbing';
+export type { PlumbingResult } from './plumbing';
 
 export interface InstallationsResult {
   report: InstallationsReport;
@@ -124,9 +130,22 @@ export function computeInstallations(project: Project, model: BuildingModel, cat
     });
     warnings.push(...pressureWarnings(project, placed));
   }
+  // Cálculo de engenharia (F16): quando disponível, substitui a estimativa de circuitos/pressão e seus itens.
+  let items = installationItems(project, report, placed, catalog);
+  const elec = computeElectrical(project, model, catalog);
+  const plumb = computePlumbing(project, model, catalog);
+  if (elec) {
+    report.electrical = elec.report;
+    warnings.push(...elec.warnings);
+  }
+  if (plumb) {
+    report.plumbing = plumb.report;
+    warnings.push(...plumb.warnings);
+  }
+  if (elec || plumb) items = [...items, ...(elec?.items ?? []), ...(plumb?.items ?? [])];
   return {
     report,
-    items: installationItems(project, report, placed, catalog),
+    items,
     warnings,
     tank: tank ? { liters: tank.liters, fullKg: tank.fullKg, roomId: tank.roomId, roomName: tank.roomName } : null,
   };

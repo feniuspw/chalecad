@@ -546,8 +546,115 @@ export type Furniture = z.infer<typeof Furniture>;
  * Instalações elétricas e hidráulicas estimadas (NBR 5410 / NBR 5626, mínimos usuais).
  * O motor posiciona os pontos a partir dos cômodos e dos móveis; nada é desenhado pelo usuário.
  */
+/**
+ * Projeto elétrico desenhado (fonte de verdade quando `manual`). Sem `manual`, o motor gera o traçado a partir dos
+ * cômodos e móveis (pontos pelos mínimos da NBR 5410, circuitos, eletrodutos pelo forro) e calcula do mesmo jeito.
+ * Alturas a partir do piso acabado do nível; posições em planta (na face da parede quando `hostId`).
+ */
+export const ElecPointKind = z.enum(['socket', 'socket_high', 'socket_tue', 'switch', 'light', 'data']);
+export type ElecPointKind = z.infer<typeof ElecPointKind>;
+export const ElecPoint = z.object({
+  id: Id,
+  kind: ElecPointKind,
+  level: Id,
+  position: Vec2,
+  /** Parede em que a caixa está embutida (tomada, interruptor, arandela); ausente = teto ou piso. */
+  hostId: Id.optional(),
+  height: z.number().min(0).max(12),
+  /** Potência de projeto (VA). Ausente = regra da NBR 5410 (100/600 VA), aparelho ou soma das luminárias. */
+  powerVA: z.number().positive().max(20000).optional(),
+  /** Equipamento (chave em `catalog.constants.electrical.appliances`) para tomada de uso específico. */
+  appliance: z.string().max(64).optional(),
+  /** Circuito atribuído; ausente = o motor distribui. */
+  circuitId: Id.optional(),
+  /** Interruptor: tipo e pontos de luz que ele comanda (paralelo = dois interruptores com os mesmos pontos). */
+  switchType: z.enum(['one_way', 'two_way', 'intermediate', 'dimmer']).optional(),
+  controls: z.array(Id).max(20).optional(),
+  /** Ponto de luz: luminária do catálogo e quantidade no ponto. */
+  luminaire: z.string().max(64).optional(),
+  count: z.number().int().min(1).max(20).optional(),
+  label: z.string().max(60).optional(),
+});
+export type ElecPoint = z.infer<typeof ElecPoint>;
+/** Eletroduto: polilinha em planta no forro, piso ou parede; DN ausente = dimensionado pela ocupação. */
+export const Conduit = z.object({
+  id: Id,
+  level: Id,
+  path: z.array(Vec2).min(2).max(200),
+  run: z.enum(['ceiling', 'floor', 'wall']).default('ceiling'),
+  dn: z.number().positive().max(100).optional(),
+});
+export type Conduit = z.infer<typeof Conduit>;
+/** Circuito definido pelo usuário (sobrescritas); o motor dimensiona o que faltar. */
+export const CircuitDef = z.object({
+  id: Id,
+  name: z.string().min(1).max(60),
+  kind: z.enum(['lighting', 'sockets', 'wet_sockets', 'tue']),
+  sectionMm2: z.number().positive().max(35).optional(),
+  breakerA: z.number().positive().max(125).optional(),
+  curve: z.enum(['B', 'C']).optional(),
+  dr: z.boolean().optional(),
+});
+export type CircuitDef = z.infer<typeof CircuitDef>;
+export const Electrical = z.object({
+  /** O traçado salvo é a fonte de verdade (o usuário editou); falso = o motor gera a cada cálculo. */
+  manual: z.boolean().default(false),
+  /** Tensão fase-neutro; ausente = a da UF (`voltageByUF`). */
+  voltage: z.union([z.literal(127), z.literal(220)]).optional(),
+  /** Do padrão de entrada ao quadro (m), para a queda de tensão do alimentador. */
+  feederLength: z.number().min(0).max(200).default(15),
+  /** Temperatura ambiente do percurso (°C). */
+  ambientTemp: z.number().min(10).max(50).default(30),
+  points: z.array(ElecPoint).max(2000).default([]),
+  conduits: z.array(Conduit).max(2000).default([]),
+  circuits: z.array(CircuitDef).max(200).default([]),
+});
+export type Electrical = z.infer<typeof Electrical>;
+
+/** Hidráulica desenhada (fonte de verdade quando `manual`); sem `manual`, o motor gera a árvore a partir da caixa. */
+export const PipeSystem = z.enum(['cold', 'hot', 'sewer', 'vent']);
+export type PipeSystem = z.infer<typeof PipeSystem>;
+export const WaterPoint = z.object({
+  id: Id,
+  /** Aparelho (chave em `catalog.constants.plumbing.water.fixtures`). */
+  fixture: z.string().min(1).max(64),
+  level: Id,
+  position: Vec2,
+  furnitureId: Id.optional(),
+  label: z.string().max(60).optional(),
+});
+export type WaterPoint = z.infer<typeof WaterPoint>;
+/**
+ * Tubo: polilinha 3D [x, y, z] com z = cota acima do piso do nível. Ligações por pontas coincidentes (2 cm) com
+ * outro tubo, um ponto de água ou a caixa. DN ausente = dimensionado; `slope` (m/m) só no esgoto.
+ */
+export const Pipe = z.object({
+  id: Id,
+  system: PipeSystem,
+  level: Id,
+  path: z.array(z.tuple([z.number().finite(), z.number().finite(), z.number().finite()])).min(2).max(200),
+  dn: z.number().positive().max(150).optional(),
+  slope: z.number().min(0).max(0.2).optional(),
+});
+export type Pipe = z.infer<typeof Pipe>;
+export const Plumbing = z.object({
+  manual: z.boolean().default(false),
+  /** Caixa d'água: posição e cota do fundo (absoluta). Ausente = sobre o banheiro (ou a torre). */
+  tank: z.object({ level: Id, position: Vec2, bottomZ: z.number().min(0).max(30), liters: z.number().positive().max(20000).optional() }).optional(),
+  points: z.array(WaterPoint).max(500).default([]),
+  pipes: z.array(Pipe).max(2000).default([]),
+  /** Destino do esgoto: rede pública ou fossa (dimensionada pela NBR 7229). */
+  sewerDisposal: z.enum(['public', 'septic']).default('septic'),
+});
+export type Plumbing = z.infer<typeof Plumbing>;
+
+const electricalDefault = (): Electrical => ({ manual: false, feederLength: 15, ambientTemp: 30, points: [], conduits: [], circuits: [] });
+const plumbingDefault = (): Plumbing => ({ manual: false, points: [], pipes: [], sewerDisposal: 'septic' });
+
 export const Installations = z.object({
   enabled: z.boolean().default(false),
+  electrical: Electrical.default(electricalDefault),
+  plumbing: Plumbing.default(plumbingDefault),
   /** Aquecimento da água do banho: chuveiro elétrico (TUE), aquecedor a gás ou solar (água quente encanada). */
   waterHeater: z.enum(['electric_shower', 'gas', 'solar']).default('electric_shower'),
   /** Moradores, para a caixa d'água. Ausente = 2 por quarto, mínimo 2. */
@@ -609,7 +716,7 @@ export const ProjectBase = z.object({
   rooms: z.array(Room).default([]),
   finishes: Finishes.default({}),
   furniture: z.array(Furniture).default([]),
-  installations: Installations.default({ enabled: false, waterHeater: 'electric_shower' }),
+  installations: Installations.default(() => ({ enabled: false, waterHeater: 'electric_shower' as const, electrical: electricalDefault(), plumbing: plumbingDefault() })),
   progress: Progress.default({ purchased: {}, stagesDone: [] }),
   performance: Performance.default({ solar: false, rainwater: false }),
   design: Design,

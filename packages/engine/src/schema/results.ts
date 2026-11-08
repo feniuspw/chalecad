@@ -2,7 +2,7 @@
  * Contratos de saída do motor. Tudo aqui é JSON serializável (sem classes, Map, funções).
  * Convenção de coordenadas: [x, y, z] com z para cima (ver project.ts).
  */
-import type { OpeningType, RoomUse, Stage, TypologyKind, Vec2 } from './project';
+import type { CircuitDef, Conduit, ElecPoint, OpeningType, Pipe, RoomUse, Stage, TypologyKind, Vec2, WaterPoint } from './project';
 
 export type Vec3 = [number, number, number];
 
@@ -499,6 +499,158 @@ export interface InstallationsReport {
   /** Comprimentos estimados (m). */
   pipes: { cold: number; hot: number; sewer40: number; sewer100: number };
   conduit: number;
+  /** Projeto elétrico calculado (NBR 5410) sobre o traçado efetivo (o do usuário ou o gerado). */
+  electrical?: ElectricalReport;
+  /** Hidráulica calculada (NBR 5626 / 8160) sobre o traçado efetivo. */
+  plumbing?: PlumbingReport;
+}
+
+// ---------------------------------------------------------------------------
+// Elétrica (NBR 5410) e luminotécnica
+// ---------------------------------------------------------------------------
+
+/** Traçado efetivo: o salvo (manual) ou o gerado pelo motor (ids `auto-*`), no formato do projeto. */
+export interface ElectricalLayout {
+  points: ElecPoint[];
+  conduits: Conduit[];
+  circuits: CircuitDef[];
+  panel: { level: string; position: Vec2; hostId: string | null };
+}
+
+export interface ElecCircuitResult {
+  id: string;
+  name: string;
+  kind: CircuitDef['kind'];
+  pointIds: string[];
+  /** Potência de projeto (VA) e corrente de projeto (A). */
+  powerVA: number;
+  ib: number;
+  /** Tensão do circuito (V) e se é fase-fase. */
+  voltage: number;
+  phaseToPhase: boolean;
+  /** Método de instalação, fatores de agrupamento e temperatura, capacidade corrigida (A). */
+  method: 'B1' | 'B2' | 'A1';
+  fca: number;
+  fct: number;
+  izCorrected: number;
+  sectionMm2: number;
+  breakerA: number;
+  curve: 'B' | 'C';
+  dr: boolean;
+  /** Comprimento do QDC ao ponto mais distante pelo traçado (m) e quedas de tensão (%). */
+  lengthM: number;
+  voltageDropPct: number;
+  totalDropPct: number;
+  /** O que definiu a seção. */
+  sizingReason: 'ampacity' | 'voltage_drop' | 'minimum' | 'user';
+  /** Cabo total do circuito por função (m), já com sobras. */
+  cable: { phase: number; neutral: number; pe: number; return: number };
+}
+
+export interface ConduitResult {
+  id: string;
+  length: number;
+  bends90: number;
+  dn: number;
+  circuitIds: string[];
+  conductors: number;
+  fillPct: number;
+  fillLimitPct: number;
+}
+
+export interface RoomLightingResult {
+  roomId: string;
+  area: number;
+  /** Índice do recinto, fator de utilização, fluxo instalado (lm), iluminância média (lux) e alvo. */
+  k: number;
+  fu: number;
+  lumens: number;
+  avgLux: number;
+  targetLux: number;
+  minLux: number;
+  watts: number;
+  status: 'low' | 'ok' | 'high' | 'none';
+}
+
+export interface ElectricalReport {
+  layout: ElectricalLayout;
+  voltage: number;
+  circuits: ElecCircuitResult[];
+  conduits: ConduitResult[];
+  lighting: RoomLightingResult[];
+  /** Potência instalada e demanda (kW), pelo fator da concessionária. */
+  installedKw: number;
+  demandKw: number;
+  entrance: { category: string; phases: number; breakerA: number; cableMm2: number };
+  feeder: { sectionMm2: number; voltageDropPct: number };
+  panel: {
+    ways: number;
+    size: number;
+    reserves: number;
+    mainBreakerA: number;
+    drs: { id: string; ratingA: number; circuitIds: string[] }[];
+    dps: { ucV: number; inKa: number };
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Hidráulica (NBR 5626 / NBR 8160)
+// ---------------------------------------------------------------------------
+
+export interface PlumbingLayout {
+  tank: { level: string; position: Vec2; bottomZ: number; liters: number; towerId: string | null };
+  points: WaterPoint[];
+  pipes: Pipe[];
+}
+
+export interface WaterPipeResult {
+  pipeId: string;
+  system: 'cold' | 'hot';
+  sumWeights: number;
+  flowLps: number;
+  dn: number;
+  di: number;
+  velocity: number;
+  /** Comprimento real (m), comprimento equivalente das conexões (m) e perda de carga (m.c.a.). */
+  length: number;
+  leq: number;
+  headLoss: number;
+}
+
+export interface WaterPointResult {
+  pointId: string;
+  fixture: string;
+  system: 'cold' | 'hot';
+  /** Cota absoluta do ponto (m). */
+  z: number;
+  staticHead: number;
+  headLoss: number;
+  dynamicHead: number;
+  dynamicKpa: number;
+  minKpa: number;
+  ok: boolean;
+  /** Quanto a caixa precisaria subir para atender (m); 0 se ok. */
+  requiredTankRise: number;
+  /** Tubos da caixa até o ponto. */
+  path: string[];
+}
+
+export interface SewerPipeResult {
+  pipeId: string;
+  system: 'sewer' | 'vent';
+  uhc: number;
+  dn: number;
+  slope: number;
+  zFrom: number;
+  zTo: number;
+}
+
+export interface PlumbingReport {
+  layout: PlumbingLayout;
+  tank: { liters: number; dailyLiters: number; occupants: number; fullKg: number };
+  water: { pipes: WaterPipeResult[]; points: WaterPointResult[] };
+  sewer: { pipes: SewerPipeResult[]; totalUhc: number; vented: boolean };
+  septic: { tankLiters: number; contributionLpd: number } | null;
 }
 
 // ---------------------------------------------------------------------------
