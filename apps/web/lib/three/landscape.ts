@@ -125,14 +125,21 @@ export interface GroundBuffers {
  * Chão em malha polar (anéis que se afastam em progressão), plano até `flatRadius` e ondulado depois.
  * UVs em metros. Cores por vértice: duas escalas de manchas (30 a 90 m e 6 a 15 m) quebram a repetição da textura.
  */
-export function buildGroundBuffers(t: TerrainShape, patchA: [number, number, number], patchB: [number, number, number], radius = GROUND_R, rings = 44, segs = 128): GroundBuffers {
+export interface GroundOptions {
+  /** Altura somada em cada vértice (coordenadas locais da malha): o declive do lote. */
+  base?: (x: number, z: number) => number;
+  /** Triângulos com os três vértices aqui dentro são omitidos (o `TerrainView` já cobre essa área). */
+  hole?: (x: number, z: number) => boolean;
+}
+
+export function buildGroundBuffers(t: TerrainShape, patchA: [number, number, number], patchB: [number, number, number], radius = GROUND_R, rings = 44, segs = 128, opts: GroundOptions = {}): GroundBuffers {
   const verts = 1 + rings * segs;
   const positions = new Float32Array(verts * 3);
   const uvs = new Float32Array(verts * 2);
   const colors = new Float32Array(verts * 3);
   const put = (i: number, x: number, z: number) => {
     positions[i * 3] = x;
-    positions[i * 3 + 1] = groundHeight(x, z, t);
+    positions[i * 3 + 1] = groundHeight(x, z, t) + (opts.base ? opts.base(x, z) : 0);
     positions[i * 3 + 2] = z;
     uvs[i * 2] = x;
     uvs[i * 2 + 1] = z;
@@ -152,27 +159,32 @@ export function buildGroundBuffers(t: TerrainShape, patchA: [number, number, num
       put(1 + (k - 1) * segs + s, Math.cos(a) * r, Math.sin(a) * r);
     }
   }
-  const indices = new Uint32Array((segs + (rings - 1) * segs * 2) * 3);
+  const full = new Uint32Array((segs + (rings - 1) * segs * 2) * 3);
   let n = 0;
+  const inHole = (i: number) => !!opts.hole && opts.hole(positions[i * 3]!, positions[i * 3 + 2]!);
+  const hole = opts.hole ? new Uint8Array(verts).map((_, i) => (inHole(i) ? 1 : 0)) : undefined;
+  const skip = (a: number, b: number, c: number) => !!hole && hole[a] === 1 && hole[b] === 1 && hole[c] === 1;
+  const indices = {
+    push(a: number, b: number, c: number) {
+      if (skip(a, b, c)) return;
+      full[n++] = a;
+      full[n++] = b;
+      full[n++] = c;
+    },
+  };
   for (let s = 0; s < segs; s++) {
     const a = 1 + s, b = 1 + ((s + 1) % segs);
-    indices[n++] = 0;
-    indices[n++] = b;
-    indices[n++] = a;
+    indices.push(0, b, a);
   }
   for (let k = 1; k < rings; k++) {
     for (let s = 0; s < segs; s++) {
       const a = 1 + (k - 1) * segs + s, b = 1 + (k - 1) * segs + ((s + 1) % segs);
       const c = 1 + k * segs + s, d = 1 + k * segs + ((s + 1) % segs);
-      indices[n++] = a;
-      indices[n++] = b;
-      indices[n++] = c;
-      indices[n++] = b;
-      indices[n++] = d;
-      indices[n++] = c;
+      indices.push(a, b, c);
+      indices.push(b, d, c);
     }
   }
-  return { positions, uvs, colors, indices };
+  return { positions, uvs, colors, indices: full.slice(0, n) };
 }
 
 // ---------------------------------------------------------------------------
@@ -191,7 +203,7 @@ export interface StripBuffers {
  * Faixa de `width` m seguindo a polilinha (planta do motor), na cena y = `y`. UVs em metros (u pela largura,
  * v pelo comprimento). Alfa 0 nas bordas e na ponta, para o caminho se misturar à grama.
  */
-export function buildPathStrip(line: readonly (readonly [number, number])[], width: number, y: number): StripBuffers {
+export function buildPathStrip(line: readonly (readonly [number, number])[], width: number, y: number, yAt?: (sceneX: number, sceneZ: number) => number): StripBuffers {
   const n = line.length;
   const positions = new Float32Array(n * 3 * 3);
   const uvs = new Float32Array(n * 3 * 2);
@@ -218,8 +230,8 @@ export function buildPathStrip(line: readonly (readonly [number, number])[], wid
       const k = i * 3 + j;
       const w = (side * width) / 2;
       positions[k * 3] = p[0] + ox * w;
-      positions[k * 3 + 1] = y;
       positions[k * 3 + 2] = -(p[1] + oy * w);
+      positions[k * 3 + 1] = yAt ? yAt(positions[k * 3]!, positions[k * 3 + 2]!) : y;
       uvs[k * 2] = (side * width) / 2 + width / 2;
       uvs[k * 2 + 1] = acc;
       colors[k * 4] = colors[k * 4 + 1] = colors[k * 4 + 2] = 1;

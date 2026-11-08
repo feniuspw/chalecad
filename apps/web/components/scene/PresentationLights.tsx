@@ -2,7 +2,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Environment, Lightformer } from '@react-three/drei';
 import * as THREE from 'three';
-import type { BuildingModel } from '@chalecad/engine';
+import type { BuildingModel, TerrainReport } from '@chalecad/engine';
 import { MIN_SHADOW_ELEVATION, mixHex, sunLight, sunVector } from '@/lib/sun';
 import type { ThreeBounds } from '@/lib/three/convert';
 import { boxCorners, fitShadowFrustum, type Vec3 } from '@/lib/three/shadow';
@@ -27,15 +27,16 @@ const BULB = new THREE.Color(9, 5.6, 2.6);
 export interface PresentationLightsProps {
   model: BuildingModel;
   bounds: ThreeBounds;
-  /** Há terreno inclinado desenhado pelo TerrainView: o chão de grama fica abaixo, só até o horizonte. */
-  hasTerrain: boolean;
+  /** Terreno inclinado desenhado pelo TerrainView: a paisagem em volta continua o mesmo declive. */
+  terrain?: TerrainReport | null;
 }
 
 /**
  * Iluminação procedural do modo apresentação: sol real (posição, cor e intensidade pela elevação),
  * céu, ambiente com Lightformers (sem HDRI), hemisfério, névoa, chão de grama e luzes internas.
  */
-export function PresentationLights({ model, bounds, hasTerrain }: PresentationLightsProps) {
+export function PresentationLights({ model, bounds, terrain = null }: PresentationLightsProps) {
+  const hasTerrain = !!terrain;
   const sun = useSunState();
   const quality = effectiveQuality(usePresentationUi((s) => s.quality), usePresentationUi((s) => s.degraded));
   const lamps = usePresentationUi((s) => s.lamps);
@@ -137,10 +138,11 @@ export function PresentationLights({ model, bounds, hasTerrain }: PresentationLi
         <fogExp2 attach="fog" args={[horizon, SCENARIOS[scenario].fogDensity * (1 + 0.5 * (1 - light.daylight) + 0.25 * Math.max(0, 1 - sun.elevationDeg / 25) * light.daylight)]} />
       )}
 
-      {scenario === 'none' || hasTerrain ? (
-        <GrassGround y={hasTerrain ? bounds.min[1] - 8 : bounds.min[1] - 0.002} night={light.daylight} />
+      {scenario === 'none' && !hasTerrain ? (
+        <GrassGround y={bounds.min[1] - 0.002} night={light.daylight} />
       ) : (
-        <Landscape model={model} bounds={bounds} scenario={scenario} vegetation={vegetation} quality={quality} daylight={light.daylight} projectName={projectName} />
+        // com terreno inclinado a paisagem (árvores, morros, caminho) também aparece, sobre o mesmo declive do lote
+        <Landscape model={model} bounds={bounds} scenario={scenario} vegetation={vegetation} quality={quality} daylight={light.daylight} projectName={projectName} terrain={terrain} />
       )}
       {quality === 'high' && !hasTerrain ? <HouseContactShadows model={model} bounds={bounds} /> : null}
       {lamps ? <RoomLamps model={model} /> : null}

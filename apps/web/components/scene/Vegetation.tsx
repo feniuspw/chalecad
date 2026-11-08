@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SPRITES, type Placement, type SpriteId } from '@/lib/three/foliage';
-import { groundHeight, SEA_DEPTH, type TerrainShape } from '@/lib/three/landscape';
+import { placeOnSurface } from '@/lib/three/landscapeData';
+import { hasPrepared } from '@/lib/three/presentationPrep';
+import type { SurfaceCtx } from '@/lib/three/slopedSite';
 import { disposeSpriteTextures, getSpriteTexture } from '@/lib/three/sprites';
 
 /** Tempo compartilhado do vento (um uniform para todos os materiais). */
@@ -189,10 +191,8 @@ function SpriteInstances({ sprite, items, mode, shadows, wind, texture }: Instan
 
 export interface VegetationProps {
   placements: Placement[];
-  /** Centro do relevo em planta da cena (x, z) e cota do chão da casa. */
-  center: [number, number];
-  groundY: number;
-  shape: TerrainShape;
+  /** Altura do chão (declive do lote e relevo): as plantas pousam nela. */
+  surface: SurfaceCtx;
   quality: 'high' | 'light';
 }
 
@@ -200,7 +200,7 @@ export interface VegetationProps {
  * Árvores, arbustos e capim em sprites com instancing. Árvores próximas: planos cruzados com sombra recortada;
  * distantes: impostores que encaram a câmera. Vento só na qualidade Alta.
  */
-export function Vegetation({ placements, center, groundY, shape, quality }: VegetationProps) {
+export function Vegetation({ placements, surface, quality }: VegetationProps) {
   const high = quality === 'high';
   const textures = useMemo(() => {
     const m = new Map<SpriteId, THREE.Texture>();
@@ -210,22 +210,12 @@ export function Vegetation({ placements, center, groundY, shape, quality }: Vege
     }
     return m;
   }, [placements, high]);
-  useEffect(() => () => disposeSpriteTextures(), []);
+  // com o preparo retendo os sprites, só o próximo preparo os descarta (reentrar na apresentação não regenera)
+  useEffect(() => () => {
+    if (!hasPrepared()) disposeSpriteTextures();
+  }, []);
 
-  const groups = useMemo(() => {
-    const out = new Map<string, { sprite: SpriteId; far: boolean; items: Item[] }>();
-    const seaFloor = -SEA_DEPTH + 0.2;
-    for (const p of placements) {
-      const sx = p.x, sz = -p.y;
-      const gh = groundHeight(sx - center[0], sz - center[1], shape);
-      if (gh < seaFloor) continue; // debaixo d'água
-      const key = `${p.sprite}|${p.far ? 'f' : 'n'}`;
-      let g = out.get(key);
-      if (!g) out.set(key, (g = { sprite: p.sprite, far: p.far, items: [] }));
-      g.items.push({ x: sx, y: groundY + gh - 0.04, z: sz, height: p.height, rot: p.rot });
-    }
-    return [...out.entries()];
-  }, [placements, center, groundY, shape]);
+  const groups = useMemo(() => placeOnSurface(placements, surface), [placements, surface]);
 
   useFrame((s) => {
     if (high) WIND.value = s.clock.elapsedTime;
@@ -233,7 +223,8 @@ export function Vegetation({ placements, center, groundY, shape, quality }: Vege
 
   return (
     <>
-      {groups.map(([key, g]) => {
+      {groups.map((g) => {
+        const key = g.key;
         const tex = textures.get(g.sprite);
         if (!tex) return null;
         return <SpriteInstances key={key} sprite={g.sprite} items={g.items} mode={g.far ? 'board' : 'cross'} shadows wind={high} texture={tex} />;

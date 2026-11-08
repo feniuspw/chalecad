@@ -4,6 +4,7 @@ import { BrickWall, Box, DoorOpen, Flame, Footprints, Home, Layers, Layers3, Lay
 import { toast } from 'sonner';
 import { IconButton, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@chalecad/ui';
 import { ArtNotice } from '@/components/ArtNotice';
+import { requestPresentation, setBeforeOpenPresentation } from '@/components/scene/presentationFlow';
 import { SunPanel } from '@/components/scene/SunPanel';
 import { PathDrawer, Viewport, type ViewportHandle, type ViewPreset } from '@/components/scene/Viewport';
 import { useExtraTools } from './properties/ui-state';
@@ -117,13 +118,21 @@ export function EditorShell() {
   const setActiveLevel = useEditor((s) => s.setActiveLevel);
   const hasStructure = useEditor((s) => Boolean(s.results?.structure));
 
+  // a apresentação não tem planta (ortográfica): volta ao 3D (chamado pelo fluxo de abertura, no botão ou no "Abrir")
+  useEffect(() => {
+    setBeforeOpenPresentation(() => {
+      if (useEditor.getState().cameraView === 'plan') {
+        setView('3d');
+        setCameraView('3d');
+      }
+    });
+    return () => setBeforeOpenPresentation(null);
+  }, [setCameraView]);
+
   const pickMode = (id: ViewMode) => {
-    setViewMode(id);
-    // a apresentação não tem planta (ortográfica): volta ao 3D
-    if (id === 'presentation' && useEditor.getState().cameraView === 'plan') {
-      setView('3d');
-      setCameraView('3d');
-    }
+    // a apresentação prepara em segundo plano (progresso + Abrir) em vez de travar a tela
+    if (id === 'presentation') requestPresentation();
+    else setViewMode(id);
   };
 
   const toolPicked = useCallback((t: Tool) => {

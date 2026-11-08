@@ -1,23 +1,14 @@
 'use client';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import type { BuildingModel } from '@chalecad/engine';
+import type { BuildingModel, TerrainReport } from '@chalecad/engine';
 import { mixHex } from '@/lib/sun';
 import type { ThreeBounds } from '@/lib/three/convert';
-import { FOLIAGE_COUNTS, SCENARIOS, scatter, type ScenarioId } from '@/lib/three/foliage';
-import {
-  buildGroundBuffers,
-  buildHillsRing,
-  buildPathStrip,
-  clearRect,
-  entryPath,
-  GROUND_R,
-  HILLS_FAR_R,
-  HILLS_NEAR_R,
-  SEA_DEPTH,
-  terrainSeed,
-  type TerrainShape,
-} from '@/lib/three/landscape';
+import { SCENARIOS, type ScenarioId } from '@/lib/three/foliage';
+import { buildGroundBuffers, buildHillsRing, buildPathStrip, GROUND_R, HILLS_FAR_R, HILLS_NEAR_R, SEA_DEPTH } from '@/lib/three/landscape';
+import { getLandscapeData } from '@/lib/three/landscapeData';
+import { slopeHeight, surfaceY } from '@/lib/three/slopedSite';
+import { useEditor } from '@/lib/store/editor';
 import { usePbrProps } from './usePbr';
 import { Vegetation } from './Vegetation';
 
@@ -44,17 +35,25 @@ export interface LandscapeProps {
   /** 0 (noite) a 1 (dia): escurece o chão e os morros. */
   daylight: number;
   projectName: string;
+  /** Terreno inclinado do motor (o `TerrainView` desenha o lote): o chão em volta continua o mesmo declive. */
+  terrain?: TerrainReport | null;
 }
 
 /**
- * Paisagem do modo Apresentação: chão grande com relevo suave longe da casa (plano em volta dela), caminho de
- * pedriscos até a porta, morros do horizonte, mar (praia) e a vegetação do cenário.
+ * Paisagem do modo Apresentação: chão grande com relevo suave longe da casa (plano em volta dela, ou inclinado como
+ * o lote), caminho de pedriscos até a porta, morros do horizonte, mar (praia) e a vegetação do cenário. Vegetação e
+ * caminho pousam na altura do chão.
  */
-export function Landscape({ model, bounds, scenario, vegetation, quality, daylight, projectName }: LandscapeProps) {
+export function Landscape({ model, bounds, scenario, vegetation, quality, daylight, projectName, terrain = null }: LandscapeProps) {
   const sc = SCENARIOS[scenario];
+  const site = useEditor((s) => s.project.site);
   const cx = bounds.center[0], cz = bounds.center[2];
   const groundY = bounds.min[1];
-  const shape = useMemo<TerrainShape>(() => ({ scenario, flatRadius: Math.max(36, bounds.radius + 28), seed: terrainSeed(projectName, scenario) }), [scenario, bounds.radius, projectName]);
+  const data = useMemo(
+    () => getLandscapeData({ model, terrain, site, projectName, center: [cx, cz], radius: bounds.radius, groundY, scenario, vegetation, quality }),
+    [model, terrain, site, projectName, cx, cz, bounds.radius, groundY, scenario, vegetation, quality],
+  );
+  const { shape, slope, surface, path, placements } = data;
 
   const groundMap = usePbrProps(sc.ground.texture === 'sand' ? 'sand' : 'grass');
   const gravel = usePbrProps('gravel');
@@ -65,22 +64,26 @@ export function Landscape({ model, bounds, scenario, vegetation, quality, daylig
       const c = new THREE.Color(hex);
       return [Math.min(1.35, c.r / Math.max(0.05, day.r)), Math.min(1.35, c.g / Math.max(0.05, day.g)), Math.min(1.35, c.b / Math.max(0.05, day.b))];
     };
-    const b = buildGroundBuffers(shape, rel(sc.ground.patchA), rel(sc.ground.patchB), GROUND_R);
+    // com declive, a malha do lote (TerrainView) cobre o retângulo dele: o chão fica sem esses triângulos
+    const m = slope?.meshRect;
+    const b = buildGroundBuffers(shape, rel(sc.ground.patchA), rel(sc.ground.patchB), GROUND_R, 44, 128, {
+      base: slope ? (x, z) => slopeHeight(slope, cx + x, -(cz + z)) : undefined,
+      hole: m ? (x, z) => cx + x >= m.minX && cx + x <= m.maxX && -(cz + z) >= m.minY && -(cz + z) <= m.maxY : undefined,
+    });
     const g = bufferGeometry({ positions: b.positions, uvs: b.uvs, colors: b.colors, indices: b.indices });
     g.computeVertexNormals();
     g.computeBoundingSphere();
     return g;
-  }, [shape, sc]);
+  }, [shape, sc, slope, surface, cx, cz]);
   useEffect(() => () => ground.dispose(), [ground]);
 
-  const path = useMemo(() => entryPath(model), [model]);
   const pathGeo = useMemo(() => {
     if (!path || path.length < 2) return undefined;
-    const b = buildPathStrip(path, 1.5, groundY + 0.012);
+    const b = buildPathStrip(path, 1.5, groundY + 0.012, slope ? (x, z) => surfaceY(surface, x, z) + 0.02 : undefined);
     const g = bufferGeometry({ positions: b.positions, uvs: b.uvs, colors: b.colors, colorSize: 4, indices: b.indices });
     g.computeVertexNormals();
     return g;
-  }, [path, groundY]);
+  }, [path, groundY, slope, surface]);
   useEffect(() => () => pathGeo?.dispose(), [pathGeo]);
 
   const hills = useMemo(() => {
@@ -95,26 +98,12 @@ export function Landscape({ model, bounds, scenario, vegetation, quality, daylig
   }, [sc, shape.seed]);
   useEffect(() => () => hills.forEach((h) => h.dispose()), [hills]);
 
-  const placements = useMemo(() => {
-    if (!vegetation || scenario === 'none') return [];
-    return scatter({
-      seed: projectName,
-      scenario,
-      clear: clearRect(model),
-      path,
-      pathHalfWidth: 0.8,
-      counts: FOLIAGE_COUNTS[quality],
-      radius: 70,
-      farRadius: 340,
-    });
-  }, [vegetation, scenario, projectName, model, path, quality]);
-
   const groundColor = mixHex(sc.ground.night, sc.ground.day, daylight);
   const hillColor = mixHex('#2a3350', '#ffffff', Math.max(0.08, daylight));
 
   return (
     <>
-      <mesh geometry={ground} position={[cx, groundY - 0.002, cz]} receiveShadow>
+      <mesh geometry={ground} position={[cx, slope ? 0 : groundY - 0.002, cz]} receiveShadow>
         <meshStandardMaterial key={groundMap ? 'm' : 'n'} color={groundColor} vertexColors {...(groundMap ?? { roughness: 1 })} normalScale={groundMap ? new THREE.Vector2(0.6, 0.6) : undefined} />
       </mesh>
       {pathGeo && gravel ? (
@@ -133,7 +122,7 @@ export function Landscape({ model, bounds, scenario, vegetation, quality, daylig
           <meshBasicMaterial vertexColors color={hillColor} side={THREE.DoubleSide} />
         </mesh>
       ))}
-      {placements.length > 0 ? <Vegetation placements={placements} center={[cx, cz]} groundY={groundY} shape={shape} quality={quality} /> : null}
+      {placements.length > 0 ? <Vegetation placements={placements} surface={surface} quality={quality} /> : null}
     </>
   );
 }

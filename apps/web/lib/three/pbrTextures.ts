@@ -18,6 +18,8 @@ export interface PbrMaps {
 interface Entry {
   maps: PbrMaps;
   refs: number;
+  /** Carregamento da foto que substitui a procedural (resolve quando termina, com ou sem sucesso). */
+  photo?: Promise<void>;
 }
 
 const cache = new Map<string, Entry>();
@@ -59,10 +61,11 @@ export function getPbrMaps(id: string | undefined, tier: PbrTier): PbrMaps | und
   if (!a || !n || !r) return undefined;
   const rep = pbrRepeat(spec);
   const maps: PbrMaps = { id, tier, map: makeTexture(a, rep, true), normalMap: makeTexture(n, rep, false), roughnessMap: makeTexture(r, rep, false) };
-  cache.set(k, { maps, refs: 0 });
+  const entry: Entry = { maps, refs: 0 };
+  cache.set(k, entry);
   scheduleSweep();
   const photo = photoFor(id, tier);
-  if (photo) void upgradeToPhoto(maps, photo);
+  if (photo) entry.photo = upgradeToPhoto(maps, photo).catch(() => undefined);
   return maps;
 }
 
@@ -103,6 +106,16 @@ async function upgradeToPhoto(maps: PbrMaps, photo: PhotoSpec): Promise<void> {
     t.rotation = photo.rotate ? Math.PI / 2 : 0;
     t.needsUpdate = true;
   });
+}
+
+/** Resolve quando a foto do material terminou de carregar (ou de imediato se não houver foto). */
+export function pbrPhotoReady(id: string | undefined, tier: PbrTier): Promise<void> {
+  return (id && cache.get(key(id, tier))?.photo) || Promise.resolve();
+}
+
+/** Material já gerado na qualidade (sem gerar). */
+export function hasPbr(id: string | undefined, tier: PbrTier): boolean {
+  return !!id && cache.has(key(id, tier));
 }
 
 export function retainPbr(id: string | undefined, tier: PbrTier): void {

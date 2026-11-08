@@ -172,6 +172,10 @@ test('F8. obra: data de início e item comprado mudam o total pago', async ({ pa
 test('F9. apresentação: painel do sol e mudar a hora sem erro', async ({ page }) => {
   await openExample(page);
   await page.getByRole('group', { name: 'Modo de visualização' }).getByRole('button', { name: 'Apresentação' }).click();
+  // o clique prepara em segundo plano (progresso e Cancelar) e só abre no "Abrir"; o modo não troca antes
+  await expect(page.getByRole('status', { name: /Preparando a apresentação|Apresentação pronta/ })).toBeVisible();
+  expect(await state<string>(page, 's => s.viewMode')).not.toBe('presentation');
+  await page.getByRole('status', { name: 'Apresentação pronta' }).getByRole('button', { name: 'Abrir' }).click({ timeout: 45_000 });
   await expect.poll(() => state<string>(page, 's => s.viewMode')).toBe('presentation');
   const sun = page.locator('[aria-label="Painel do sol"]');
   await expect(sun).toBeVisible();

@@ -28,6 +28,7 @@ import { WalkRig } from './WalkRig';
 import { planClipPlane, PlanOverlay } from './PlanOverlay';
 import { useSceneInfo } from './sceneInfo';
 import { SkeletonView } from './SkeletonView';
+import { SceneMountProbe } from './SceneMountProbe';
 import { TerrainView } from './TerrainView';
 import { MeasurementsLayer } from './tools/MeasureTool';
 import { PathDrawLayer } from './tools/PathDrawLayer';
@@ -175,7 +176,8 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
       )}
       {presentation ? (
         <>
-          <PresentationLights model={model} bounds={bounds} hasTerrain={!!terrain} />
+          <PresentationLights model={model} bounds={bounds} terrain={terrain} />
+          <SceneMountProbe />
           <PresentationFx />
         </>
       ) : (
