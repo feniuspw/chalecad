@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@chalecad/ui';
 import type { StageId } from '@chalecad/catalog';
+import { GlossaryText } from '@/components/glossary/Term';
 
 export const STAGE_COLORS: Record<StageId, string> = {
   terrain: '#8d7b68',
@@ -21,7 +22,7 @@ export const COST_COLORS = { material: '#d97706', labor: '#0f766e', freight: '#7
 export function SectionTitle({ children, aside, className }: { children: ReactNode; aside?: ReactNode; className?: string }) {
   return (
     <div className={cn('flex items-center justify-between gap-2', className)}>
-      <h3 className="text-[11px] font-semibold tracking-wide text-stone-500 uppercase">{children}</h3>
+      <h3 className="text-[11px] font-semibold tracking-wide text-stone-500 uppercase">{typeof children === 'string' ? <GlossaryText>{children}</GlossaryText> : children}</h3>
       {aside ? <span className="text-xs text-stone-500 tabular-nums">{aside}</span> : null}
     </div>
   );
@@ -37,7 +38,7 @@ export function KV({ label, value, strong, hint }: { label: ReactNode; value: Re
   return (
     <div className="flex min-h-9 items-center justify-between gap-3 text-sm">
       <dt className="min-w-0 text-stone-600">
-        {label}
+        {typeof label === 'string' ? <GlossaryText>{label}</GlossaryText> : label}
         {hint ? <span className="ml-1.5 text-xs text-stone-400">{hint}</span> : null}
       </dt>
       <dd className={cn('shrink-0 text-right tabular-nums', strong ? 'font-semibold text-stone-900' : 'font-medium text-stone-800')}>{value}</dd>

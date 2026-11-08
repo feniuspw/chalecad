@@ -6,6 +6,8 @@ import { Button, cn } from '@chalecad/ui';
 import type { CheckStatus, StructuralCheck, StructuralReport } from '@chalecad/engine';
 import { formatBRL, formatNumber } from '@/lib/format';
 import { useEditor } from '@/lib/store/editor';
+import { GlossaryText } from '@/components/glossary/Term';
+import { structureFailText } from '@/lib/glossary/alerts';
 import { Block, EmptyState, KV, SectionTitle } from './shared';
 
 export const STRUCTURE_NOTE = 'Resultados indicam apenas se o elemento está dentro da faixa usual; não é aprovação estrutural.';
@@ -61,7 +63,7 @@ function Summary({ report }: { report: StructuralReport }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-stone-900">{headline}</p>
-          <p className="text-xs text-stone-500 tabular-nums">Maior taxa de uso: {formatNumber(maxRatio, 2)} (limite 1,00)</p>
+          <p className="text-xs text-stone-500 tabular-nums"><GlossaryText>Maior taxa de uso</GlossaryText>: {formatNumber(maxRatio, 2)} (limite 1,00)</p>
         </div>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -131,7 +133,9 @@ function CheckRow({ check }: { check: StructuralCheck }) {
           <span className="flex items-start justify-between gap-2">
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium text-stone-900">{check.label}</span>
-              <span className="text-[11px] text-stone-500">{KIND_LABEL[check.kind]}</span>
+              <span className="text-[11px] text-stone-500">
+                <GlossaryText focusable={false}>{KIND_LABEL[check.kind]}</GlossaryText>
+              </span>
             </span>
             <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums', st.chip)}>{formatNumber(check.ratio, 2)}</span>
           </span>
@@ -155,6 +159,12 @@ function CheckRow({ check }: { check: StructuralCheck }) {
           {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
         </button>
       </div>
+      {check.status !== 'ok' && structureFailText(check.kind) ? (
+        <p className="border-t border-border px-3 py-2 text-xs leading-relaxed text-stone-700">
+          <span className="font-semibold text-stone-900">Em palavras simples: </span>
+          {structureFailText(check.kind)}
+        </p>
+      ) : null}
       {open ? <p className="border-t border-border bg-stone-50 px-3 py-2 text-xs leading-relaxed whitespace-pre-line text-stone-700">{check.detail}</p> : null}
       {s ? (
         <div className="space-y-2 border-t border-border px-3 py-2.5">
