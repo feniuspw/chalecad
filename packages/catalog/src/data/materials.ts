@@ -1,5 +1,6 @@
 import type { Material } from '../schema';
 import { furniture } from './furniture';
+import { plumbingMaterials } from './plumbing-materials';
 
 type Cat = Material['category'];
 type Unit = Material['baseUnit'];
@@ -137,6 +138,8 @@ export const materials: Material[] = [
   m('finish_facade_brick', 'Plaqueta de tijolinho', 'finishing', 'm2', 'm²', 1, 25, 10, frac),
   m('finish_ceiling_wood', 'Forro de lambri de madeira (pinus)', 'finishing', 'm2', 'm²', 1, 8, 10, frac),
   m('finish_ceiling_paint', 'Pintura do drywall (massa e 2 demãos)', 'finishing', 'm2', 'm²', 1, 0.5, 5, frac),
+  // Hidráulica detalhada (F16-E2): tubos por DN, conexões, registros, caixas e fossa.
+  ...plumbingMaterials,
   // Móveis: só entram no orçamento com budget.includeFurniture.
   ...furniture.map((x) => m(x.id, x.name, 'furniture', 'un', 'un', 1, x.mass, 0)),
 ];

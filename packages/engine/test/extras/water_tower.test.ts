@@ -116,7 +116,7 @@ describe('pressão nos pontos de água (NBR 5626)', () => {
       installations: { enabled: true, waterHeater: 'electric_shower' },
       extras,
     });
-  const pressure = (r: ReturnType<typeof computeAll>) => r.warnings.filter((w) => w.code === 'install.pressure');
+  const pressure = (r: ReturnType<typeof computeAll>) => r.warnings.filter((w) => w.code === 'water.pressure_low');
 
   test('banheiro no mezanino sem torre: install.pressure', () => {
     const r = computeAll(mezz([]), testCatalog);
@@ -124,10 +124,10 @@ describe('pressão nos pontos de água (NBR 5626)', () => {
     const w = pressure(r);
     expect(w.length).toBeGreaterThan(0);
     expect(w[0]!.severity).toBe('warn');
-    expect(w[0]!.message).toMatch(/Chuveiro do mezanino com só .* m de coluna d'água/);
+    expect(w[0]!.message).toMatch(/Chuveiro elétrico do mezanino com .* m\.c\.a\. de pressão.*suba a caixa/);
   });
 
-  test('com torre a 6,0 m: sem alerta (6,0 - (2,6 + 2,1) = 1,3 m)', () => {
+  test('com torre a 6,0 m: sem alerta (coluna de 6,0 - (2,6 + 2,1) = 1,3 m cobre as perdas)', () => {
     const r = computeAll(mezz([tower({ position: [1.2, 6.7], platformZ: 6 })]), testCatalog);
     expect(pressure(r)).toHaveLength(0);
     const tank = r.installations!.points.find((p) => p.kind === 'tank')!;
@@ -141,6 +141,6 @@ describe('pressão nos pontos de água (NBR 5626)', () => {
   test('com torre a 5,0 m: 0,3 m de coluna, alerta', () => {
     const r = computeAll(mezz([tower({ position: [1.2, 6.7], platformZ: 5 })]), testCatalog);
     expect(pressure(r).length).toBeGreaterThan(0);
-    expect(pressure(r)[0]!.message).toContain('0,3 m');
+    expect(pressure(r)[0]!.message).toContain('suba a caixa');
   });
 });

@@ -102,7 +102,7 @@ describe('instalações: banheiro', () => {
     expect(r.installations!.pipes.hot).toBeGreaterThan(0);
     const ids = r.quantities.lines.filter((l) => l.stage === 'installations').map((l) => l.itemId);
     expect(ids).toContain('gas_heater');
-    expect(ids).toContain('ppr_hot_25');
+    expect(ids.some((id) => id.startsWith('ppr_hot_'))).toBe(true);
   });
 
   test('vaso: esgoto de 100 mm; pia e lavatório: 40 mm', () => {

@@ -15,6 +15,7 @@ export function installationItems(
   report: InstallationsReport,
   placed: PlacedPoints,
   catalog: Catalog,
+  opts: { hydraulic?: boolean } = {},
 ): Item[] {
   const out: Item[] = [];
   const put = (hostId: string, itemId: string, net: number, note?: string) => {
@@ -55,15 +56,18 @@ export function installationItems(
   put(GENERAL, 'breaker_dr', report.circuits.length > 8 ? 2 : 1);
   put(GENERAL, 'panel_box', 1);
 
-  // Hidráulica
-  put(GENERAL, 'pvc_water_25', report.pipes.cold);
-  put(GENERAL, 'ppr_hot_25', report.pipes.hot);
-  put(GENERAL, 'pvc_sewer_40', report.pipes.sewer40);
-  put(GENERAL, 'pvc_sewer_100', report.pipes.sewer100);
-  for (const r of placed.rooms) if (WET_ROOMS.has(r.use)) put(r.id, 'water_valve', 1);
-  put(GENERAL, 'water_valve', 1);
-  eachRoom(byRoom(['water_cold', 'water_hot', 'sewer']), 'pipe_fittings');
-  eachRoom(byRoom(['drain']), 'siphon_box');
+  // Hidráulica estimada: só quando o cálculo de engenharia (installations/plumbing) não roda; senão ele orça tubos,
+  // conexões, registros e caixas pelo traçado.
+  if (opts.hydraulic !== false) {
+    put(GENERAL, 'pvc_water_25', report.pipes.cold);
+    put(GENERAL, 'ppr_hot_25', report.pipes.hot);
+    put(GENERAL, 'pvc_sewer_40', report.pipes.sewer40);
+    put(GENERAL, 'pvc_sewer_100', report.pipes.sewer100);
+    for (const r of placed.rooms) if (WET_ROOMS.has(r.use)) put(r.id, 'water_valve', 1);
+    put(GENERAL, 'water_valve', 1);
+    eachRoom(byRoom(['water_cold', 'water_hot', 'sewer']), 'pipe_fittings');
+    eachRoom(byRoom(['drain']), 'siphon_box');
+  }
 
   // Equipamentos
   if (report.tankLiters > 0) put(placed.tank?.roomId ?? GENERAL, `water_tank_${report.tankLiters}`, 1, `${report.tankLiters} L`);
