@@ -23,8 +23,7 @@ export const ART_NOTICE =
   'instalações exige projeto estrutural e ART (Anotação de Responsabilidade Técnica) de profissional habilitado no CREA. ' +
   DISCLAIMER;
 
-export function buildEngineerPackage(project: Project, results: Results, _catalog: Catalog): EngineerPackage {
-  void _catalog;
+export function buildEngineerPackage(project: Project, results: Results, catalog: Catalog): EngineerPackage {
   const { model, quantities, weight, structure, warnings, pieces } = results;
   const t = project.typology;
   const sys = project.system;
@@ -152,6 +151,23 @@ export function buildEngineerPackage(project: Project, results: Results, _catalo
   for (const w of warnings.filter((x) => x.severity !== 'info' && engineerRelevant(x.code))) {
     ask('warning', `Esclarecer o alerta ${w.code}: ${w.message}`);
   }
+  let installations: EngineerPackage['summary']['installations'];
+  const inst = results.installations;
+  if (inst && inst.tankLiters > 0) {
+    const tankPoint = inst.points.find((p) => p.kind === 'tank');
+    const tankRoom = model.rooms.find((r) => r.id === tankPoint?.roomId)?.name ?? 'o banheiro';
+    const mass = catalog.materials.find((m) => m.id === `water_tank_${inst.tankLiters}`)?.massPerUnit ?? 0;
+    const fullKg = inst.tankLiters + mass;
+    installations = { demandKw: inst.demandKw, circuits: inst.circuits.length, tankLiters: inst.tankLiters, tankFullKg: fullKg, tankRoom };
+    ask(
+      'installations',
+      `Instalações estimadas (não é projeto elétrico/hidráulico): demanda de ${fmt(inst.demandKw, 1)} kW em ${inst.circuits.length} circuito(s) a ${fmt(inst.voltage, 0)} V; confirmar entrada, aterramento e proteção (DR) com o projetista elétrico.`,
+    );
+    ask(
+      'water-tank',
+      `Confirmar apoio da caixa d'água de ${fmt(inst.tankLiters, 0)} L (${fmt(fullKg, 0)} kg cheia) sobre ${tankRoom}.`,
+    );
+  }
   if (project.site.type === 'sloped') {
     ask('slope', `Terreno inclinado (${fmt(project.site.slopePct, 0)}%): definir contenções, drenagem e estabilidade do platô.`);
   }
@@ -176,6 +192,7 @@ export function buildEngineerPackage(project: Project, results: Results, _catalo
       foundation: { thickness: f.thickness, border: f.border, edgeBeamDepth: f.edgeBeamDepth },
       steelKg: quantities.steelKg,
       totalWeightKg: weight.totalKg,
+      ...(installations ? { installations } : {}),
     },
     loadAssumptions: {
       loads: structure ? { ...structure.loads } : null,
