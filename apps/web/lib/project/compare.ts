@@ -68,7 +68,7 @@ export type Winner = 'a' | 'b' | 'tie' | 'none';
 export interface DiffRow {
   key: RowKey;
   label: string;
-  unit: 'brl' | 'brl_m2' | 'm2' | 'kg' | 'kg_m2' | 'count' | 'ratio';
+  unit: 'brl' | 'brl_m2' | 'm2' | 'kg' | 'kg_m2' | 'm3_m2' | 'count' | 'ratio';
   a: number | null;
   b: number | null;
   /** b - a (null se algum lado não tem valor). */
@@ -86,6 +86,7 @@ const ROWS: { key: RowKey; label: string; unit: DiffRow['unit']; neutral?: boole
   { key: 'builtArea', label: 'Área construída', unit: 'm2', neutral: true, eps: 0.005 },
   { key: 'weightKg', label: 'Peso total', unit: 'kg', eps: 1 },
   { key: 'steelKgPerM2', label: 'Aço (kg/m²)', unit: 'kg_m2', eps: 0.05 },
+  { key: 'woodM3PerM2', label: 'Madeira (m³/m²)', unit: 'm3_m2', eps: 0.001 },
   { key: 'pieces', label: 'Nº de peças', unit: 'count', eps: 0.5 },
   { key: 'worstRatio', label: 'Pior taxa estrutural', unit: 'ratio', eps: 0.005 },
   { key: 'alerts', label: 'Alertas', unit: 'count', eps: 0.5 },

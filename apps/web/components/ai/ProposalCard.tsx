@@ -11,6 +11,7 @@ const ROWS: { key: MetricKey; label: string; fmt: (n: number) => string }[] = [
   { key: 'perM2', label: 'Custo por m²', fmt: (n) => `${formatBRL(n, 0)}/m²` },
   { key: 'weightKg', label: 'Peso', fmt: (n) => formatKg(n) },
   { key: 'steelKgPerM2', label: 'Aço', fmt: (n) => `${formatNumber(n, 1)} kg/m²` },
+  { key: 'woodM3PerM2', label: 'Madeira', fmt: (n) => `${formatNumber(n, 3)} m³/m²` },
   { key: 'worstRatio', label: 'Pior taxa estrutural', fmt: (n) => formatNumber(n, 2) },
   { key: 'warnings', label: 'Alertas', fmt: (n) => String(n) },
 ];

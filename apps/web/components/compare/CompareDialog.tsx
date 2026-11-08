@@ -49,6 +49,8 @@ function fmtValue(row: DiffRow, v: number | null): string {
       return formatKg(v);
     case 'kg_m2':
       return `${formatNumber(v, 1)} kg/m²`;
+    case 'm3_m2':
+      return `${formatNumber(v, 3)} m³/m²`;
     case 'count':
       return formatNumber(v, 0);
     case 'ratio':
