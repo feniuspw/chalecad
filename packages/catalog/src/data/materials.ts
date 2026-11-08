@@ -22,7 +22,7 @@ function m(
 ): Material {
   const purchase: Material['purchase'] = { label, size, integer: opts.integer ?? true };
   if (opts.sheet) purchase.sheet = opts.sheet;
-  return { id, name, category, baseUnit, purchase, wastePct, massPerUnit, priceItemId: `mat-${id}` };
+  return { id, name, category, baseUnit, purchase, wastePct, massPerUnit, priceItemId: `mat-${id}`, laborIncluded: false };
 }
 
 const frac = { integer: false };
@@ -90,7 +90,7 @@ export const materials: Material[] = [
   m('water_tank_2000', "Caixa d'água 2.000 L", 'misc', 'un', 'un', 1, 45, 0),
   m('water_tank_3000', "Caixa d'água 3.000 L", 'misc', 'un', 'un', 1, 65, 0),
   m('gas_heater', 'Aquecedor de passagem a gás 15 L/min', 'misc', 'un', 'un', 1, 12, 0),
-  m('pv_system', 'Sistema fotovoltaico instalado (módulos, inversor, estrutura)', 'misc', 'un', 'Wp', 1, 0.02, 0),
+  { ...m('pv_system', 'Sistema fotovoltaico instalado (módulos, inversor, estrutura)', 'misc', 'un', 'Wp', 1, 0.02, 0), laborIncluded: true },
   m('rain_filter', 'Filtro de água de chuva com descarte da primeira água', 'misc', 'un', 'un', 1, 3, 0),
   m('pump_small', 'Bomba pressurizadora 1/2 cv', 'misc', 'un', 'un', 1, 8, 0),
   m('solar_heater', 'Aquecedor solar 200 L (2 coletores + reservatório)', 'misc', 'un', 'un', 1, 80, 0),

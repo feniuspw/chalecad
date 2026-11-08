@@ -133,6 +133,8 @@ export const Material = z.object({
   massPerUnit: nonneg,
   /** Item de preço correspondente na base (por unidade de compra). */
   priceItemId: z.string(),
+  /** O preço já inclui a instalação: fica fora da base da mão de obra percentual da etapa. */
+  laborIncluded: z.boolean().default(false),
 });
 export type Material = z.infer<typeof Material>;
 

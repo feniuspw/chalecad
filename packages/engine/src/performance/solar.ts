@@ -102,14 +102,13 @@ export function computeSolar(project: Project, model: BuildingModel, catalog: Ca
     });
   }
 
-  // Etapa `extras`: a regra de mão de obra de `installations` (90–120% do material) dobraria o custo do sistema, que já
-  // vem instalado (preço por Wp). `extras` soma só 40%, o menor acréscimo disponível sem mexer no orçamento.
+  // Preço por Wp do sistema instalado: o material tem `laborIncluded`, então a mão de obra % da etapa não soma em cima.
   const items: Item[] =
     modules > 0
       ? [
           {
             hostId: 'solar',
-            stage: 'extras',
+            stage: 'installations',
             itemId: 'pv_system',
             net: installedWp,
             kg: installedWp * getMaterial(catalog, 'pv_system').massPerUnit,

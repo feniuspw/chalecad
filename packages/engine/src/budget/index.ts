@@ -92,6 +92,10 @@ export function computeBudget(
     if (sl.length === 0) continue;
     const material = sl.reduce((s, l) => s + l.material, 0);
     const materialMax = sl.reduce((s, l) => s + l.materialMax, 0);
+    // Base da mão de obra percentual: sem os itens que já vêm instalados (ex.: sistema fotovoltaico por Wp).
+    const installed = new Set(catalog.materials.filter((m) => m.laborIncluded).map((m) => m.id));
+    const pctBase = sl.filter((l) => !installed.has(l.itemId)).reduce((s, l) => s + l.material, 0);
+    const pctBaseMax = sl.filter((l) => !installed.has(l.itemId)).reduce((s, l) => s + l.materialMax, 0);
     const weightKg = q.lines.filter((l) => l.stage === stage).reduce((s, l) => s + l.weightKg, 0);
     const diy = diyStages.includes(stage);
     let labor = 0;
@@ -100,8 +104,8 @@ export function computeBudget(
       for (const r of book.labor.filter((x) => x.stage === stage)) {
         const max = r.rateMax ?? r.rate;
         if (r.basis === 'material_pct') {
-          labor += (material * r.rate) / 100;
-          laborMax += (materialMax * max) / 100;
+          labor += (pctBase * r.rate) / 100;
+          laborMax += (pctBaseMax * max) / 100;
         } else {
           const b = baseQty(r);
           labor += b * r.rate;

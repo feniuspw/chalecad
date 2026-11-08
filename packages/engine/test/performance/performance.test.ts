@@ -112,12 +112,17 @@ describe('solar', () => {
     expect(w.severity).toBe('info');
   });
 
-  test('item pv_system em Wp no orçamento (etapa extras, sem dobrar mão de obra)', () => {
+  test('item pv_system em Wp na etapa instalações, sem mão de obra % por cima (já vem instalado)', () => {
     const r = run(four);
     const line = r.quantities.lines.find((l) => l.itemId === 'pv_system')!;
     expect(line.unit).toBe('Wp');
     expect(line.purchaseQty).toBe(r.performance!.solar!.modules * 550);
-    expect(line.stage).toBe('extras');
+    expect(line.stage).toBe('installations');
+    const st = r.budget.byStage.find((s) => s.stage === 'installations')!;
+    const pv = r.budget.lines.filter((l) => l.itemId === 'pv_system').reduce((s, l) => s + l.material, 0);
+    const others = st.material - pv;
+    // mão de obra = 90% do material sem o sistema fotovoltaico
+    expect(st.labor).toBeCloseTo(others * 0.9, 0);
   });
 });
 
