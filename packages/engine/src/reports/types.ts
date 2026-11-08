@@ -78,6 +78,15 @@ export interface EngineerSummary {
   foundation: { thickness: number; border: number; edgeBeamDepth: number };
   steelKg: number;
   totalWeightKg: number;
+  /** Só com `installations.enabled` e cômodos marcados. */
+  installations?: {
+    demandKw: number;
+    circuits: number;
+    tankLiters: number;
+    /** Peso da caixa d'água cheia (kg). */
+    tankFullKg: number;
+    tankRoom: string;
+  };
 }
 
 export interface LoadAssumptions {

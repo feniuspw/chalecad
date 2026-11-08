@@ -1,6 +1,7 @@
 import type { Catalog } from '@chalecad/catalog';
 import { getPriceBook } from '@chalecad/catalog';
 import { computeBudget } from './budget';
+import { computeInstallations } from './installations';
 import { loadProject } from './load';
 import { buildModel } from './model';
 import { computeQuantities } from './quantities';
@@ -48,7 +49,10 @@ export function computeAllWith(
   lap('framing');
   const terrainResult = computeTerrain(project, model, catalog);
   if (terrainResult) lap('terrain'); // só em terreno inclinado (flat mantém as mesmas chaves)
-  const quantities = computeQuantities(model, pieces, project, catalog, terrainResult?.items);
+  // Instalações antes dos quantitativos: os itens da etapa `installations` entram na compra.
+  const installs = computeInstallations(project, model, catalog);
+  if (installs) lap('installations');
+  const quantities = computeQuantities(model, pieces, project, catalog, terrainResult?.items, installs?.items);
   lap('quantities');
   const weight = computeWeight(model, pieces, quantities, project, catalog);
   lap('weight');
@@ -64,6 +68,7 @@ export function computeAllWith(
     budget,
     catalog,
     terrainWarnings: terrainResult?.warnings,
+    installationWarnings: installs?.warnings,
     structure,
   });
   lap('warnings');
@@ -79,7 +84,7 @@ export function computeAllWith(
     structure,
     budget,
     terrain: terrainResult?.report ?? null,
-    installations: null,
+    installations: installs?.report ?? null,
     warnings,
     timingsMs,
   };

@@ -24,6 +24,8 @@ export interface WarningContext {
   catalog: Catalog;
   /** Alertas do terreno inclinado (de `computeTerrain`). */
   terrainWarnings?: EngineWarning[];
+  /** Alertas das instalações estimadas (de `computeInstallations`). */
+  installationWarnings?: EngineWarning[];
   /** Pré-dimensionamento (cargas usadas no empuxo do A-frame). */
   structure?: StructuralReport;
 }
@@ -230,6 +232,7 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
   out.push(...normWarnings({ project, model, catalog, structure: ctx.structure }));
   out.push(...furnitureWarnings({ project, model, catalog }));
   out.push(...(ctx.terrainWarnings ?? []));
+  out.push(...(ctx.installationWarnings ?? []));
 
   return out
     .map((w, i) => ({ w, i }))
