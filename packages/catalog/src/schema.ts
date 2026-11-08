@@ -434,6 +434,11 @@ export const TechnicalConstants = z.object({
       reserveDays: pos,
     }),
   }),
+  /**
+   * Fator regional da mão de obra por UF (base de preços = média SP). Aproximação pela razão do CUB R1-N
+   * de cada estado sobre o de SP; materiais ficam com o preço nacional da base.
+   */
+  laborRegionalFactor: z.record(z.string(), pos),
   /** Piso de concreto sobre o radier: consumos por m². */
   floor: z.object({ hardenerKgPerM2: pos, sealerLPerM2: pos }),
   /** Altura máxima de parede interna em nível superior/A-frame quando não informada (m). */

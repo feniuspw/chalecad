@@ -12,7 +12,8 @@ import { syntheticPieces } from '../helpers/pieces';
 
 const r = loadProject(JSON.parse(readFileSync(join(import.meta.dirname, '../../fixtures/gable-6.5x8.5-mezzanine.json'), 'utf8')));
 if (!r.ok) throw new Error('fixture');
-const base = r.project;
+// Conta à mão na base SP (fator regional 1); o fator de outras UFs tem teste próprio.
+const base = { ...r.project, meta: { ...r.project.meta, region: 'SP' as const } };
 const model = buildModel(base, testCatalog);
 const book = testCatalog.priceBooks.find((b) => b.id === base.priceBookId)!;
 
@@ -118,5 +119,17 @@ describe('computeBudget', () => {
     expect(bb.byStage.map((s) => s.stage)).toEqual(
       ['terrain', 'foundation', 'structure', 'closure', 'roof', 'floor', 'finishing', 'extras'].filter((s) => bb.byStage.some((x) => x.stage === s)),
     );
+  });
+});
+
+describe('mão de obra regional', () => {
+  test('a UF multiplica só a mão de obra pelo fator do catálogo', () => {
+    const p = proj({ contingencyPct: 10, freight: { distanceKm: 100, pricePerTonKm: 2 }, durationsWeeks: {} });
+    const sp = computeBudget(synth, w, model, p, testCatalog, '2026-11-07');
+    const sc = computeBudget(synth, w, model, { ...p, meta: { ...p.meta, region: 'SC' } }, testCatalog, '2026-11-07');
+    const f = testCatalog.constants.laborRegionalFactor.SC!;
+    expect(sc.laborFactor).toBe(f);
+    expect(sc.labor).toBeCloseTo(sp.labor * f, 6);
+    expect(sc.material).toBeCloseTo(sp.material, 6);
   });
 });

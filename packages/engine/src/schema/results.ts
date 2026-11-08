@@ -398,6 +398,8 @@ export interface BudgetReport {
   total: number;
   totalMax: number;
   perM2: number;
+  /** Fator regional aplicado à mão de obra (UF do projeto). */
+  laborFactor: number;
   /** Desembolso por semana, se houver durações. */
   schedule: { week: number; amount: number; stages: Stage[] }[];
   missingPrices: string[];

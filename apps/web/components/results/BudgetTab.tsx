@@ -170,6 +170,7 @@ function Schedule({ results }: { results: Results }) {
 export function BudgetTab({ results }: { results: Results }) {
   const b = results.budget;
   const pct = useEditor((s) => s.project.budget.contingencyPct);
+  const region = useEditor((s) => s.project.meta.region);
   return (
     <div className="space-y-3 p-3">
       <Block className="border-amber-200 bg-gradient-to-b from-amber-50/70 to-white">
@@ -178,7 +179,11 @@ export function BudgetTab({ results }: { results: Results }) {
         <p className="text-xs text-stone-500 tabular-nums">Faixa {formatBRLRange(b.total, b.totalMax)}</p>
         <dl className="mt-2 divide-y divide-border border-t border-border">
           <KV label="Material" value={formatBRL(b.material, 0)} />
-          <KV label="Mão de obra" value={formatBRL(b.labor, 0)} />
+          <KV
+            label="Mão de obra"
+            value={formatBRL(b.labor, 0)}
+            hint={b.laborFactor !== 1 ? `Ajustada para ${region} (×${formatNumber(b.laborFactor, 2)} sobre SP, pelo CUB)` : undefined}
+          />
           <KV label="Frete" value={formatBRL(b.freight, 0)} />
           <KV label="Subtotal" value={formatBRL(b.subtotal, 0)} strong />
           <KV label={`Contingência (${formatNumber(pct, pct % 1 ? 1 : 0)}%)`} value={formatBRL(b.contingency, 0)} />

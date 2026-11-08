@@ -29,6 +29,7 @@ export function computeBudget(
 ): BudgetReport {
   void w;
   const book = getPriceBook(catalog, project.priceBookId);
+  const laborFactor = catalog.constants.laborRegionalFactor[project.meta.region] ?? 1;
   const staleDays = catalog.constants.priceStaleDays;
   const { contingencyPct, diyStages, freight, durationsWeeks } = project.budget;
 
@@ -101,6 +102,7 @@ export function computeBudget(
     let labor = 0;
     let laborMax = 0;
     if (!diy) {
+      // Mão de obra regional: a base de preços é a média de SP.
       for (const r of book.labor.filter((x) => x.stage === stage)) {
         const max = r.rateMax ?? r.rate;
         if (r.basis === 'material_pct') {
@@ -112,6 +114,8 @@ export function computeBudget(
           laborMax += b * max;
         }
       }
+      labor *= laborFactor;
+      laborMax *= laborFactor;
     }
     const freightCost = (weightKg / 1000) * freight.distanceKm * freight.pricePerTonKm;
     const total = material + labor + freightCost;
@@ -161,6 +165,7 @@ export function computeBudget(
     total,
     totalMax,
     perM2: model.builtArea > 0 ? total / model.builtArea : 0,
+    laborFactor,
     schedule,
     missingPrices,
     stalePrices,

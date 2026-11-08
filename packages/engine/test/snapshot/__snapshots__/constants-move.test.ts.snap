@@ -10,15 +10,15 @@ exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > fixture
     "ok": 9,
     "warn": 3,
   },
-  "total": 138882.01273977954,
+  "total": 138071.2056426641,
 }
 `;
 
 exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > hash do resultado completo (fixture, A-frame, extras + terreno) 1`] = `
 {
-  "aframe": "f31e2f979669d1c4",
-  "everything": "406d195f645c01d2",
-  "gable": "8f0884a3ca257032",
+  "aframe": "ff096db8c55caeb8",
+  "everything": "23abcc32f9a9da70",
+  "gable": "d5f1694966960cd5",
 }
 `;
 

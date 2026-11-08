@@ -199,6 +199,11 @@ export const constants: TechnicalConstants = {
       reserveDays: 15,
     },
   },
+  // CUB R1-N aproximado por UF (2025) ÷ SP. Só a mão de obra é ajustada.
+  laborRegionalFactor: {
+    AC: 1.0, AL: 0.79, AP: 0.95, AM: 0.95, BA: 0.81, CE: 0.83, DF: 0.93, ES: 0.88, GO: 0.9, MA: 0.83, MT: 0.98, MS: 0.93, MG: 0.98, PA: 0.9,
+    PB: 0.79, PR: 1.05, PE: 0.83, PI: 0.81, RJ: 1.02, RN: 0.81, RS: 1.1, RO: 0.95, RR: 0.98, SC: 1.17, SP: 1.0, SE: 0.79, TO: 0.88,
+  },
   floor: { hardenerKgPerM2: 4, sealerLPerM2: 0.2 },
   defaultCeilingMax: 2.8,
   terrain: { swellFactor: 1.25, compactionFactor: 0.85, truckM3: 12, excavatorM3PerDay: 250 },

@@ -58,6 +58,7 @@ export function computePartial(project: Project, catalog: Catalog): Results {
       total: 0,
       totalMax: 0,
       perM2: 0,
+      laborFactor: 1,
       schedule: [],
       missingPrices: [],
       stalePrices: [],
