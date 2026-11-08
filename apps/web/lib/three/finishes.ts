@@ -71,7 +71,8 @@ export function roomWallMesh(room: RoomModel, walls: HostWall[], openings: Resol
 
   for (const e of room.edges) {
     const wall = e.hostId ? walls.find((w) => w.id === e.hostId) : undefined;
-    if (!wall || wall.length < 1e-6) continue;
+    // fachada envidraçada não leva revestimento (o motor também não orça)
+    if (!wall || wall.length < 1e-6 || wall.assemblyId === 'gable_glazed') continue;
     const d: Vec2 = [(wall.to[0] - wall.from[0]) / wall.length, (wall.to[1] - wall.from[1]) / wall.length];
     const ex = e.to[0] - e.from[0];
     const ey = e.to[1] - e.from[1];

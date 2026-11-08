@@ -51,6 +51,8 @@ export interface EditorSceneProps {
 }
 
 /** Cena do editor: tudo reage ao store (ferramenta, vista, modo, nível ativo, seleção, destaque, resultados). */
+const NO_CLIP: THREE.Plane[] = [];
+
 export function EditorScene({ model, bounds, apiRef, signature }: EditorSceneProps) {
   const results = useEditor((s) => s.results);
   const project = useEditor((s) => s.project);
@@ -70,7 +72,8 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const gap = explodeGap(model.ridgeHeight);
   const plan = cameraView === 'plan';
   const elevation = project.levels.find((l) => l.id === activeLevelId)?.elevation ?? 0;
-  const clip = useMemo(() => (plan ? [planClipPlane(elevation)] : undefined), [plan, elevation]);
+  // lista vazia (não undefined) ao sair da planta: o R3F não limpa a prop quando ela vira undefined e o corte ficava preso
+  const clip = useMemo(() => (plan ? [planClipPlane(elevation)] : NO_CLIP), [plan, elevation]);
   const pieces = results?.pieces;
   const terrain = results?.terrain ?? null;
   const extras = model.extras;

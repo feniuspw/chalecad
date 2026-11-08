@@ -135,12 +135,15 @@ export const useEditor = create<EditorStore>()((set, get) => {
   return {
     ...initialState(),
 
-    loadProject(project, opts) {
+    loadProject(raw, opts) {
       const s = get();
       const projectId = opts?.projectId ?? null;
+      // Projetos salvos antes de um campo novo existir ganham os defaults do schema (ex.: rooms, finishes).
+      const parsed = loadProject(raw);
+      const project = parsed.ok ? parsed.project : raw;
       set({
         project,
-        issues: validateProject(project),
+        issues: parsed.ok ? [] : parsed.issues,
         results: null,
         computeError: null,
         computing: false,
