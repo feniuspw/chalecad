@@ -73,10 +73,14 @@ export function computeQuantities(
   // Índice de aço só da edificação: peças de extras (muro LSF, cobertura do deck) ficam de fora.
   const extraIds = new Set(project.extras.map((e) => e.id));
   let steelKg = 0;
+  let woodM3 = 0;
   for (const [profileId, ps] of byProfile) {
     const prof = getProfile(catalog, profileId);
     const netLen = sum(ps.map((p) => p.length));
-    steelKg += sum(ps.filter((p) => !extraIds.has(p.hostId)).map((p) => p.length)) * prof.massPerM;
+    const buildingLen = sum(ps.filter((p) => !extraIds.has(p.hostId)).map((p) => p.length));
+    // madeira não entra em steelKg: vira volume (comprimento × área da seção, cm² → m²)
+    if (prof.material === 'wood') woodM3 += buildingLen * (prof.area / 1e4);
+    else steelKg += buildingLen * prof.massPerM;
     const hostIds = uniq(ps.map((p) => p.hostId));
     const pieceIds = ps.map((p) => p.id);
     if (prof.family === 'Fita') {
@@ -208,12 +212,20 @@ export function computeQuantities(
     a.restNet += Math.ceil(net - EPS);
     hosts.forEach((h) => a.hostIds.add(h));
   };
-  fix('screw_frame', screwsFrame, uniq(pieces.map((p) => p.hostId)));
+  const collected = collectItems(model, project, catalog);
+  if (project.system.structure === 'wood') {
+    // wood frame: pregos no lugar dos parafusos de estrutura = m de madeira × kg/m + m² de OSB × kg/m²
+    const woodLen = sum(pieces.filter((p) => getProfile(catalog, p.profileId).material === 'wood').map((p) => p.length));
+    const osbArea = sum(collected.filter((i) => i.itemId.startsWith('osb_')).map((i) => i.net));
+    fix('nail_wood', woodLen * c.wood.nailKgPerM + osbArea * c.wood.nailKgPerM2Board, uniq(pieces.map((p) => p.hostId)));
+  } else {
+    fix('screw_frame', screwsFrame, uniq(pieces.map((p) => p.hostId)));
+  }
   fix('anchor_bolt', anchors, [...bottoms.keys()]);
   fix('hold_down', holdDowns, uniq(hdHosts));
 
   // --- Demais itens ----------------------------------------------------------------
-  for (const it of [...collectItems(model, project, catalog), ...computeExtras(project, model, catalog), ...terrainItems, ...installationItems]) {
+  for (const it of [...collected, ...computeExtras(project, model, catalog), ...terrainItems, ...installationItems]) {
     const a = touch(it.stage, it.itemId);
     a.net += it.net;
     a.hostIds.add(it.hostId);
@@ -282,7 +294,7 @@ export function computeQuantities(
     areas,
     steelKg,
     steelKgPerM2: model.builtArea > 0 ? steelKg / model.builtArea : 0,
-    woodM3: 0,
-    woodM3PerM2: 0,
+    woodM3,
+    woodM3PerM2: model.builtArea > 0 ? woodM3 / model.builtArea : 0,
   };
 }

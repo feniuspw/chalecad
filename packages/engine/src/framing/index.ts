@@ -11,7 +11,7 @@ import { generateWalls } from './walls';
 export { framers } from './roof';
 export type { RoofFramer } from './roof';
 
-/** Gera todas as peças de aço LSF (paredes, mezaninos, cobertura e escadas). */
+/** Gera todas as peças (LSF ou wood frame, conforme `system.structure`): paredes, mezaninos, cobertura e escadas. */
 export function generatePieces(model: BuildingModel, project: Project, catalog: Catalog): Piece[] {
   const sink = new PieceSink();
   generateWalls(model, project, catalog, sink);

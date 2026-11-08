@@ -11,7 +11,7 @@ import {
   type StructuralReport,
   type WeightReport,
 } from '../schema/results';
-import { compression, G, momentResistance, simpleBeam } from './capacity';
+import { compression, G, momentResistance, simpleBeam, woodCompression, woodDesign } from './capacity';
 import { nf } from './format';
 import { computeLoads, type LoadSet } from './loads';
 import { pricePerKg, suggest, type SuggestSpec } from './suggest';
@@ -200,6 +200,14 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
   const ls = computeLoads(project, model, weight, catalog);
   const lo = ls.report;
   const spacing0 = project.system.studSpacing;
+  /** Módulo e constantes por material: aço usa E do aço; madeira usa E0,ef (NBR 7190). */
+  const mat = (p: Profile) => ({
+    E: p.material === 'wood' ? woodDesign(p, c.wood).E0ef : E,
+    factors: c.structureFactors,
+    wood: c.wood,
+  });
+  /** Prefixo da nota: madeira é verificada pela NBR 7190. */
+  const nb = (p: Profile) => (p.material === 'wood' ? 'NBR 7190: ' : '');
   const wallLoads = assignWallLoads(ctx, ls);
   const drafts: { check: StructuralCheck; spec?: SuggestSpec }[] = [];
 
@@ -227,9 +235,10 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
     const G_ = wl.roof.dead + wl.own + (wl.floor?.dead ?? 0);
     const Q_ = wl.roof.live + (wl.floor?.live ?? 0);
     const evalStud = (p: Profile, s: number) => {
-      const cp = compression(p, E, L, c.lsf.blockingSpacing, c.structureFactors);
+      // madeira: λ no eixo forte, o fraco é travado pelas placas (NBR 7190); aço: Euler nos dois eixos (NBR 14762)
+      const cp = p.material === 'wood' ? woodCompression(p, L, c.wood) : compression(p, E, L, c.lsf.blockingSpacing, c.structureFactors);
       const Mw = (lo.windWallKPa * s * L * L) / 8;
-      const Mrd = momentResistance(p, c.structureFactors);
+      const Mrd = momentResistance(p, c.structureFactors, 1, c.wood);
       // C1: sobrecarga principal, vento secundário. C2: vento principal, sobrecarga secundária.
       const N1 = (l.gammaG * G_ + l.gammaQ * Q_) * s;
       const M1 = c.structureFactors.psiWind * l.gammaW * Mw;
@@ -253,7 +262,9 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
         unit: 'kN',
         ratio: e.ratio,
         detail:
-          `N = ${nf(e.N)} kN; Nc,Rd = ${nf(e.cp.NcRd)} kN (χ = ${nf(e.cp.chi)}, λ0 = ${nf(e.cp.lambda0)}, L = ${nf(L)} m); ` +
+          (prof.material === 'wood'
+            ? `NBR 7190 (${prof.woodClass ?? 'C25'}): N = ${nf(e.N)} kN; Nrd = ${nf(e.cp.NcRd)} kN (λ = ${nf(e.cp.lambda ?? 0, 0)}${(e.cp.lambda ?? 0) > 140 ? ', esbeltez acima de 140: reprovado' : ''}, L = ${nf(L)} m); `
+            : `N = ${nf(e.N)} kN; Nc,Rd = ${nf(e.cp.NcRd)} kN (χ = ${nf(e.cp.chi)}, λ0 = ${nf(e.cp.lambda0)}, L = ${nf(L)} m); `) +
           `M = ${nf(e.M)} kN·m; Mrd = ${nf(e.Mrd)} kN·m; N/Nc,Rd + M/Mrd = ${nf(e.ratio)} (combinação ${e.combo === 1 ? '1,4G + 1,5Q + 0,6·1,4W' : '1,4G + 0,5·1,5Q + 1,4W'})`,
       },
       // empena: reforça só o perfil dela, sem mexer no espaçamento da casa toda
@@ -277,8 +288,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
         wUls: (l.gammaG * g + l.gammaQ * l.liveMezzanine) * sp,
         wServ: (g + l.liveMezzanine) * sp,
         deflDen: c.deflection.floor,
-        E,
-        factors: c.structureFactors,
+        ...mat(p),
       });
     const r = evalJoist(prof, spacing0);
     push(
@@ -293,7 +303,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
         unit: 'kN·m',
         ratio: r.ratio,
         detail:
-          `q = ${nf((g + l.liveMezzanine) * spacing0)} kN/m (serviço); M = ${nf(r.M)} kN·m, Mrd = ${nf(r.Mrd)} kN·m (taxa ${nf(r.rM)}); ` +
+          `${nb(prof)}q = ${nf((g + l.liveMezzanine) * spacing0)} kN/m (serviço); M = ${nf(r.M)} kN·m, Mrd = ${nf(r.Mrd)} kN·m (taxa ${nf(r.rM)}); ` +
           `V = ${nf(r.V)} kN, Vrd = ${nf(r.Vrd)} kN (${nf(r.rV)}); flecha = ${nf(r.delta)} cm, limite L/${c.deflection.floor} = ${nf(r.deltaLim)} cm (${nf(r.rD)})`,
       },
       { pieces: joists, profile: prof, spacing: spacing0, ratioFn: (p, sp) => evalJoist(p, sp).ratio, allowSpacing: true },
@@ -314,7 +324,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
       const uplift = s * (l.gammaW * lo.windRoofUpliftKPa - 0.9 * g * cos);
       const wUls = Math.max(grav, uplift);
       return {
-        ...simpleBeam({ profile: p, L: longest.length, wUls, wServ: s * cos * (g + l.liveRoof * cos), deflDen: c.deflection.roof, E, factors: c.structureFactors }),
+        ...simpleBeam({ profile: p, L: longest.length, wUls, wServ: s * cos * (g + l.liveRoof * cos), deflDen: c.deflection.roof, ...mat(p) }),
         governs: uplift > grav ? 'sucção (0,9G − 1,4W)' : 'gravidade (1,4G + 1,5Q)',
         s,
       };
@@ -334,7 +344,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
         unit: 'kN·m',
         ratio: r.ratio,
         detail:
-          `Rege ${r.governs}; M = ${nf(r.M)} kN·m, Mrd = ${nf(r.Mrd)} kN·m (${nf(r.rM)}); V = ${nf(r.V)} kN, Vrd = ${nf(r.Vrd)} kN (${nf(r.rV)}); ` +
+          `${nb(prof)}Rege ${r.governs}; M = ${nf(r.M)} kN·m, Mrd = ${nf(r.Mrd)} kN·m (${nf(r.rM)}); V = ${nf(r.V)} kN, Vrd = ${nf(r.Vrd)} kN (${nf(r.rV)}); ` +
           `flecha = ${nf(r.delta)} cm, limite L/${c.deflection.roof} = ${nf(r.deltaLim)} cm (${nf(r.rD)})`,
       },
       { pieces: rafters, profile: prof, spacing: rafterSpacing0, ratioFn: (p, sp) => evalRafter(p, sp).ratio, allowSpacing: true, spacingField: aFrame ? 'rafter' : 'stud' },
@@ -361,8 +371,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
         wUls: Math.max(grav, uplift),
         wServ: t * cos * (g + l.liveRoof * cos),
         deflDen: c.deflection.roof,
-        E,
-        factors: c.structureFactors,
+        ...mat(prof),
       });
       if (!worst || r.ratio > worst.r.ratio) worst = { r, governs: uplift > grav ? 'sucção' : 'gravidade' };
     }
@@ -379,7 +388,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
         unit: 'kN·m',
         ratio: r.ratio,
         detail:
-          `Rege ${worst.governs}; M = ${nf(r.M)} kN·m, Mrd = ${nf(r.Mrd)} kN·m (${nf(r.rM)}); ` +
+          `${nb(prof)}Rege ${worst.governs}; M = ${nf(r.M)} kN·m, Mrd = ${nf(r.Mrd)} kN·m (${nf(r.rM)}); ` +
           `flecha = ${nf(r.delta)} cm, limite L/${c.deflection.roof} = ${nf(r.deltaLim)} cm (${nf(r.rD)})`,
       });
     }
@@ -411,7 +420,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
     for (const o of gr.ops) {
       const ll = wallLoadsAt(wl, o.u0, o.u1);
       const wUls = l.gammaG * ll.dead + l.gammaQ * ll.live;
-      const r = simpleBeam({ profile: prof, L: gr.width, wUls, wServ: ll.dead + ll.live, deflDen: c.deflection.header, E, factors: c.structureFactors, n: nBox });
+      const r = simpleBeam({ profile: prof, L: gr.width, wUls, wServ: ll.dead + ll.live, deflDen: c.deflection.header, ...mat(prof), n: nBox });
       if (!worst || r.ratio > worst.ratio) {
         worst = r;
         wWorst = wUls;
@@ -425,7 +434,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
         Math.max(
           ...gr.ops.map((o) => {
             const ll = wallLoadsAt(wl, o.u0, o.u1);
-            return simpleBeam({ profile: p, L: gr.width, wUls: l.gammaG * ll.dead + l.gammaQ * ll.live, wServ: ll.dead + ll.live, deflDen: c.deflection.header, E, factors: c.structureFactors, n: nBox }).ratio;
+            return simpleBeam({ profile: p, L: gr.width, wUls: l.gammaG * ll.dead + l.gammaQ * ll.live, wServ: ll.dead + ll.live, deflDen: c.deflection.header, ...mat(prof), n: nBox }).ratio;
           }),
         );
       const best = catalog.profiles
@@ -455,7 +464,7 @@ export function computeStructure(ctx: StructureContext): StructuralReport {
       unit: 'kN·m',
       ratio: worst.ratio,
       detail:
-        `q = ${nf(wWorst)} kN/m (ELU); M = ${nf(worst.M)} kN·m, Mrd = ${nf(worst.Mrd)} kN·m (${nf(worst.rM)}); ` +
+        `${nb(prof)}q = ${nf(wWorst)} kN/m (ELU); M = ${nf(worst.M)} kN·m, Mrd = ${nf(worst.Mrd)} kN·m (${nf(worst.rM)}); ` +
         `V = ${nf(worst.V)} kN, Vrd = ${nf(worst.Vrd)} kN (${nf(worst.rV)}); flecha = ${nf(worst.delta)} cm, limite L/${c.deflection.header} = ${nf(worst.deltaLim)} cm (${nf(worst.rD)})`,
       ...(suggestion ? { suggestion } : {}),
     });

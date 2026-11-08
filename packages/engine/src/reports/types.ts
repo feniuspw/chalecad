@@ -71,6 +71,8 @@ export interface EngineerSummary {
     radier: number;
     mezzanine: number;
   };
+  /** Só em wood frame: sistema e norma das premissas, "Wood frame, pinus tratado C25, NBR 7190". Ausente no LSF. */
+  structure?: string;
   profiles: Record<string, string>;
   studSpacing: number;
   bracing: string;

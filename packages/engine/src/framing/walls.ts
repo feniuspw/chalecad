@@ -9,6 +9,8 @@ const ENCOUNTER_TOL = 0.05;
 const X_BRACE_MIN = 1.2;
 const GLAZED_STUD_SPACING = 1.2;
 const EPS = 1e-9;
+/** Wood frame: altura de parede (m) acima da qual entra o bloqueador a meia altura. */
+const WOOD_BLOCKING_MIN_H = 2.7;
 /** Montante mais curto que vale a pena gerar (ponta do triângulo entre águas). */
 const MIN_STUD = 0.05;
 
@@ -65,6 +67,7 @@ export function generateWalls(
   const sys = project.system;
   const stud = profileOf(catalog, sys.profiles.wallStud);
   const s = sys.studSpacing;
+  const wood = sys.structure === 'wood';
 
   for (const w of model.walls) {
     const openings = model.openings.filter((o) => o.hostKind === 'wall' && o.hostId === w.id && o.valid);
@@ -81,7 +84,9 @@ export function generateWalls(
     const openings = glazed ? [] : allOpenings;
     // empenas podem ter montante próprio (reforço só onde precisa); a guia acompanha o montante
     const own = w.kind === 'gable' && sys.profiles.gableStud ? profileOf(catalog, sys.profiles.gableStud) : stud;
-    const ownTrack = catalog.profiles.find((p) => p.family === 'U' && p.web === own.web && p.thickness === own.thickness);
+    // LSF: guia `U` de mesma alma. Wood frame: a guia é a madeira de mesma seção (não há `U`).
+    const trackFamily = own.family === 'Wood' ? 'Wood' : 'U';
+    const ownTrack = catalog.profiles.find((p) => p.family === trackFamily && p.web === own.web && p.thickness === own.thickness);
     const trackId = own === stud ? sys.profiles.wallTrack : (ownTrack?.id ?? sys.profiles.wallTrack);
     const studId = own.id;
     const fl = own.flange / 1000;
@@ -138,7 +143,10 @@ export function generateWalls(
       for (const [pa, pb] of panels) {
         const lo = Math.max(ua, pa);
         const hi = Math.min(ub, pb);
-        if (hi - lo > EPS) sink.add(w.id, 'track_top', trackId, P(lo, vAt(lo)), P(hi, vAt(hi)), normal);
+        if (hi - lo <= EPS) continue;
+        sink.add(w.id, 'track_top', trackId, P(lo, vAt(lo)), P(hi, vAt(hi)), normal);
+        // wood frame: guia superior dupla (a segunda peça fica sobreposta, logo abaixo da primeira)
+        if (wood) sink.add(w.id, 'track_top', trackId, P(lo, vAt(lo) - fl), P(hi, vAt(hi) - fl), normal);
       }
     }
 
@@ -237,7 +245,8 @@ export function generateWalls(
     const blocked = (u: number, v: number): boolean =>
       openings.some((o) => u > o.u0 && u < o.u1 && v >= o.v0 - 1e-6 && v <= o.v1 + webM + 1e-6);
 
-    const rows = Math.floor(avgH / c.lsf.blockingSpacing + 1e-9);
+    // wood frame: uma fileira a meia altura, só em paredes acima de WOOD_BLOCKING_MIN_H
+    const rows = wood ? (avgH > WOOD_BLOCKING_MIN_H ? 1 : 0) : Math.floor(avgH / c.lsf.blockingSpacing + 1e-9);
     const sorted = [...new Set(members.map((u) => Math.round(u * 1e6) / 1e6))].sort((a, b) => a - b);
     for (let r = 1; r <= rows; r++) {
       const v = (avgH * r) / (rows + 1);
