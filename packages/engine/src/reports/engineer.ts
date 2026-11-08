@@ -8,6 +8,9 @@ import type {
   OpenQuestion,
 } from './types';
 
+/** Alertas de layout de móvel não são estrutura: só headroom e escada vão ao engenheiro. */
+const engineerRelevant = (code: string) => !code.startsWith('furniture.') || code === 'furniture.headroom' || code === 'furniture.stair';
+
 const fmt = (n: number, d = 2) => n.toFixed(d).replace('.', ',');
 
 /** Soleira de tensão padrão do schema (sem sondagem). */
@@ -66,7 +69,7 @@ export function buildEngineerPackage(project: Project, results: Results, _catalo
     });
   }
   for (const w of warnings) {
-    if (w.severity === 'info') continue;
+    if (w.severity === 'info' || !engineerRelevant(w.code)) continue;
     attention.push({
       severity: w.severity === 'error' ? 'fail' : 'warn',
       source: 'warning',
@@ -146,7 +149,7 @@ export function buildEngineerPackage(project: Project, results: Results, _catalo
   if (spliced.length > 0) {
     ask('splices', `Há peças maiores que a barra comercial (${spliced.map((l) => l.name).join(', ')}): definir o detalhe de emenda.`);
   }
-  for (const w of warnings.filter((x) => x.severity !== 'info')) {
+  for (const w of warnings.filter((x) => x.severity !== 'info' && engineerRelevant(x.code))) {
     ask('warning', `Esclarecer o alerta ${w.code}: ${w.message}`);
   }
   if (project.site.type === 'sloped') {

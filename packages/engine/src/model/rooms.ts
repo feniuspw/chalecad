@@ -439,6 +439,20 @@ export function openingsOnEdge(
   });
 }
 
+/**
+ * Área que abre (m²) de um cômodo: Σ área do vão × `openableFraction[tipo]`, sobre as aberturas de `openingIds`.
+ * A fachada envidraçada fixa (`gable_glazed`) ilumina mas não ventila.
+ */
+export function roomVentilation(room: Pick<RoomModel, 'openingIds'>, model: BuildingModel, catalog: Catalog): number {
+  const frac = catalog.constants.norms.openableFraction;
+  let sum = 0;
+  for (const id of room.openingIds) {
+    const o = model.openings.find((x) => x.id === id);
+    if (o) sum += openingArea(o) * (frac[o.type] ?? 0);
+  }
+  return sum;
+}
+
 export interface RoomCompleteInput {
   project: Project;
   catalog: Catalog;
