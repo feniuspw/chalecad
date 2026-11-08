@@ -1,5 +1,5 @@
 /** Verificação de um projeto gerado (usada pelo teste de matriz): devolve os problemas encontrados. */
-import { computeAll, Project } from '@chalecad/engine';
+import { computeAll, Project, roofBelowAt, type Vec2 } from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
 import type { WizardAnswers } from './answers';
 import { effectiveMezzanine } from './style';
@@ -35,7 +35,11 @@ export function checkCombo(a: WizardAnswers, strict = false): string[] {
   for (const room of r.model.rooms) if (!room.polygon) problems.push(`cômodo aberto: ${room.name}`);
   for (const w of r.warnings) if (BAD_CODES.includes(w.code) || w.code === 'norm.stair_headroom' || w.code === 'room.open' || w.code === 'mezzanine.headroom') problems.push(`${w.code}: ${w.message}`);
   // conformidade: nenhum alerta de atenção evitável, nem verificação estrutural reprovada, no projeto final
-  if (strict) conformity(res, r, problems);
+  if (strict) {
+    conformity(res, r, problems);
+    problems.push(...wallHeadroomProblems(r, parsed.data));
+  }
+  if (a.furnish) problems.push(...emptyRoomProblems(r, parsed.data));
   const beds = r.model.rooms.filter((x) => x.use === 'bedroom').length;
   const baths = r.model.rooms.filter((x) => x.use === 'bathroom').length;
   const mezz = effectiveMezzanine(a);
@@ -56,4 +60,52 @@ function conformity(res: ReturnType<typeof generateProject>, r: ReturnType<typeo
   }
   for (const c of r.structure?.checks ?? []) if (c.ratio > 1) problems.push(`reprovada ${c.kind}: ${c.label} taxa ${c.ratio.toFixed(2)}`);
   if (res.review.length > 0) problems.push(`selo: ${res.review.length} ponto(s) para revisar: ${res.review[0]}`);
+}
+
+/**
+ * Divisórias sob o telhado: em toda a linha de uma parede interna o pé-direito (telhado menos a cota do piso) precisa ser
+ * de pelo menos 1,0 m e, se a parede tem porta, de pelo menos 2,1 m. Paredes externas e dos anexos ficam de fora.
+ */
+export function wallHeadroomProblems(r: ReturnType<typeof computeAll>, project: Project): string[] {
+  const out: string[] = [];
+  const elev = new Map(project.levels.map((l) => [l.id, l.elevation]));
+  for (const w of r.model.walls) {
+    if (/^(ext|annex)-/.test(w.id)) continue;
+    const e = elev.get(w.level) ?? 0;
+    const door = r.model.openings.some((o) => o.hostId === w.id && o.hostKind === 'wall' && (o.type === 'door' || o.type === 'sliding_door'));
+    const len = Math.hypot(w.to[0] - w.from[0], w.to[1] - w.from[1]);
+    const n = Math.max(1, Math.ceil(len / 0.1));
+    let min = Infinity;
+    for (let i = 0; i <= n; i++) {
+      const t = Math.min(1 - 0.02 / len, Math.max(0.02 / len, i / n));
+      const pt: Vec2 = [w.from[0] + (w.to[0] - w.from[0]) * t, w.from[1] + (w.to[1] - w.from[1]) * t];
+      const top = roofBelowAt(r.model.roofPlanes, pt);
+      if (top !== null) min = Math.min(min, top - e);
+    }
+    if (min < 1.0 - 1e-6) out.push(`parede ${w.id} com pé-direito de ${min.toFixed(2)} m sob o telhado (mínimo 1,0 m)`);
+    else if (door && min < 2.1 - 1e-6) out.push(`parede ${w.id} com porta e pé-direito de ${min.toFixed(2)} m sob o telhado (mínimo 2,1 m)`);
+  }
+  return out;
+}
+
+/** Cômodo "Depósito" fechado ou qualquer cômodo (fora circulação) sem um único móvel: sobra de planta. */
+export function emptyRoomProblems(r: ReturnType<typeof computeAll>, project: Project): string[] {
+  const out: string[] = [];
+  for (const room of r.model.rooms) {
+    if (!room.polygon) continue;
+    if (room.use === 'storage') out.push(`cômodo de depósito sem uso: ${room.name}`);
+    if (room.use === 'circulation' || room.use === 'storage' || room.use === 'other') continue;
+    const poly = room.polygon as Vec2[];
+    const inside = (pt: Vec2) => {
+      let c = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [xi, yi] = poly[i]!;
+        const [xj, yj] = poly[j]!;
+        if (yi > pt[1] !== yj > pt[1] && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    };
+    if (!project.furniture.some((f) => f.level === room.level && inside(f.position as Vec2))) out.push(`cômodo vazio: ${room.name}`);
+  }
+  return out;
 }

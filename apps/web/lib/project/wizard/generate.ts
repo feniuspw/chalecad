@@ -44,8 +44,6 @@ const BATH_W = 2.4;
 const LAUNDRY_W = 2.0;
 const CORRIDOR_W = 1.0;
 const DOOR_W: Partial<Record<RoomUse, number>> = { bedroom: 0.8, bathroom: 0.7, laundry: 0.7, kitchen: 0.8, circulation: 0.8, living: 0.8 };
-/** Folga entre o fim da escada (borda do mezanino) e a parede do bloco íntimo. */
-const STAIR_GAP = 0.6;
 /** Nas caixas (duas águas, celeiro) a parede do bloco íntimo fica na própria borda do mezanino: ela apoia as vigas. */
 const BOX_GAP = 0;
 /** Mureta do quarto/sala do mezanino (m): separa a faixa com pé-direito do canto baixo sob o telhado. */
@@ -83,6 +81,32 @@ class Gen {
   private occ = new Map<string, [number, number][]>();
   /** Paredes internas já criadas (chave pelos extremos) para os cômodos vizinhos dividirem a mesma parede. */
   private walls = new Map<string, string>();
+  /** Lavanderia "dentro" como nicho (máquina e tanque na bancada ou no banheiro), não como cômodo. */
+  laundryNiche = false;
+  /** Móveis que o desenho já decidiu (núcleo molhado, sala, cama do mezanino); entram antes dos automáticos. */
+  plan: {
+    /** Fila de bancada na face leste (dir 1) ou oeste (-1) da parede `wall` (x = eixo); a fila termina na parede `endWall` (y = eixo). */
+    kitchenRun?: { wall: string; x: number; endWall: string; yLine: number; dir: 1 | -1 };
+    /** Sofá livre em `sofaX`, virado para o rack encostado na parede `wall` (x = eixo), centrados em `y`. */
+    living?: { wall: string; x: number; y: number; sofaX: number };
+    /** Cama de casal com a cabeceira na parede `wall` (y = eixo), no x dado. */
+    beds: { level: string; name: string; wall: string; yLine: number; x: number }[];
+    avoid: { level: string; rect: Rect }[];
+  } = { beds: [], avoid: [] };
+
+  /** Espessura (m) de uma parede do projeto, pelo modelo do motor. */
+  thickness(id: string): number {
+    return (this.wallModel ?? this.b.model.walls).find((w) => w.id === id)?.thickness ?? 0.12;
+  }
+  /** Paredes do modelo final (com a espessura que os ajustes às normas deixaram), fixadas ao mobiliar. */
+  wallModel: BuildingModel['walls'] | null = null;
+
+  /** Águas do telhado usadas na checagem de pé-direito dos móveis (fixadas ao começar a mobiliar). */
+  planesCache: BuildingModel['roofPlanes'] | null = null;
+  /** Cota do telhado sobre o ponto (99 se não há telhado ali). */
+  roofAt(pt: Vec2): number {
+    return roofBelowAt(this.planesCache ?? this.b.model.roofPlanes, pt) ?? 99;
+  }
 
   note(s: string) {
     if (!this.notes.includes(s)) this.notes.push(s);
@@ -133,10 +157,10 @@ class Gen {
   }
 }
 
-/** Move o centro da porta para fora do pé da escada (que fica no meio da largura), dentro da parede do cômodo. */
-function clearOfStair(c: number, dw: number, x0: number, x1: number, W: number): number {
-  const lo = W / 2 - STAIR_HALF - 0.1;
-  const hi = W / 2 + STAIR_HALF + 0.1;
+/** Move o centro da porta para fora da escada (faixa [sx0, sx1] em x), dentro da parede do cômodo. */
+function clearOfStair(c: number, dw: number, x0: number, x1: number, sx0: number, sx1: number): number {
+  const lo = sx0 - 0.1;
+  const hi = sx1 + 0.1;
   if (c + dw / 2 <= lo || c - dw / 2 >= hi) return c;
   const left = lo - dw / 2 - 0.05;
   const right = hi + dw / 2 + 0.05;
@@ -184,10 +208,10 @@ function programOf(a: WizardAnswers, g: Gen): Program {
   return { style, mezz, bathUp, groundBeds, groundBaths: a.bathrooms, laundryInside: a.laundry === 'inside', kitchenSeparate: a.kitchen === 'separate' };
 }
 
-/** Cômodos do bloco íntimo, na ordem: banheiro (junto da cozinha), lavanderia, quartos, 2º banheiro. */
+/** Cômodos do bloco íntimo, na ordem: banheiro (junto da cozinha), quartos, 2º banheiro. */
 function privateRooms(p: Program): RoomReq[] {
+  // a lavanderia "dentro de casa" não é cômodo: vira nicho (máquina e tanque) na bancada da cozinha ou no banheiro
   const out: RoomReq[] = [{ use: 'bathroom', name: p.groundBaths > 1 ? 'Banheiro 1' : 'Banheiro' }];
-  if (p.laundryInside) out.push({ use: 'laundry', name: 'Lavanderia' });
   for (let i = 0; i < p.groundBeds; i++) out.push({ use: 'bedroom', name: p.groundBeds > 1 ? `Quarto ${i + 1}` : 'Quarto' });
   if (p.groundBaths > 1) out.push({ use: 'bathroom', name: 'Banheiro 2' });
   return out;
@@ -308,8 +332,32 @@ function pruneFurniture(g: Gen): number {
   return removed;
 }
 
+const rad = (d: number) => (d * Math.PI) / 180;
+const rectPoly = (r: Rect): Vec2[] => [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];
+const KITCHEN_MODELS = new Set(['counter_sink', 'stove', 'fridge', 'counter']);
+
+/**
+ * Regras de arquiteto que o motor não cobra: bancada com pé-direito pleno (2,3 m) na frente, sofá fora da água baixa
+ * (1,4 m sobre o móvel todo), nada na área de chegada da escada do mezanino.
+ */
+function placementOk(g: Gen, level: string, item: string, pos: Vec2, rot: number): boolean {
+  const spec = specOf(g.catalog, item);
+  if (!spec) return true;
+  const fp = furnitureFootprint(spec, pos, rot);
+  if (g.plan.avoid.some((a) => a.level === level && polysOverlap(fp, rectPoly(a.rect)))) return false;
+  if (level !== 'L0') return true;
+  const n: Vec2 = [Math.sin(rad(rot)), -Math.cos(rad(rot))];
+  if (KITCHEN_MODELS.has(spec.model)) {
+    const k = spec.size.d / 2 + 0.6;
+    return g.roofAt([pos[0] + n[0] * k, pos[1] + n[1] * k]) >= 2.3;
+  }
+  if (spec.model === 'sofa') return fp.every((q) => g.roofAt(q) >= 1.4);
+  return true;
+}
+
 /** Tenta pôr um móvel numa posição; fica só se o motor não reclamar dele. */
 function tryAdd(g: Gen, level: string, item: string, pos: Vec2, rot = 0): boolean {
+  if (!placementOk(g, level, item, pos, rot)) return false;
   const id = addFurniture(g.b.p, level, item, pos, rot, g.ids);
   if (badFurnitureIds(g.b.p, g.catalog).has(id)) {
     g.b.p.furniture = g.b.p.furniture.filter((f) => f.id !== id);
@@ -395,17 +443,102 @@ function gridSpots(g: Gen, item: string, level: string, poly: Vec2[]): { pos: Ve
   return out.sort((a, b) => a.score - b.score).slice(0, 25);
 }
 
+/** Bancada na parede hidráulica: [tanque e máquina], pia, fogão e geladeira em fila, a partir do banheiro. */
+function placeKitchenRun(g: Gen) {
+  const run = g.plan.kitchenRun;
+  if (!run) return;
+  const order = [...(g.laundryNiche ? ['furn_tank', 'furn_washer'] : []), 'furn_kitchen_sink', 'furn_stove', 'furn_fridge'];
+  const t = g.thickness(run.wall);
+  let y = round(run.yLine - g.thickness(run.endWall) / 2 - 0.01, 3);
+  let niche = 0;
+  for (const item of order) {
+    const spec = specOf(g.catalog, item);
+    if (!spec) continue;
+    const pos: Vec2 = [round(run.x + run.dir * (t / 2 + spec.size.d / 2 + WALL_GAP), 3), round(y - spec.size.w / 2, 3)];
+    if (!tryAdd(g, 'L0', item, pos, run.dir === 1 ? 90 : -90)) continue;
+    y -= spec.size.w + 0.02;
+    if (item === 'furn_washer') niche++;
+  }
+  if (niche > 0) g.note('A lavanderia ficou como área de serviço no fim da bancada da cozinha, na mesma parede hidráulica.');
+}
+
+function placeLiving(g: Gen) {
+  const l = g.plan.living;
+  if (!l) return;
+  const rack = specOf(g.catalog, 'furn_tv_rack');
+  if (!rack) return;
+  const rx = round(l.x - g.thickness(l.wall) / 2 - rack.size.d / 2 - WALL_GAP, 3);
+  tryAdd(g, 'L0', 'furn_tv_rack', [rx, l.y], -90);
+  if (!tryAdd(g, 'L0', 'furn_sofa_3', [l.sofaX, l.y], 90)) tryAdd(g, 'L0', 'furn_sofa_2', [l.sofaX, l.y], 90);
+}
+
+/** Cama de casal do quarto do mezanino: a do desenho; se não der, a que o motor aceitar. */
+function ensureDoubleBed(g: Gen, room: BuildingModel['rooms'][number]) {
+  const poly = room.polygon as Vec2[];
+  const planned = g.plan.beds.find((b) => b.level === room.level && b.name === room.name);
+  const bed = specOf(g.catalog, 'furn_bed_double');
+  if (planned && bed && tryAdd(g, room.level, 'furn_bed_double', [planned.x, round(planned.yLine - g.thickness(planned.wall) / 2 - bed.size.d / 2 - WALL_GAP, 3)], 0)) return;
+  for (const c of edgeSpots(g, 'furn_bed_double', room.level, poly)) if (tryAdd(g, room.level, 'furn_bed_double', c.pos, c.rot)) return;
+  for (const c of gridSpots(g, 'furn_bed_double', room.level, poly)) if (tryAdd(g, room.level, 'furn_bed_double', c.pos, c.rot)) return;
+}
+
+/** Lavanderia como nicho quando o desenho não a pôs na bancada: ao lado da pia, senão no banheiro, senão na cozinha. */
+function placeLaundryNiche(g: Gen) {
+  if (!g.laundryNiche || g.b.p.furniture.some((f) => f.item === 'furn_washer')) return;
+  const { catalog } = g;
+  const sink = g.b.p.furniture.find((f) => f.item === 'furn_kitchen_sink');
+  const sinkSpec = sink ? specOf(catalog, sink.item) : undefined;
+  let washer = false;
+  if (sink && sinkSpec) {
+    const t: Vec2 = [Math.cos(rad(sink.rotation)), Math.sin(rad(sink.rotation))];
+    for (const item of ['furn_washer', 'furn_tank']) {
+      const spec = specOf(catalog, item);
+      if (!spec || g.b.p.furniture.some((f) => f.item === item)) continue;
+      let done = false;
+      for (const extra of [0, 0.5, 1.0])
+        for (const sign of [1, -1]) {
+          const k = sign * (sinkSpec.size.w / 2 + spec.size.w / 2 + 0.01 + extra);
+          if (!done) done = tryAdd(g, sink.level, item, [round(sink.position[0] + t[0] * k, 3), round(sink.position[1] + t[1] * k, 3)], sink.rotation);
+        }
+      if (item === 'furn_washer') washer = done;
+    }
+    if (washer) {
+      g.note('A lavanderia ficou como área de serviço junto à bancada da cozinha (máquina e tanque ao lado da pia), na mesma parede hidráulica.');
+      return;
+    }
+  }
+  const model = buildModel(Project.parse(clone(g.b.p)), catalog);
+  const tryRooms = (match: (r: BuildingModel['rooms'][number]) => boolean) => {
+    for (const room of model.rooms) {
+      if (!room.polygon || room.level !== 'L0' || !match(room)) continue;
+      for (const c of edgeSpots(g, 'furn_washer', room.level, room.polygon as Vec2[])) if (tryAdd(g, room.level, 'furn_washer', c.pos, c.rot)) return true;
+    }
+    return false;
+  };
+  if (tryRooms((r) => r.use === 'bathroom')) g.note('A lavanderia ficou dentro do banheiro (máquina de lavar), aproveitando a mesma prumada de água.');
+  else if (tryRooms((r) => r.use === 'kitchen')) g.note('A lavanderia ficou como área de serviço na cozinha, perto da pia.');
+  else g.note('Não coube a máquina de lavar dentro de casa: deixe um ponto de água e esgoto previsto para ela ou escolha a lavanderia externa.');
+}
+
 function furnishAll(g: Gen, opts: { integratedRoomId?: string }) {
   const { b, catalog } = g;
   const model = buildModel(Project.parse(JSON.parse(JSON.stringify(b.p))), catalog);
+  g.planesCache = model.roofPlanes;
+  g.wallModel = model.walls;
+  // o que o desenho já decidiu: bancada no núcleo molhado e sala
+  placeKitchenRun(g);
+  placeLiving(g);
   for (const room of model.rooms) {
     if (!room.polygon) continue;
-    const ctx = { walls: model.walls.filter((w) => w.level === room.level), openings: model.openings };
+    // quarto do mezanino: cama de casal sempre
+    if (room.use === 'bedroom' && room.level !== 'L0') ensureDoubleBed(g, room);
+    // as paredes externas (nível 0) também fecham os cômodos do mezanino: sem elas o móvel encostaria com a espessura errada
+    const ctx = { walls: model.walls.filter((w) => w.level === room.level || w.id.startsWith('ext-')), openings: model.openings };
     // sala e cozinha integradas: primeiro a cozinha, depois a sala
     const uses: RoomUse[] = room.id === opts.integratedRoomId ? ['kitchen', 'living'] : [room.use];
     for (const use of uses) {
       const out = furnishRoom(b.p, catalog, { ...room, use }, ctx, g.ids);
-      b.p.furniture.push(...(out as Furniture[]));
+      b.p.furniture.push(...(out as Furniture[]).filter((f) => placementOk(g, f.level, f.item, f.position as Vec2, f.rotation)));
     }
   }
   pruneFurniture(g);
@@ -419,6 +552,7 @@ function furnishAll(g: Gen, opts: { integratedRoomId?: string }) {
     if (room.use === 'bedroom') want.push(['bed', 'furn_bed_double'], ['wardrobe', 'furn_wardrobe_small']);
     if (room.use === 'kitchen' || isInt) want.push(['fridge', 'furn_fridge'], ['stove', 'furn_stove'], ['sink', 'furn_kitchen_sink']);
     if (room.use === 'living' || isInt) want.push(['sofa', 'furn_sofa_2']);
+    if (room.use === 'bathroom') want.push(['shower', 'furn_shower'], ['toilet', 'furn_toilet'], ['basin', 'furn_bath_sink']);
     for (const [, item] of want) {
       const spec = specOf(catalog, item);
       if (!spec || has(b.p, after.rooms, room.id, spec.model, catalog)) continue;
@@ -427,6 +561,7 @@ function furnishAll(g: Gen, opts: { integratedRoomId?: string }) {
       if (!done) for (const c of gridSpots(g, item, room.level, poly)) if (tryAdd(g, room.level, item, c.pos, c.rot)) break;
     }
   }
+  placeLaundryNiche(g);
 }
 
 // ---------------------------------------------------------------------------
@@ -480,11 +615,17 @@ function genBox(g: Gen, a: WizardAnswers, p: Program): void {
   // com mezanino, ele cobre o bloco íntimo: a parede da frente do bloco é a borda do mezanino e apoia as vigas
   const wantBathUp = p.bathUp;
   let md = hasStair ? plan.pd + BOX_GAP : 0;
-  if (hasStair && wantBathUp) md = Math.max(md, 2.2 + 2.4);
+  if (hasStair && wantBathUp) md = Math.max(md, MEZZ_ROOM_D + LOFT_BATH_D);
   if (hasStair) md = Math.max(md, 3.0);
   if (hasStair && md > plan.pd + 1e-6) plan = planPrivateBlock(W, yp, rooms, { corridorX, minPd: md });
   const D = round(hasStair ? yp - BOX_GAP + md : yp + plan.pd, 2);
   const y0 = round(D - md, 2); // borda do mezanino
+  // a escada (reta, subindo para a borda do mezanino) fica encostada numa parede paralela a ela: a do núcleo molhado, que
+  // continua para a frente até o pé da escada. As águas das duas caixas descem até 2,8 m na parede lateral, então
+  // o degrau mais alto só tem 2 m livres a partir de ~2 m da lateral: a parede lateral externa não serve.
+  const spineX = hasStair ? (plan.corridor ? plan.corridor.x0 : Math.max(...plan.items.filter((i) => i.req.use !== 'bedroom').map((i) => i.rect.x0))) : 0;
+  const stairX = round(spineX - STAIR_W - STAIR_HUG, 2);
+  const yStair = round(y0 - run, 2);
   // mezanino muito fundo (3+ quartos embaixo): a laje cobre só a coluna da escada e o corredor, e as vigas vencem essa largura
   // (apoiadas na parede externa e na parede do outro lado do corredor), em vez dos 7 m do comprimento
   const slabX1 = hasStair && plan.corridor && md > NARROW_MD ? plan.corridor.x1 : W;
@@ -496,13 +637,13 @@ function genBox(g: Gen, a: WizardAnswers, p: Program): void {
   b.p.walls = [];
 
   if (style === 'gable' && hasStair) {
-    b.mezzanine({ depth: md, stairX: round(W / 2 - 0.4, 2) });
+    b.mezzanine({ depth: md, stairX });
     const lv = b.p.levels.find((l) => l.elevation > 0)!;
     if (slabX1 < W) lv.polygon = [[0, y0], [slabX1, y0], [slabX1, D], [0, D]];
   }
   if (style === 'gambrel' && hasStair) {
     b.p.levels.push({ id: 'L1', name: 'Loft', elevation: rise, polygon: [[0, y0], [slabX1, y0], [slabX1, D], [0, D]], deck: 'osb18_wood', guardrail: true });
-    b.p.stairs.push({ id: g.ids('s'), type: 'straight', from: 'L0', to: 'L1', position: [round(W / 2 - 0.4, 2), round(y0 - run, 2)], rotationDeg: 0, width: 0.8, turnRight: true });
+    b.p.stairs.push({ id: g.ids('s'), type: 'straight', from: 'L0', to: 'L1', position: [stairX, yStair], rotationDeg: 0, width: STAIR_W, turnRight: true });
   }
 
   const ext: Ext = { x0: 0, x1: W, y0: 0, y1: D };
@@ -510,7 +651,7 @@ function genBox(g: Gen, a: WizardAnswers, p: Program): void {
   // --- fachada da zona social: porta, janelas
   const doorX = round(Math.max(1.1, W * 0.2), 2);
   g.openAt('ext-front', [doorX, 0], 'door', 0.9, 2.1, 0);
-  const kw = hasStair ? round(W / 2 - 0.65, 2) : 3.0;
+  const kw = hasStair ? round(W - spineX, 2) : 3.0;
   if (p.kitchenSeparate) {
     g.openAt('ext-front', [W * 0.5, 0], 'window', 1.6, 1.2, 0.9);
   } else {
@@ -526,13 +667,18 @@ function genBox(g: Gen, a: WizardAnswers, p: Program): void {
     // paredes da cozinha: a divisória com a sala e o fundo (que é a frente do bloco íntimo)
     const left = g.wall([r.x0, 0], [r.x0, yp], true);
     g.wall([r.x0, yp], [W, yp], true);
-    g.doorOn(left, [r.x0, 0], [r.x0, yp * 0.55], 0.8);
+    g.doorOn(left, [r.x0, 0], [r.x0, hasStair ? 0.6 : yp * 0.55], 0.8);
     g.openAt('ext-right', [W, yp * 0.5], 'window', 1.2, 1.0, 1.1);
     b.room('kitchen', [round(W - kw / 2, 2), round(yp / 2, 2)], 'Cozinha', { floor: 'finish_floor_porcelain' });
     b.room('living', livingSeed, 'Sala');
   } else {
     b.room('kitchen', livingSeed, 'Sala e cozinha');
   }
+  // parede hidráulica que acompanha a escada: do pé dela até o bloco íntimo, com a bancada da cozinha na face de lá
+  let spine = '';
+  if (hasStair && !p.kitchenSeparate) spine = g.wall([spineX, yStair], [spineX, yp], true);
+  else if (hasStair) spine = g.wall([spineX, 0], [spineX, yp], true);
+  let blockFront = '';
 
   // --- bloco íntimo
   for (const it of plan.items) {
@@ -541,6 +687,7 @@ function genBox(g: Gen, a: WizardAnswers, p: Program): void {
     const cx = (it.rect.x0 + it.rect.x1) / 2;
     const cy = (it.rect.y0 + it.rect.y1) / 2;
     const dw = DOOR_W[it.req.use] ?? 0.8;
+    if (w.top && Math.abs(it.rect.x0 - spineX) < 1e-6) blockFront = w.top;
     if (plan.corridor) {
       // porta para o corredor
       const onLeft = it.rect.x1 <= plan.corridor.x0 + 1e-6;
@@ -548,7 +695,7 @@ function genBox(g: Gen, a: WizardAnswers, p: Program): void {
       const cxw = onLeft ? it.rect.x1 : it.rect.x0;
       if (wid) g.doorOn(wid, [cxw, it.rect.y0], [cxw, cy], dw);
     } else if (w.top) {
-      const c = hasStair ? clearOfStair(cx, dw, it.rect.x0, it.rect.x1, W) : cx;
+      const c = hasStair ? clearOfStair(cx, dw, it.rect.x0, it.rect.x1, stairX, stairX + STAIR_W) : cx;
       g.doorOn(w.top, [it.rect.x0, it.rect.y0], [c, it.rect.y0], dw);
     }
     b.room(it.req.use, [round(cx, 2), round(cy, 2)], it.req.name);
@@ -557,12 +704,18 @@ function genBox(g: Gen, a: WizardAnswers, p: Program): void {
   if (plan.corridor) {
     const c = plan.corridor;
     const mouth = g.wall([c.x0, c.y0], [c.x1, c.y0]);
+    if (Math.abs(c.x0 - spineX) < 1e-6) blockFront = mouth;
     g.doorOn(mouth, [c.x0, c.y0], [(c.x0 + c.x1) / 2, c.y0], 0.8);
     b.room('circulation', [round((c.x0 + c.x1) / 2, 2), round((c.y0 + c.y1) / 2, 2)], 'Corredor');
   }
 
+  if (hasStair && !p.kitchenSeparate) {
+    g.plan.kitchenRun = { wall: spine, x: spineX, endWall: blockFront || spine, yLine: yp, dir: 1 };
+    g.note('A escada sobe encostada na parede hidráulica; do outro lado dela fica a bancada da cozinha, junto do bloco dos banheiros.');
+  } else if (hasStair) g.note('A escada sobe encostada na parede da cozinha, que é de apoio para a bancada.');
+
   // --- mezanino
-  if (hasStair) genLoft(g, p, { W, D, y0, rise, sx1: slabX1 });
+  if (hasStair) genLoft(g, p, { W, D, y0, rise, sx1: slabX1, stairX });
 }
 
 // ---------------------------------------------------------------------------
@@ -575,22 +728,52 @@ interface WingItem {
   rect: Rect;
 }
 
+/** Menor x (de `lo` a `hi`) em que o pé-direito sobre a cota `elev`, na linha y, chega a `h`. */
+function firstX(g: Gen, y: number, elev: number, h: number, lo: number, hi: number): number {
+  for (let x = lo; x <= hi + 1e-9; x = round(x + 0.01, 2)) if (g.roofAt([x, y]) - elev >= h) return round(x, 2);
+  return hi;
+}
+/** Maior x (de `hi` para `lo`) em que o pé-direito chega a `h`. */
+function lastX(g: Gen, y: number, elev: number, h: number, lo: number, hi: number): number {
+  for (let x = hi; x >= lo - 1e-9; x = round(x - 0.01, 2)) if (g.roofAt([x, y]) - elev >= h) return round(x, 2);
+  return lo;
+}
+const ceil2 = (n: number) => Math.ceil(n * 100 - 1e-6) / 100;
+
+/** Pé-direito médio que o quarto do mezanino deve ter (a norma pede 2,5 m; abaixo de 2,3 m vira alerta de atenção). */
+const LOFT_AVG = 2.35;
+/** Largura mínima da faixa útil do mezanino do A-frame (cama de casal + 0,6 m de circulação + folga). */
+const MEZZ_BAND_MIN = 2.6;
+/** Pé-direito sobre o piso do mezanino nas bordas da faixa: o pé-direito médio da faixa ({@link LOFT_AVG}) e o mínimo da mureta. */
+const loftEdgeHeadroom = (ridge: number, rise: number) => Math.max(LOFT_KNEE + 0.05, 2 * LOFT_AVG - (ridge - rise));
+
+/** Profundidade do quarto (ou sala) do mezanino: chegada da escada (0,8) + cama de casal (2,0) + folga. */
+const MEZZ_ROOM_D = 2.9;
+const LOFT_BATH_D = 2.2;
+/** Largura da escada e folga até a parede em que ela se encosta. */
+const STAIR_W = 0.8;
+const STAIR_HUG = 0.1;
+
 function genAFrame(g: Gen, a: WizardAnswers, p: Program): void {
   const hasMezz = p.mezz !== 'none';
-  // todos os cômodos íntimos, menos o banheiro 1 (fica no corpo, sob o mezanino)
+  // todos os cômodos íntimos, menos o banheiro 1 (fica no corpo, junto do núcleo molhado)
   const all = privateRooms(p).slice(1);
   if (p.kitchenSeparate) all.unshift({ use: 'kitchen', name: 'Cozinha' });
-  const W = p.groundBeds >= 3 ? 8 : p.groundBeds >= 2 || a.people >= 5 ? 7 : 6;
-  const ridge = W === 6 ? 6 : W === 7 ? 6.5 : 7;
+  let W = p.groundBeds >= 3 ? 8 : p.groundBeds >= 2 || a.people >= 5 ? 7 : 6;
+  let ridge = W === 6 ? 6 : W === 7 ? 6.5 : 7;
   const knee = 0.9;
   const rise = 2.8;
   const run = stairRun(rise);
-  const yp = hasMezz ? round(run + STAIR_FOOT + STAIR_GAP, 2) : 4.6;
+  // faixa do mezanino com pé-direito para a cama de casal + circulação (2,05 m): se o A for estreito demais, alarga
+  const bandOf = (w: number, r: number) => w - 2 * ceil2((loftEdgeHeadroom(r, rise) + rise - knee) / ((r - knee) / (w / 2)));
+  if (hasMezz && bandOf(W, ridge) < MEZZ_BAND_MIN) {
+    W = 7;
+    ridge = 6.5;
+    g.note(`Alarguei o A-frame para 7 m e subi a cumeeira para 6,5 m: no mezanino a cama de casal (com 0,6 m de circulação) pede uma faixa de pelo menos ${f1(MEZZ_BAND_MIN)} m com pé-direito bom, e no A de 6 m ela ficaria com ${f1(bandOf(6, 6))} m.`);
+  }
   const bathD = 2.4;
-  let md = hasMezz ? bathD + STAIR_GAP : 0;
-  if (hasMezz && p.bathUp) md = Math.max(md, 2.2 + 2.4);
-  if (hasMezz) md = Math.max(md, 3.2);
-  let D = round(hasMezz ? yp - STAIR_GAP + md : yp + bathD + 0.4, 2);
+  const md = hasMezz ? round(Math.max(3.2, MEZZ_ROOM_D + (p.bathUp ? LOFT_BATH_D : 0)), 2) : 0;
+  let D = round(hasMezz ? run + STAIR_FOOT + md : 4.6 + bathD + 0.4, 2);
 
   // anexos: molhados à direita; quartos alternando (esquerda primeiro)
   const depthOf = (r: RoomReq) => ROOM_DEPTH[r.use] ?? 3;
@@ -623,8 +806,15 @@ function genAFrame(g: Gen, a: WizardAnswers, p: Program): void {
   b.p.walls = [];
   const t = b.p.typology;
   if (t.kind !== 'a_frame') throw new Error('gerador: tipologia inesperada');
-  if (hasMezz) b.mezzanine({ depth: md, elevation: rise, stairX: round(W / 2 - 0.4, 2) });
   const y0 = hasMezz ? round(D - md, 2) : D;
+  // escada na faixa com pé-direito, encostada na parede do núcleo molhado (a leste dela): a borda de fora da escada
+  // precisa de 2,1 m livres sob o telhado no degrau mais alto
+  let xs = 0;
+  if (hasMezz) {
+    const xlo = firstX(g, D / 2, rise, 2.1, 0.3, W / 2);
+    xs = round(xlo + STAIR_W + STAIR_HUG, 2);
+    b.mezzanine({ depth: md, elevation: rise, stairX: round(xs - STAIR_W - STAIR_HUG + 0.0, 2) });
+  }
 
   // anexos
   const wingItems: WingItem[] = [];
@@ -655,31 +845,40 @@ function genAFrame(g: Gen, a: WizardAnswers, p: Program): void {
   g.openAt('ext-front', [W / 2 - 1.6, 0], 'window', 1.4, 1.0, 0.9);
   g.openAt('ext-front', [W / 2 + 1.5, 0], 'sliding_door', 1.5, 2.1, 0);
 
-  // banheiro 1 sob o mezanino, à direita da escada. Com mezanino, a parede da frente dele fica na borda do mezanino
-  // e apoia as vigas (assim elas vencem o lado curto); o que sobra de profundidade vira depósito.
-  const bx0 = round(W / 2 + 0.4, 2);
-  const bx1 = round(bx0 + 1.8, 2);
-  const bathDepth = hasMezz ? Math.min(md, 3.2) : bathD;
-  const by0 = round(D - bathDepth, 2);
-  const yFront = hasMezz ? y0 : by0;
-  const pocket = hasMezz && md - bathDepth > 0.5;
-  const bathLeft = g.wall([bx0, D], [bx0, yFront], true);
-  g.wall([bx1, yFront], [bx1, D], true);
-  const front = g.wall([bx0, yFront], [bx1, yFront], true);
-  if (pocket) {
-    g.wall([bx0, by0], [bx1, by0], true);
-    g.doorOn(bathLeft, [bx0, yFront], [bx0, round((y0 + by0) / 2, 2)], 0.7);
-    g.doorOn(bathLeft, [bx0, yFront], [bx0, round(D - bathDepth / 2, 2)], 0.7);
+  const livingSeed: Vec2 = hasMezz ? [round(Math.max(0.6, (xs - STAIR_W) / 2), 2), round(STAIR_FOOT + 1, 2)] : [round(W * 0.3, 2), round(4.6 * 0.4, 2)];
+  if (hasMezz) {
+    // Núcleo molhado único: uma parede hidráulica (a "espinha") corre paralela à cumeeira, da frente da escada até os fundos.
+    // De um lado a escada (e a sala); do outro, a cozinha na frente e o banheiro nos fundos, sob o mezanino (e sob o banheiro de cima).
+    const yS = round(y0 - run, 2);
+    const yb = round(D - bathD, 2);
+    const xmax = lastX(g, D / 2, 0, 2.15, W / 2, W);
+    const xe = round(Math.min(xs + 2.0, xmax), 2);
+    const spine = g.wall([xs, yS], [xs, D], true);
+    g.wall([xe, yb], [xe, D], true);
+    const front = g.wall([xs, yb], [xe, yb], true);
+    g.doorOn(front, [xs, yb], [xe - 0.45, yb], 0.7);
+    g.openAt('ext-back', [(xs + xe) / 2, D], 'window', 0.5, 0.5, 1.4);
+    if (p.kitchenSeparate) b.room('living', livingSeed, 'Sala');
+    else b.room('kitchen', livingSeed, 'Sala e cozinha');
+    b.room('bathroom', [round((xs + xe) / 2, 2), round((yb + D) / 2, 2)], p.groundBaths > 1 ? 'Banheiro 1' : 'Banheiro');
+    if (!p.kitchenSeparate) g.plan.kitchenRun = { wall: spine, x: xs, endWall: front, yLine: yb, dir: 1 };
+    // sala sob o mezanino, atrás da escada: sofá virado para a TV na parede do núcleo, longe da água baixa
+    g.plan.living = { wall: spine, x: xs, y: round(y0 + Math.min(1.6, md / 2), 2), sofaX: 1.25 };
+    g.note('Cozinha, banheiro e escada ficam todos junto da mesma parede hidráulica (a do núcleo molhado, nos fundos e sob o mezanino), então a prumada de água e esgoto é uma só.');
   } else {
-    g.doorOn(front, [bx0, yFront], [bx0 + 0.5, yFront], 0.7);
+    // banheiro 1 nos fundos, à direita
+    const bx0 = round(W / 2 + 0.4, 2);
+    const bx1 = round(bx0 + 1.8, 2);
+    const by0 = round(D - bathD, 2);
+    g.wall([bx0, D], [bx0, by0], true);
+    g.wall([bx1, by0], [bx1, D], true);
+    const front = g.wall([bx0, by0], [bx1, by0], true);
+    g.doorOn(front, [bx0, by0], [bx0 + 0.5, by0], 0.7);
+    g.openAt('ext-back', [(bx0 + bx1) / 2, D], 'window', 0.5, 0.5, 1.4);
+    if (p.kitchenSeparate) b.room('living', livingSeed, 'Sala');
+    else b.room('kitchen', livingSeed, 'Sala e cozinha');
+    b.room('bathroom', [round((bx0 + bx1) / 2, 2), round(D - bathD / 2, 2)], p.groundBaths > 1 ? 'Banheiro 1' : 'Banheiro');
   }
-  g.openAt('ext-back', [(bx0 + bx1) / 2, D], 'window', 0.5, 0.5, 1.4);
-
-  const livingSeed: Vec2 = [round(W * 0.3, 2), round(yp * 0.4, 2)];
-  if (p.kitchenSeparate) b.room('living', livingSeed, 'Sala');
-  else b.room('kitchen', livingSeed, 'Sala e cozinha');
-  b.room('bathroom', [round((bx0 + bx1) / 2, 2), round(D - bathDepth / 2, 2)], p.groundBaths > 1 ? 'Banheiro 1' : 'Banheiro');
-  if (pocket) b.room('storage', [round((bx0 + bx1) / 2, 2), round((y0 + by0) / 2, 2)], 'Depósito');
 
   // cômodos dos anexos
   const ext: Ext = { x0: -999, x1: 999, y0: 0, y1: D };
@@ -694,7 +893,7 @@ function genAFrame(g: Gen, a: WizardAnswers, p: Program): void {
     b.room(it.req.use, [round((it.rect.x0 + it.rect.x1) / 2, 2), round(cy, 2)], it.req.name);
     roomWindow(g, { req: it.req, rect: it.rect }, ext, [{ host: `annex-${it.side}-side`, pt: [it.side === 'left' ? it.rect.x0 : it.rect.x1, Math.min(it.rect.y0 + 0.3 + 0.75, cy)] }]);
   }
-  if (hasMezz) genLoft(g, p, { W, D, y0, rise, sx1: W });
+  if (hasMezz) genLoftA(g, p, { W, D, y0, rise, xs, run, ridge });
 }
 
 // ---------------------------------------------------------------------------
@@ -729,47 +928,106 @@ function loftBand(g: Gen, o: { W: number; sx1: number; y0: number; y1: number; e
   return { xa: round(range(o.min)[0], 2), xb: round(range(o.min)[1], 2) };
 }
 
-/** Mezanino: quarto (ou sala de cima) só na faixa com altura útil, com muretas dos lados, e o banheiro de fundos se pedido. */
-function genLoft(g: Gen, p: Program, d: { W: number; D: number; y0: number; rise: number; sx1: number }) {
+/**
+ * Mezanino do A-frame. O quarto (ou a sala de cima) ocupa a faixa em que o telhado deixa pelo menos {LOFT_KNEE} m sobre o piso,
+ * fechada por muretas; o banheiro de cima fica nos fundos, empilhado sobre o de baixo, com a porta na parede que tem
+ * pé-direito de 2,1 m na linha toda e nenhuma divisória onde o telhado fica abaixo de 1 m.
+ */
+function genLoftA(g: Gen, p: Program, d: { W: number; D: number; y0: number; rise: number; xs: number; run: number; ridge: number }) {
+  const { b } = g;
+  const { W, D, y0, rise, xs } = d;
+  const L1 = 'L1';
+  const use: RoomUse = p.mezz === 'sleep' ? 'bedroom' : 'living';
+  const name = p.mezz === 'sleep' ? 'Quarto do mezanino' : 'Sala de cima';
+  const mid = (y0 + D) / 2;
+  const xa = firstX(g, mid, rise, loftEdgeHeadroom(d.ridge, rise), 0.3, W / 2);
+  const xb = round(W - xa, 2);
+  const xdoor = firstX(g, mid, rise, 2.15, xa, W / 2);
+  let yEnd = D;
+  let bath: [number, number] | null = null;
+  let bathFront = '';
+  if (p.bathUp) {
+    if (xb - xdoor >= 1.5) bath = [round(Math.max(xdoor, xb - 2.2), 2), xb];
+    else g.note('O mezanino é estreito demais para um banheiro; ele ficou só com o quarto.');
+  }
+  if (bath) {
+    const [x0, x1] = bath;
+    const yb = round(D - LOFT_BATH_D, 2);
+    const west = b.wall([x0, D], [x0, yb], { level: L1, wet: true });
+    bathFront = b.wall([x0, yb], [x1, yb], { level: L1, wet: true });
+    b.wall([x1, yb], [x1, D], { level: L1, wet: true });
+    b.door(west, round(LOFT_BATH_D - 0.15 - 0.7, 2), 0.7);
+    b.room('bathroom', [round((x0 + x1) / 2, 2), round(D - LOFT_BATH_D / 2, 2)], 'Banheiro do mezanino', { level: L1 });
+    g.openAt('ext-back', [(x0 + x1) / 2, D], 'window', 0.6, 0.5, rise + 1.4);
+    yEnd = yb;
+  }
+  // muretas dos lados: separam a faixa com pé-direito do canto baixo sob o telhado
+  b.wall([xa, y0], [xa, D], { level: L1, height: LOFT_KNEE });
+  b.wall([xb, y0], [xb, yEnd], { level: L1, height: LOFT_KNEE });
+  g.note(`No mezanino, o ${p.mezz === 'sleep' ? 'quarto' : 'ambiente'} ocupa só a faixa de ${f1(xb - xa)} m onde o pé-direito é bom; ao lado, junto ao telhado baixo, ficam muretas de ${f1(LOFT_KNEE)} m e dá para guardar caixas e malas.`);
+  b.room(use, [round((xa + xb) / 2, 2), round((y0 + yEnd) / 2, 2)], name, { level: L1 });
+  // chegada da escada livre; cama de casal de cabeceira na parede do banheiro (ou na dos fundos)
+  g.plan.avoid.push({ level: L1, rect: { x0: round(xs - STAIR_W - STAIR_HUG - 0.1, 2), x1: xs, y0: y0, y1: round(y0 + 0.8, 2) } });
+  if (p.mezz === 'sleep') {
+    const backWall = b.p.walls.find((w) => w.id === 'ext-back')?.id ?? 'ext-back';
+    g.plan.beds.push({ level: L1, name, wall: bath ? bathFront : backWall, yLine: bath ? yEnd : D, x: round(bath ? (bath[0] + bath[1]) / 2 : (xa + xb) / 2, 3) });
+  }
+}
+
+/**
+ * Mezanino das caixas (duas águas, celeiro): quarto (ou sala de cima) só na faixa com altura útil, com muretas dos lados,
+ * e o banheiro de fundos se pedido. A parede do banheiro que leva a porta precisa de 2,1 m de pé-direito sob o telhado
+ * na linha toda, então o banheiro é estreitado até isso valer.
+ */
+function genLoft(g: Gen, p: Program, d: { W: number; D: number; y0: number; rise: number; sx1: number; stairX: number }) {
   const { b } = g;
   const { W, D, y0, rise, sx1 } = d;
   const use: RoomUse = p.mezz === 'sleep' ? 'bedroom' : 'living';
   const name = p.mezz === 'sleep' ? 'Quarto do mezanino' : 'Sala de cima';
   const L1 = 'L1';
-  const narrow = sx1 < W - 0.1;
   const band = loftBand(g, { W, sx1, y0, y1: D, elev: rise, min: 2.0 });
   let { xa, xb } = band;
+  const mid = (y0 + D) / 2;
+  // a faixa nunca vai até onde o telhado fica a menos de {LOFT_KNEE} m do piso: as muretas e o quarto ficam dentro dela
+  xa = Math.max(xa, firstX(g, mid, rise, LOFT_KNEE + 0.05, 0.05, W / 2));
+  xb = Math.min(xb, lastX(g, mid, rise, LOFT_KNEE + 0.05, W / 2, W));
   const full = xa <= 0.05 && xb >= sx1 - 0.05;
+  const headroom = (x: number) => g.roofAt([x, mid]) - rise;
   let yEnd = D;
+  let bathX: [number, number] | null = null;
+  let bathFront = '';
   if (p.bathUp && xb - xa >= 1.4) {
-    const bw = round(Math.min(Math.max(xb - xa, 1.8), 2.4), 2);
-    const bd = 2.2;
-    const x1 = narrow ? xb : round(W / 2 + bw / 2, 2);
-    const x0 = round(x1 - bw, 2);
-    const yb = round(D - bd, 2);
-    b.wall([x0, D], [x0, yb], { level: L1, wet: true });
-    const wf = b.wall([x0, yb], [x1, yb], { level: L1, wet: true });
-    b.wall([x1, yb], [x1, D], { level: L1, wet: true });
-    b.door(wf, 0.12, 0.7);
-    b.room('bathroom', [round((x0 + x1) / 2, 2), round(D - bd / 2, 2)], 'Banheiro do mezanino', { level: L1 });
-    b.window('ext-back', (x0 + x1) / 2 - 0.3, 0.6, 0.5, rise + 1.4);
-    yEnd = yb;
-    if (!full) {
-      if (narrow) xa = x0;
-      else {
-        xa = x0;
-        xb = x1;
-      }
-    }
+    // banheiro no lado leste da faixa, a porta na parede oeste (paralela à cumeeira: pé-direito igual na linha toda) abrindo
+    // para o quarto; a parede da frente e a leste só pedem 1,0 m
+    let bw = round(Math.min(Math.max(xb - xa, 1.8), 2.2), 2);
+    const x1 = full ? round(W / 2 + bw / 2, 2) : xb;
+    const west = (w: number) => round(x1 - w, 2);
+    while (bw > 1.6 && (headroom(west(bw)) < 2.12 || west(bw) - xa < 0.9)) bw = round(bw - 0.1, 2);
+    const x0 = west(bw);
+    if (headroom(x0) >= 2.12 && headroom(x1) >= LOFT_KNEE + 0.05) {
+      const bd = LOFT_BATH_D;
+      const yb = round(D - bd, 2);
+      const wallW = b.wall([x0, D], [x0, yb], { level: L1, wet: true });
+      bathFront = b.wall([x0, yb], [x1, yb], { level: L1, wet: true });
+      b.wall([x1, yb], [x1, D], { level: L1, wet: true });
+      b.door(wallW, round(bd - 0.15 - 0.7, 2), 0.7);
+      b.room('bathroom', [round((x0 + x1) / 2, 2), round(D - bd / 2, 2)], 'Banheiro do mezanino', { level: L1 });
+      g.openAt('ext-back', [(x0 + x1) / 2, D], 'window', 0.6, 0.5, rise + 1.4);
+      yEnd = yb;
+      bathX = [x0, x1];
+    } else g.note('O telhado é baixo demais nas laterais do mezanino para uma porta de banheiro com 2,1 m livres; o banheiro ficou só no térreo.');
   } else if (p.bathUp) {
     g.note('O mezanino é estreito demais para um banheiro; ele ficou só com o quarto.');
   }
   if (!full) {
     const xs = [xa > 0.05 ? xa : null, xb < sx1 - 0.05 ? xb : null].filter((x): x is number => x !== null);
-    for (const x of xs) b.wall([round(x, 2), y0], [round(x, 2), yEnd], { level: L1, height: LOFT_KNEE });
+    for (const x of xs) b.wall([round(x, 2), y0], [round(x, 2), x === xa ? D : yEnd], { level: L1, height: LOFT_KNEE });
     g.note(`No mezanino, o ${p.mezz === 'sleep' ? 'quarto' : 'ambiente'} ocupa só a faixa de ${f1(xb - xa)} m onde o pé-direito é bom; ao lado, junto ao telhado baixo, ficam muretas de ${f1(LOFT_KNEE)} m e dá para guardar caixas e malas.`);
   }
   b.room(use, [round((xa + xb) / 2, 2), round((y0 + yEnd) / 2, 2)], name, { level: L1 });
+  // chegada da escada livre; cama de casal de cabeceira na parede do banheiro (ou na dos fundos)
+  g.plan.avoid.push({ level: L1, rect: { x0: round(d.stairX - 0.1, 2), x1: round(d.stairX + STAIR_W + STAIR_HUG + 0.1, 2), y0, y1: round(y0 + 0.8, 2) } });
+  if (p.mezz === 'sleep') g.plan.beds.push({ level: L1, name, wall: bathX ? bathFront : 'ext-back', yLine: bathX ? yEnd : D, x: round(bathX ? (bathX[0] + bathX[1]) / 2 : Math.min(Math.max((xa + xb) / 2, 0.9), sx1 - 0.9), 3) });
 }
 
 // ---------------------------------------------------------------------------
@@ -922,6 +1180,7 @@ export function generateProject(input: WizardAnswers, _catalog: Catalog = getCat
 function generateOnce(a: WizardAnswers): GenerateResult {
   const g = new Gen();
   const prog = programOf(a, g);
+  g.laundryNiche = prog.laundryInside;
   if (prog.style === 'aframe') genAFrame(g, a, prog);
   else genBox(g, a, prog);
   const b = g.b;
@@ -944,12 +1203,18 @@ function generateOnce(a: WizardAnswers): GenerateResult {
   }
 
   // terreno e região
-  if (a.terrain === 'gentle') b.p.site = makeSlopedSite({ slopePct: 10 });
-  if (a.terrain === 'steep') {
-    b.p.site = makeSlopedSite({ slopePct: 30 });
+  const slopePct = a.terrain === 'gentle' ? 10 : a.terrain === 'steep' ? 30 : a.terrain === 'custom' ? (a.slopePct ?? 12) : 0;
+  if (slopePct >= 1) b.p.site = makeSlopedSite({ slopePct });
+  if (slopePct > 20) {
     addExtra(b.p, 'retaining', g.ids);
-    g.note('Terreno bem inclinado: incluí um muro de arrimo e o corte e aterro. Vale uma sondagem e um engenheiro antes de comprar.');
-  } else if (a.terrain === 'gentle') g.note('Terreno com leve declive: o motor já calcula um pouco de corte e aterro.');
+    g.note(
+      a.terrain === 'custom'
+        ? `Terreno com ${f1(slopePct)}% de inclinação (acima de 20%): incluí um muro de arrimo e o corte e aterro. Vale uma sondagem e um engenheiro antes de comprar.`
+        : 'Terreno bem inclinado: incluí um muro de arrimo e o corte e aterro. Vale uma sondagem e um engenheiro antes de comprar.',
+    );
+  } else if (slopePct >= 1) {
+    g.note(a.terrain === 'custom' ? `Terreno com ${f1(slopePct)}% de inclinação: o motor calcula o corte e o aterro.` : 'Terreno com leve declive: o motor já calcula um pouco de corte e aterro.');
+  }
   b.p.meta.region = a.uf;
   if (a.mountain) {
     b.p.performance.zone = 2;

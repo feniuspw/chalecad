@@ -10,7 +10,7 @@ export type WingsChoice = 'none' | 'one' | 'two';
 export type KitchenChoice = 'integrated' | 'separate';
 export type LaundryChoice = 'inside' | 'outside' | 'none';
 export type DeckChoice = 'none' | 'front' | 'covered';
-export type TerrainChoice = 'flat' | 'gentle' | 'steep';
+export type TerrainChoice = 'flat' | 'gentle' | 'steep' | 'custom';
 export type StructureChoice = 'steel' | 'wood' | 'any';
 export type BudgetBand = 'upto150' | 'b150_250' | 'b250_400' | 'over400' | 'unknown';
 
@@ -33,6 +33,8 @@ export interface WizardAnswers {
   laundry: LaundryChoice;
   deck: DeckChoice;
   terrain: TerrainChoice;
+  /** Inclinação do terreno em % (0 a 60), usada quando `terrain` é 'custom'. */
+  slopePct?: number;
   uf: UF;
   mountain: boolean;
   structure: StructureChoice;
@@ -47,6 +49,14 @@ export interface WizardAnswers {
 
 export const MAX_BEDROOMS = 4;
 export const MAX_PEOPLE = 10;
+export const MAX_SLOPE_PCT = 60;
+/** Inclinação padrão sugerida ao escolher "Eu sei a inclinação". */
+export const DEFAULT_CUSTOM_SLOPE_PCT = 12;
+
+/** % para graus (12% ≈ 6,8°). */
+export const pctToDeg = (pct: number): number => (Math.atan(pct / 100) * 180) / Math.PI;
+/** Graus para %. */
+export const degToPct = (deg: number): number => Math.tan((deg * Math.PI) / 180) * 100;
 
 export const BUDGET_BANDS: { value: BudgetBand; label: string; max: number | null }[] = [
   { value: 'upto150', label: 'Até R$ 150 mil', max: 150_000 },
@@ -89,5 +99,8 @@ export const DEFAULT_ANSWERS: WizardAnswers = {
 /** Ajusta respostas incoerentes (número de quartos, limites) sem mudar o que a pessoa escolheu de propósito. */
 export function normalizeAnswers(a: WizardAnswers): WizardAnswers {
   const clampI = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number.isFinite(n) ? n : lo)));
-  return { ...a, people: clampI(a.people, 1, MAX_PEOPLE), bedrooms: clampI(a.bedrooms, 1, MAX_BEDROOMS) };
+  const slope = a.slopePct === undefined || !Number.isFinite(a.slopePct) ? undefined : Math.min(MAX_SLOPE_PCT, Math.max(0, a.slopePct));
+  const { slopePct: _drop, ...rest } = a;
+  void _drop;
+  return { ...rest, people: clampI(a.people, 1, MAX_PEOPLE), bedrooms: clampI(a.bedrooms, 1, MAX_BEDROOMS), ...(slope === undefined ? {} : { slopePct: slope }) };
 }
