@@ -10,3 +10,16 @@ export function downloadText(filename: string, content: string, mime = 'text/csv
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** Baixa bytes como arquivo (só no navegador). */
+export function downloadBytes(filename: string, content: Uint8Array, mime = 'application/octet-stream'): void {
+  const blob = new Blob([content as BlobPart], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

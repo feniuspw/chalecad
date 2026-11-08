@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { computeAll, loadProject, type BuildingModel, type HostWall, type Project, type ResolvedOpening } from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
 import fixture from '../../../../packages/engine/fixtures/gable-6.5x8.5-mezzanine.json';
-import { DXF_LAYERS, DxfWriter, dxfFileName, dxfText, exportDxf } from './dxf';
+import { DXF_LAYERS, DxfWriter, dxfBytes, dxfFileName, dxfText, exportDxf } from './dxf';
 
 const loaded = loadProject(fixture);
 if (!loaded.ok) throw new Error('fixture inválido');
@@ -75,10 +75,11 @@ describe('dxf do fixture', () => {
       expect(used.has(must), must).toBe(true);
     }
   });
-  it('POLYLINE sempre fecha com SEQEND e é ASCII puro', () => {
+  it('POLYLINE sempre fecha com SEQEND e cabe em Windows-1252', () => {
     const types = r.ents.map((e) => e.type);
     expect(types.filter((t) => t === 'POLYLINE').length).toBe(types.filter((t) => t === 'SEQEND').length);
-    expect([...dxf].every((ch) => ch.charCodeAt(0) < 128)).toBe(true);
+    expect(dxfBytes(dxf).length).toBe([...dxf].length);
+    expect([...dxfBytes(dxf)].includes(63) ? [...dxf].includes('?') : true).toBe(true);
   });
   it('rótulos de cômodo e carimbo', () => {
     const texts = r.ents.filter((e) => e.type === 'TEXT').map((e) => unescape(e.pairs.find(([c]) => c === 1)![1]));
@@ -132,11 +133,12 @@ describe('cômodos', () => {
 });
 
 describe('texto e utilitários', () => {
-  it('acentos viram escapes ASCII que voltam ao original', () => {
-    const t = 'Quarto · 9,0 m²';
-    const e = dxfText(t);
-    expect(e).toBe('Quarto \\U+00B7 9,0 m\\U+00B2');
-    expect(unescape(e)).toBe(t);
+  it('acentos ficam e saem em Windows-1252', () => {
+    const t = 'Térreo — Quarto · 9,0 m²';
+    expect(dxfText(t)).toBe(t);
+    expect(dxfText('casa 🏠')).toBe('casa ?');
+    const b = dxfBytes('é—·²');
+    expect([...b]).toEqual([0xe9, 0x97, 0xb7, 0xb2]);
   });
   it('writer vazio é válido', () => {
     const w = new DxfWriter().toString();

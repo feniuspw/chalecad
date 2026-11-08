@@ -31,16 +31,33 @@ export type DxfLayer = (typeof DXF_LAYERS)[number]['name'];
 
 export const DXF_STAMP_NOTICE = 'Estimativa — não substitui projeto com ART';
 
-/** Texto seguro para DXF ASCII: tudo fora de ASCII imprimível vira `\U+XXXX`. */
+/** Caracteres do Windows-1252 fora do Latin-1 (0x80–0x9F), pelo ponto de código Unicode. */
+const CP1252_EXTRA: Record<number, number> = {
+  0x20ac: 0x80, 0x201a: 0x82, 0x0192: 0x83, 0x201e: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02c6: 0x88,
+  0x2030: 0x89, 0x0160: 0x8a, 0x2039: 0x8b, 0x0152: 0x8c, 0x017d: 0x8e, 0x2018: 0x91, 0x2019: 0x92, 0x201c: 0x93,
+  0x201d: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02dc: 0x98, 0x2122: 0x99, 0x0161: 0x9a, 0x203a: 0x9b,
+  0x0153: 0x9c, 0x017e: 0x9e, 0x0178: 0x9f,
+};
+
+const cp1252Byte = (c: number): number | null =>
+  (c >= 32 && c < 127) || (c >= 0xa0 && c <= 0xff) ? c : (CP1252_EXTRA[c] ?? null);
+
+/**
+ * Texto seguro para DXF R12 (`$DWGCODEPAGE` ANSI_1252): mantém acentos e símbolos do Windows-1252
+ * (o arquivo é gravado nessa codificação por `dxfBytes`); o resto vira `?`.
+ */
 export function dxfText(s: string): string {
   let out = '';
-  for (const ch of s.replace(/[\r\n]+/g, ' ')) {
-    const c = ch.codePointAt(0)!;
-    if (c >= 32 && c < 127) out += ch;
-    else if (c > 0xffff) out += '?'; // fora do BMP: não há escape \\U+ de 4 dígitos
-    else out += `\\U+${c.toString(16).toUpperCase().padStart(4, '0')}`;
-  }
+  for (const ch of s.replace(/[\r\n]+/g, ' ')) out += cp1252Byte(ch.codePointAt(0)!) === null ? '?' : ch;
   return out;
+}
+
+/** Codifica o DXF em Windows-1252, como declara o cabeçalho (o leitor de R12 não entende UTF-8). */
+export function dxfBytes(text: string): Uint8Array {
+  const out = new Uint8Array(text.length);
+  let i = 0;
+  for (const ch of text) out[i++] = cp1252Byte(ch.codePointAt(0)!) ?? (ch === '\n' ? 10 : 63);
+  return out.subarray(0, i);
 }
 
 const num = (n: number) => {
@@ -301,7 +318,7 @@ function dimension(dxf: DxfWriter, a: Vec2, b: Vec2, off: Vec2, label: string, r
   for (const p of [pa, pb]) dxf.line('COTAS', [p[0] - (u[0] + u[1]) * t, p[1] - (u[1] - u[0]) * t], [p[0] + (u[0] + u[1]) * t, p[1] + (u[1] - u[0]) * t]);
   const mid: Vec2 = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2];
   const side: Vec2 = rotation === 0 ? [0, Math.sign(off[1]) * 0.1] : [Math.sign(off[0]) * 0.1, 0];
-  dxf.text('COTAS', [mid[0] + side[0], mid[1] + side[1]], 0.12, label, true, rotation);
+  dxf.text('COTAS', [mid[0] + side[0], mid[1] + side[1]], 0.2, label, true, rotation);
 }
 
 interface Block {

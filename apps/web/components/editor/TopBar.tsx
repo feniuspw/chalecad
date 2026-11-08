@@ -22,8 +22,8 @@ import type { ValidationIssue } from '@/lib/store/types';
 import { exportPdf } from '@/lib/pdf';
 import { CompareButton } from '@/components/compare/CompareButton';
 import { exportBudgetCsv, exportPurchaseCsv } from '@/lib/export/csv';
-import { downloadText } from '@/lib/export/download';
-import { dxfFileName, exportDxf } from '@/lib/export/dxf';
+import { downloadBytes, downloadText } from '@/lib/export/download';
+import { dxfBytes, dxfFileName, exportDxf } from '@/lib/export/dxf';
 import { ReportsDialog, type ReportKind } from '@/components/reports/ReportsDialog';
 import { ImportErrorsDialog } from './ImportErrorsDialog';
 import { ProjectName } from './ProjectName';
@@ -74,7 +74,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       return;
     }
     const file = dxfFileName(project.meta.name);
-    downloadText(file, exportDxf(project, results.model), 'application/dxf');
+    downloadBytes(file, dxfBytes(exportDxf(project, results.model)), 'application/dxf');
     toast.success(`Arquivo ${file} baixado.`);
   };
 
