@@ -89,6 +89,11 @@ export interface EngineerSummary {
     tankFullKg: number;
     tankRoom: string;
   };
+  /** Desempenho térmico (NBR 15575, procedimento simplificado). */
+  thermal?: {
+    zone: number;
+    elements: { kind: 'wall' | 'roof'; label: string; U: number; CT: number; limitU: number; limitCT: number | null }[];
+  };
 }
 
 export interface LoadAssumptions {

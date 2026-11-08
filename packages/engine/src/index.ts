@@ -11,6 +11,7 @@ export * from './budget';
 export * from './structure';
 export * from './terrain';
 export * from './installations';
+export * from './performance';
 export * from './warnings';
 export * from './compute';
 export * from './reports';

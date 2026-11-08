@@ -58,6 +58,7 @@ export function computeQuantities(
   catalog: Catalog,
   terrainItems: Item[] = [],
   installationItems: Item[] = [],
+  performanceItems: Item[] = [],
 ): QuantityReport {
   const c = catalog.constants;
   const lines: QuantityLine[] = [];
@@ -225,7 +226,7 @@ export function computeQuantities(
   fix('hold_down', holdDowns, uniq(hdHosts));
 
   // --- Demais itens ----------------------------------------------------------------
-  for (const it of [...collected, ...computeExtras(project, model, catalog), ...terrainItems, ...installationItems]) {
+  for (const it of [...collected, ...computeExtras(project, model, catalog), ...terrainItems, ...installationItems, ...performanceItems]) {
     const a = touch(it.stage, it.itemId);
     a.net += it.net;
     a.hostIds.add(it.hostId);
