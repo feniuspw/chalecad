@@ -539,6 +539,24 @@ export const Installations = z.object({
 });
 export type Installations = z.infer<typeof Installations>;
 
+const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/**
+ * Acompanhamento da obra pelo autoconstrutor: o que já foi comprado (por item do orçamento) e quais etapas estão feitas.
+ * Não altera nenhum cálculo; só a aba Obra lê.
+ */
+export const Progress = z.object({
+  /** Início previsto da obra, para o cronograma em datas. */
+  startDate: IsoDate.optional(),
+  /** Itens comprados, por `itemId` do orçamento: data e valor pago (opcional, R$ total do item). */
+  purchased: z
+    .record(z.string(), z.object({ at: IsoDate, paid: z.number().min(0).optional(), note: z.string().max(200).optional() }))
+    .default({}),
+  /** Etapas concluídas. */
+  stagesDone: z.array(Stage).default([]),
+});
+export type Progress = z.infer<typeof Progress>;
+
 export const ProjectBase = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   meta: Meta,
@@ -563,6 +581,7 @@ export const ProjectBase = z.object({
   finishes: Finishes.default({}),
   furniture: z.array(Furniture).default([]),
   installations: Installations.default({ enabled: false, waterHeater: 'electric_shower' }),
+  progress: Progress.default({ purchased: {}, stagesDone: [] }),
   design: Design,
   budget: Budget,
   priceBookId: Id.default('default-2026-11'),
