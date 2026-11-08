@@ -38,6 +38,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'tool-furniture', group: 'Ferramentas', context: 'editor', keys: ['F'], label: 'Móveis', tool: 'furniture' },
   { id: 'tool-dimension', group: 'Ferramentas', context: 'editor', keys: ['C'], label: 'Cota', tool: 'dimension' },
   { id: 'tool-measure', group: 'Ferramentas', context: 'editor', keys: ['T'], label: 'Medir (trena)', tool: 'measure' },
+  { id: 'plumb-layer', group: 'Ferramentas', context: 'editor', keys: ['H'], label: 'Camada Hidráulica na planta (tubos, pontos de água, pressão); a paleta tem ponto, caixa e tubos' },
 
   // Edição
   { id: 'undo', group: 'Edição', context: 'editor', keys: ['Mod+Z'], label: 'Desfazer' },

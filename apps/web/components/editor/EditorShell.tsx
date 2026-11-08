@@ -24,6 +24,7 @@ import { selectionFromHost } from '@/lib/project/selection';
 import { selectionHostId, useEditor } from '@/lib/store/editor';
 import type { CameraView, Tool, ViewMode } from '@/lib/store/types';
 import { FurnitureLibrary } from './furniture/FurnitureLibrary';
+import { PlumbPalette } from '@/components/scene/tools/plumb/PlumbPalette';
 import { NewProjectDialog } from './NewProjectDialog';
 import { PropertiesPanel } from './properties/PropertiesPanel';
 // Painel de resultados (F1-W2).
@@ -114,6 +115,12 @@ export function EditorShell() {
   const select = useEditor((s) => s.select);
   const setHover = useEditor((s) => s.setHover);
   const setCameraView = useEditor((s) => s.setCameraView);
+  const cameraView = useEditor((s) => s.cameraView);
+  // a vista pode mudar por fora do seletor (ex.: "Mostrar na planta" dos resultados): mantém o seletor em sincronia
+  useEffect(() => {
+    const preset = ({ '3d': '3d', plan: 'top', front: 'front', left: 'side' } as Partial<Record<CameraView, ViewPreset>>)[cameraView];
+    if (preset) setView(preset);
+  }, [cameraView]);
 
   const viewMode = useEditor((s) => s.viewMode);
   const setViewMode = useEditor((s) => s.setViewMode);
@@ -323,6 +330,7 @@ export function EditorShell() {
 
             {model && viewMode === 'presentation' ? <SunPanel /> : null}
             {model && tool === 'furniture' && viewMode !== 'presentation' ? <FurnitureLibrary /> : null}
+            {model && viewMode !== 'presentation' ? <PlumbPalette /> : null}
 
             <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
               <div className="flex items-start gap-1.5">

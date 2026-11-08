@@ -9,6 +9,8 @@ import { MezzanineSection, TypologySection } from './TypologySections';
 import { ExtrasSection } from './ExtrasSection';
 import { FinishesSection } from './FinishesSection';
 import { InstallationsSection } from './InstallationsSection';
+import { PlumbInspector } from './PlumbInspector';
+import { usePlumb } from '@/lib/plumb/store';
 import { PerformanceSection } from './PerformanceSection';
 import { TerrainSection } from './TerrainSection';
 import { SearchOpenContext } from './fields';
@@ -66,6 +68,7 @@ function SettingsSearch({ query, setQuery, shown }: { query: string; setQuery: (
 /** Painel esquerdo: propriedades do projeto (sem seleção) ou inspetor do objeto selecionado. */
 export function PropertiesPanel() {
   const selection = useEditor((s) => s.selection);
+  const plumbSel = usePlumb((s) => s.sel);
   const project = useEditor((s) => s.project);
   const [query, setQuery] = useState('');
   const searching = query.trim() !== '';
@@ -88,6 +91,8 @@ export function PropertiesPanel() {
     <ScrollArea className="h-full">
       {selection ? (
         <ObjectInspector />
+      ) : plumbSel ? (
+        <PlumbInspector />
       ) : (
         <div>
           <div className="border-b border-border px-4 py-3">
