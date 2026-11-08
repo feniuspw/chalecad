@@ -82,6 +82,7 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const setHover = useEditor((s) => s.setHover);
   const walkOn = useEditor((s) => s.walk);
   const gl = useThree((s) => s.gl);
+  const getThree = useThree((s) => s.get);
   const presentationInstallations = usePresentationUi((s) => s.installations);
 
   const presentation = viewMode === 'presentation';
@@ -115,11 +116,14 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
     gl.localClippingEnabled = true;
     // gancho de depuração/e2e (só fora de produção): window.__editor.getState().setViewMode('skeleton')
     if (process.env.NODE_ENV !== 'production') {
-      const w = window as unknown as { __editor?: typeof useEditor; __sceneInfo?: typeof useSceneInfo };
+      const w = window as unknown as { __editor?: typeof useEditor; __sceneInfo?: typeof useSceneInfo; __presentationUi?: typeof usePresentationUi; __gl?: typeof gl; __three?: () => unknown };
       w.__editor = useEditor;
       w.__sceneInfo = useSceneInfo;
+      w.__presentationUi = usePresentationUi;
+      w.__gl = gl;
+      w.__three = getThree;
     }
-  }, [gl]);
+  }, [gl, getThree]);
 
   // Cursor do canvas: mira nas ferramentas de desenho.
   useEffect(() => {

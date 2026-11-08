@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { Footprints, ImageDown, Lightbulb, Pause, Play, Plug } from 'lucide-react';
+import { Footprints, ImageDown, Leaf, Lightbulb, Pause, Play, Plug } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Slider, Switch, cn } from '@chalecad/ui';
 import { compassLabel, formatMinutes } from '@/lib/sun';
 import { captureImage } from '@/lib/three/capture';
+import { SCENARIOS, SCENARIO_IDS } from '@/lib/three/foliage';
 import { useEditor } from '@/lib/store/editor';
 import { Compass } from './Compass';
 import { usePresentationUi, type QualityChoice } from './presentationUi';
@@ -39,7 +40,7 @@ export function SunPanel({ allowWalk = true, allowSave = true, compact = false, 
   const setCameraView = useEditor((s) => s.setCameraView);
   const walk = useEditor((s) => s.walk);
   const hasModel = useEditor((s) => Boolean(s.results?.model));
-  const { quality, lamps, installations, playing, fps, setQuality, setLamps, setInstallations, setPlaying } = usePresentationUi();
+  const { quality, lamps, installations, playing, fps, scenario, vegetation, setQuality, setLamps, setInstallations, setPlaying, setScenario, setVegetation } = usePresentationUi();
   const installationsOn = useEditor((s) => s.project.installations.enabled);
 
   // a hora vai de um pouco antes do nascer a um pouco depois do pôr (crepúsculo, para as luzes acesas fazerem sentido)
@@ -178,6 +179,28 @@ export function SunPanel({ allowWalk = true, allowSave = true, compact = false, 
             </button>
           ))}
         </div>
+      </div>
+
+      <div className={cn('mt-2 flex items-center justify-between gap-2', compact && 'flex-wrap')}>
+        <div role="group" aria-label="Cenário" className="flex items-center rounded-md bg-stone-100 p-0.5">
+          {SCENARIO_IDS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              title={id === 'none' ? 'Só o chão de grama' : `Cenário: ${SCENARIOS[id].label}`}
+              aria-pressed={scenario === id}
+              onClick={() => setScenario(id)}
+              className="h-6 rounded px-2 text-[11px] font-medium text-stone-600 outline-none hover:text-stone-900 focus-visible:ring-2 focus-visible:ring-accent/50 aria-pressed:bg-white aria-pressed:text-stone-900 aria-pressed:shadow-sm"
+            >
+              {SCENARIOS[id].label}
+            </button>
+          ))}
+        </div>
+        <label className={cn('flex cursor-pointer items-center gap-1.5 text-xs text-stone-700', scenario === 'none' && 'opacity-50')}>
+          <Leaf className="size-3.5 text-emerald-600" />
+          Vegetação
+          <Switch checked={vegetation} onCheckedChange={setVegetation} disabled={scenario === 'none'} aria-label="Vegetação" />
+        </label>
       </div>
 
       {installationsOn ? (

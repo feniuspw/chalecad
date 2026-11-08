@@ -2,11 +2,14 @@
 import { useEffect, useRef } from 'react';
 import { PerformanceMonitor } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
-import { EffectComposer, N8AO, SMAA, ToneMapping } from '@react-three/postprocessing';
+import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
 import { captureScale, imageFileName, registerCapture } from '@/lib/three/capture';
 import { useEditor } from '@/lib/store/editor';
+import { autoExposure } from '@/lib/three/landscape';
+import { Exposure } from './ExposureEffect';
 import { effectiveQuality, usePresentationUi } from './presentationUi';
+import { useSunState } from './useSunState';
 
 /** Pós-processamento do modo apresentação: oclusão ambiente (N8AO, só em Alta), SMAA e tone mapping ACES. */
 export function PresentationFx() {
@@ -15,6 +18,24 @@ export function PresentationFx() {
   const setDegraded = usePresentationUi((s) => s.setDegraded);
   const setDpr = useThree((s) => s.setDpr);
   const high = quality === 'high';
+  const lamps = usePresentationUi((s) => s.lamps);
+  const gl = useThree((s) => s.gl);
+  const sun = useSunState();
+  const elevation = sun.elevationDeg;
+  const exposure = autoExposure(elevation, lamps);
+  // brilho: luzes internas acesas ao anoitecer e sol baixo (só passa do limiar o que passa de 1 em HDR)
+  const dusk = Math.max(0, Math.min(1, (14 - elevation) / 14));
+  const bloomOn = (lamps && elevation < 10) || elevation < 9;
+  const bloomIntensity = (lamps ? 0.9 * dusk : 0) + 0.55 * Math.max(0, 1 - Math.abs(elevation - 2) / 9);
+
+  // o vidro com transmissão renderiza a cena opaca num alvo: metade da resolução basta
+  useEffect(() => {
+    const prev = gl.transmissionResolutionScale;
+    gl.transmissionResolutionScale = 0.5;
+    return () => {
+      gl.transmissionResolutionScale = prev;
+    };
+  }, [gl]);
 
   // resolução: Alta usa até 2x; Leve 1x
   useEffect(() => {
@@ -24,9 +45,11 @@ export function PresentationFx() {
 
   return (
     <>
-      {choice === 'auto' ? <PerformanceMonitor bounds={() => [42, 240]} flipflops={2} onDecline={() => setDegraded(true)} /> : null}
+      {choice === 'auto' ? <PerformanceMonitor bounds={() => [40, 240]} flipflops={2} onDecline={() => setDegraded(true)} /> : null}
       <EffectComposer multisampling={0} enableNormalPass={false}>
         {high ? <N8AO aoRadius={0.9} distanceFalloff={0.7} intensity={2.4} quality="medium" /> : <></>}
+        {bloomOn ? <Bloom mipmapBlur intensity={Math.max(0.2, bloomIntensity)} luminanceThreshold={1.05} luminanceSmoothing={0.25} radius={0.72} levels={high ? 7 : 5} /> : <></>}
+        <Exposure exposure={exposure} />
         <SMAA />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       </EffectComposer>

@@ -6,11 +6,13 @@ import type { BuildingModel, Finishes, HostWall, ResolvedOpening, ResolvedStair,
 import * as THREE from 'three';
 import { cutSegmentNear, stairEdges, type V2 as WalkV2 } from '@/lib/three/walk';
 import { freeSlabEdges, glazingBars, guardrailLayout, guardrailSpan, openingPlacement, roofZAt, type V2 } from '@/lib/three/convert';
-import { getTexture } from '@/lib/three/textures';
 import { ROOF_COLORS } from '@/lib/project/rooms';
 import { explodeGap as computeGap, type ExplodeLayer } from '@/lib/three/views';
 import type { ViewMode } from '@/lib/store/types';
 import { COLORS } from './materials';
+import { usePresentationUi } from './presentationUi';
+import { useSunState } from './useSunState';
+import { usePbrProps, usePbrTier, type PbrProps } from './usePbr';
 import { makeRoofGeometry, makeSlabGeometry, makeWallGeometry } from './geometry';
 import { ExplodeGroup } from './ExplodeGroup';
 
@@ -45,13 +47,20 @@ interface ViewState {
   selectedOpeningId: string | null;
   onSelectOpening?: (id: string) => void;
   hoverable: boolean;
-  /** Textura da fachada; ausente = cor lisa de sempre. */
-  facadeMap?: THREE.Texture;
+  /** Mapas PBR da fachada; ausente = cor lisa de sempre. */
+  facade?: PbrProps | undefined;
+  /** Telha sanduíche (frisos e metal) e concreto do radier. */
+  roofPbr?: PbrProps | undefined;
+  radierPbr?: PbrProps | undefined;
+  /** Vidro: físico com transmissão (Alta), opaco com reflexo do ambiente (Leve) ou o simples do editor. */
+  glass: 'transmission' | 'envmap' | 'basic';
+  /** Brilho quente das janelas (0 a 1): luzes acesas ao anoitecer. */
+  glow: number;
   roofColor: string;
   /** Sem contornos nas arestas (modo apresentação). */
   plain?: boolean;
 }
-const ViewCtx = createContext<ViewState>({ ghost: false, selectedOpeningId: null, hoverable: true, roofColor: COLORS.roof });
+const ViewCtx = createContext<ViewState>({ ghost: false, selectedOpeningId: null, hoverable: true, roofColor: COLORS.roof, glass: 'basic', glow: 0 });
 
 // ---------------------------------------------------------------------------
 // Interação por hospedeiro (hover = emissive leve, selecionado = contorno âmbar)
@@ -132,12 +141,14 @@ interface SurfaceProps {
   rotation?: [number, number, number];
   size?: [number, number, number];
   castShadow?: boolean;
-  /** Textura (UVs em metros). Com textura a cor vira branca para não tingir. */
-  map?: THREE.Texture;
+  /** Mapas PBR (UVs em metros). Com mapas a cor vira branca para não tingir (salvo `tint`). */
+  pbr?: PbrProps | undefined;
+  /** A cor do material multiplica a textura (telha: textura neutra, cor da escolha). */
+  tint?: boolean;
 }
 
 /** Malha opaca que reage ao hover/seleção do HostGroup pai. Aceita geometria pronta ou caixa (size). */
-function Surface({ geometry, size, color, map, roughness = 0.85, metalness = 0, edges = true, edgeColor = COLORS.edge, castShadow = true, ...rest }: SurfaceProps) {
+function Surface({ geometry, size, color, pbr, tint = false, roughness = 0.85, metalness = 0, edges = true, edgeColor = COLORS.edge, castShadow = true, ...rest }: SurfaceProps) {
   const { hovered, active, faded } = useContext(StyleCtx);
   const { clip, ghost, plain } = useContext(ViewCtx);
   const opacity = ghost ? 0.22 : faded ? 0.16 : 1;
@@ -147,11 +158,9 @@ function Surface({ geometry, size, color, map, roughness = 0.85, metalness = 0, 
     <mesh geometry={geometry} castShadow={castShadow && opacity === 1} receiveShadow={opacity === 1} renderOrder={opacity < 1 ? 1 : 0} {...rest}>
       {size ? <boxGeometry args={size} /> : null}
       <meshStandardMaterial
-        key={`${opacity < 1 ? 'translucent' : 'opaque'}${map ? '-map' : ''}`} // trocar `transparent`/`map` exige novo programa de shader
-        color={map ? '#ffffff' : color}
-        map={map ?? null}
-        roughness={roughness}
-        metalness={metalness}
+        key={`${opacity < 1 ? 'translucent' : 'opaque'}${pbr ? '-map' : ''}`} // trocar `transparent`/`map` exige novo programa de shader
+        color={pbr && !tint ? '#ffffff' : color}
+        {...(pbr ?? { map: null, roughness, metalness })}
         emissive={emissive}
         emissiveIntensity={intensity}
         transparent={opacity < 1}
@@ -175,7 +184,8 @@ function Surface({ geometry, size, color, map, roughness = 0.85, metalness = 0, 
 
 interface FaceStyle {
   color: string;
-  map?: THREE.Texture;
+  pbr?: PbrProps | undefined;
+  tint?: boolean;
 }
 
 /**
@@ -192,11 +202,10 @@ function FaceSurface({ geometry, faces, roughness = 0.92, edgeColor = COLORS.edg
     <mesh geometry={geometry} castShadow={opacity === 1} receiveShadow={opacity === 1} renderOrder={opacity < 1 ? 1 : 0}>
       {faces.map((f, i) => (
         <meshStandardMaterial
-          key={`${i}-${opacity < 1 ? 'translucent' : 'opaque'}${f.map ? '-map' : ''}`}
+          key={`${i}-${opacity < 1 ? 'translucent' : 'opaque'}${f.pbr ? '-map' : ''}`}
           attach={`material-${i}`}
-          color={f.map ? '#ffffff' : f.color}
-          map={f.map ?? null}
-          roughness={roughness}
+          color={f.pbr && !f.tint ? '#ffffff' : f.color}
+          {...(f.pbr ?? { map: null, roughness })}
           emissive={emissive}
           emissiveIntensity={intensity}
           transparent={opacity < 1}
@@ -213,8 +222,8 @@ function FaceSurface({ geometry, faces, roughness = 0.92, edgeColor = COLORS.edg
 }
 
 /** Parede: a fachada (ou a cor externa) só na face de fora, a cor de parede interna na de dentro e a externa nas laterais. */
-function wallFaces(exteriorSide: 'left' | 'right', facade?: THREE.Texture): [FaceStyle, FaceStyle, FaceStyle] {
-  const outer: FaceStyle = { color: COLORS.wallExterior, map: facade };
+function wallFaces(exteriorSide: 'left' | 'right', facade?: PbrProps): [FaceStyle, FaceStyle, FaceStyle] {
+  const outer: FaceStyle = { color: COLORS.wallExterior, pbr: facade };
   const inner: FaceStyle = { color: COLORS.wallInterior };
   return [exteriorSide === 'left' ? outer : inner, exteriorSide === 'left' ? inner : outer, { color: COLORS.wallExterior }];
 }
@@ -226,38 +235,74 @@ const ROOF_UNDERSIDE = '#e9dfc8';
 // Aberturas
 // ---------------------------------------------------------------------------
 
+/** Tom levemente esverdeado do vidro (cor da transmissão). */
+const GLASS_TINT = '#d3ebe2';
+
+/**
+ * Material do vidro: físico com transmissão (Alta), opaco com reflexo do ambiente (Leve) ou o simples do editor.
+ * `color`/`opacity` valem só no simples (cor de seleção e esmaecimento).
+ */
+function GlassMaterial({ color = COLORS.glass, opacity = 0.38, side }: { color?: string; opacity?: number; side?: THREE.Side }) {
+  const { clip, glass, glow } = useContext(ViewCtx);
+  if (glass === 'transmission') {
+    return (
+      <meshPhysicalMaterial
+        key="glass-t"
+        color={GLASS_TINT}
+        transmission={1}
+        thickness={0.04}
+        ior={1.5}
+        roughness={0.04}
+        metalness={0}
+        attenuationColor="#bfe0d2"
+        attenuationDistance={1.2}
+        envMapIntensity={1.5}
+        emissive="#ffb064"
+        emissiveIntensity={glow * 1.6}
+        side={side}
+        clippingPlanes={clip}
+      />
+    );
+  }
+  if (glass === 'envmap') {
+    return <meshPhysicalMaterial key="glass-e" color={GLASS_TINT} transparent opacity={0.3 + 0.3 * glow} ior={1.5} roughness={0.04} metalness={0.1} envMapIntensity={1.8} emissive="#ffb064" emissiveIntensity={glow * 1.6} depthWrite={false} side={side} clippingPlanes={clip} />;
+  }
+  return <meshStandardMaterial key="glass-b" color={color} transparent opacity={opacity} roughness={0.05} metalness={0.15} depthWrite={false} side={side} clippingPlanes={clip} />;
+}
+
 function Glass({ size, position }: { size: [number, number]; position: [number, number, number] }) {
-  const { clip } = useContext(ViewCtx);
   return (
     <mesh position={position} renderOrder={2}>
       <boxGeometry args={[size[0], size[1], 0.012]} />
-      <meshStandardMaterial color={COLORS.glass} transparent opacity={0.38} roughness={0.05} metalness={0.15} depthWrite={false} clippingPlanes={clip} />
+      <GlassMaterial />
     </mesh>
   );
 }
 
-function Bar({ size, position, color }: { size: [number, number, number]; position: [number, number, number]; color: string }) {
+function Bar({ size, position, color, metal = false }: { size: [number, number, number]; position: [number, number, number]; color: string; metal?: boolean }) {
   const { clip } = useContext(ViewCtx);
   return (
     <mesh position={position} castShadow>
       <boxGeometry args={size} />
-      <meshStandardMaterial color={color} roughness={0.6} clippingPlanes={clip} />
+      <meshStandardMaterial color={color} roughness={metal ? 0.52 : 0.6} metalness={metal ? 0.65 : 0} clippingPlanes={clip} />
     </mesh>
   );
 }
 
 const F = 0.05; // espessura do requadro
+/** Caixilhos de alumínio preto fosco. */
+const ALUMINUM = '#1d1e20';
 
 /** Janela/porta de correr/claraboia: requadro escuro + vidro. Local: centro em (0,0), plano XY. */
 function GlazedFrame({ w, h, depth, mullion }: { w: number; h: number; depth: number; mullion?: boolean }) {
-  const c = COLORS.windowFrame;
+  const c = ALUMINUM;
   return (
     <group>
-      <Bar color={c} size={[w, F, depth]} position={[0, -h / 2 + F / 2, 0]} />
-      <Bar color={c} size={[w, F, depth]} position={[0, h / 2 - F / 2, 0]} />
-      <Bar color={c} size={[F, h - 2 * F, depth]} position={[-w / 2 + F / 2, 0, 0]} />
-      <Bar color={c} size={[F, h - 2 * F, depth]} position={[w / 2 - F / 2, 0, 0]} />
-      {mullion || w > 1.5 ? <Bar color={c} size={[F * 0.7, h - 2 * F, depth * 0.8]} position={[0, 0, 0]} /> : null}
+      <Bar metal color={c} size={[w, F, depth]} position={[0, -h / 2 + F / 2, 0]} />
+      <Bar metal color={c} size={[w, F, depth]} position={[0, h / 2 - F / 2, 0]} />
+      <Bar metal color={c} size={[F, h - 2 * F, depth]} position={[-w / 2 + F / 2, 0, 0]} />
+      <Bar metal color={c} size={[F, h - 2 * F, depth]} position={[w / 2 - F / 2, 0, 0]} />
+      {mullion || w > 1.5 ? <Bar metal color={c} size={[F * 0.7, h - 2 * F, depth * 0.8]} position={[0, 0, 0]} /> : null}
       <Glass size={[w - 2 * F, h - 2 * F]} position={[0, 0, 0]} />
     </group>
   );
@@ -336,25 +381,16 @@ interface PartCommon {
 /** Fachada envidraçada: vidro na forma da parede + caixilhos (requadro, montantes e travessas). */
 function GlazedWall({ geometry, outline, openings, depth }: { geometry: THREE.BufferGeometry; outline: V2[]; openings: ResolvedOpening[]; depth: number }) {
   const { hovered, active, faded } = useContext(StyleCtx);
-  const { clip, ghost } = useContext(ViewCtx);
+  const { ghost } = useContext(ViewCtx);
   const bars = useMemo(() => glazingBars(outline, openings), [outline, openings]);
-  const c = COLORS.windowFrame;
+  const c = ALUMINUM;
   return (
     <group>
       <mesh geometry={geometry} renderOrder={2} scale={[1, 1, 0.25]}>
-        <meshStandardMaterial
-          color={active ? COLORS.accent : hovered ? COLORS.hover : COLORS.glass}
-          transparent
-          opacity={ghost || faded ? 0.12 : 0.34}
-          roughness={0.05}
-          metalness={0.2}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-          clippingPlanes={clip}
-        />
+        <GlassMaterial color={active ? COLORS.accent : hovered ? COLORS.hover : COLORS.glass} opacity={ghost || faded ? 0.12 : 0.34} side={THREE.DoubleSide} />
       </mesh>
       {bars.map((b, i) => (
-        <Rod key={i} a={[b.from[0], b.from[1], 0]} b={[b.to[0], b.to[1], 0]} t={Math.min(0.08, depth)} color={c} />
+        <Rod key={i} a={[b.from[0], b.from[1], 0]} b={[b.to[0], b.to[1], 0]} t={Math.min(0.08, depth)} color={c} metal />
       ))}
     </group>
   );
@@ -365,7 +401,7 @@ function Wall({ wall, openings, ...common }: { wall: HostWall; openings: Resolve
   useEffect(() => () => built.geometry.dispose(), [built]);
   const interior = wall.kind === 'interior';
   const glazed = wall.assemblyId === 'gable_glazed';
-  const { facadeMap } = useContext(ViewCtx);
+  const { facade: facadeMap } = useContext(ViewCtx);
   const faced = !interior && wall.exteriorSide !== null && !glazed;
   const facade = faced ? facadeMap : undefined;
   return (
@@ -387,11 +423,11 @@ function Wall({ wall, openings, ...common }: { wall: HostWall; openings: Resolve
 function Roof({ plane, openings, ...common }: { plane: RoofPlane; openings: ResolvedOpening[] } & PartCommon) {
   const built = useMemo(() => makeRoofGeometry(plane, openings), [plane, openings]);
   useEffect(() => () => built.geometry.dispose(), [built]);
-  const { roofColor } = useContext(ViewCtx);
+  const { roofColor, roofPbr } = useContext(ViewCtx);
   const skylights = openings.filter((o) => o.valid && o.hostKind === 'roof' && o.hostId === plane.id);
   return (
     <HostGroup id={plane.id} position={built.position} quaternion={built.quaternion} yieldToFurniture {...common}>
-      <FaceSurface geometry={built.geometry} faces={[{ color: ROOF_UNDERSIDE }, { color: roofColor }, { color: roofColor }]} roughness={0.95} edgeColor="#78716c" />
+      <FaceSurface geometry={built.geometry} faces={[{ color: ROOF_UNDERSIDE }, { color: roofColor, pbr: roofPbr, tint: true }, { color: roofColor }]} roughness={0.95} edgeColor="#78716c" />
       {skylights.map((op) => {
         const { center, size } = openingPlacement(op);
         return (
@@ -411,7 +447,7 @@ const BALUSTER = 0.02;
 const BALUSTER_STEP = 0.11 + BALUSTER;
 
 /** Barra entre dois pontos 3D (coordenadas do motor). */
-function Rod({ a, b, t, color }: { a: Vec3; b: Vec3; t: number; color: string }) {
+function Rod({ a, b, t, color, metal = false }: { a: Vec3; b: Vec3; t: number; color: string; metal?: boolean }) {
   const { clip } = useContext(ViewCtx);
   const { position, quaternion, length } = useMemo(() => {
     const va = new THREE.Vector3(...a);
@@ -426,7 +462,7 @@ function Rod({ a, b, t, color }: { a: Vec3; b: Vec3; t: number; color: string })
   return (
     <mesh position={position} quaternion={quaternion} castShadow>
       <boxGeometry args={[length, t, t]} />
-      <meshStandardMaterial color={color} roughness={0.6} clippingPlanes={clip} />
+      <meshStandardMaterial color={color} roughness={metal ? 0.52 : 0.6} metalness={metal ? 0.65 : 0} clippingPlanes={clip} />
     </mesh>
   );
 }
@@ -517,9 +553,10 @@ function Slab({ slab, model, ...common }: { slab: SlabModel; model: BuildingMode
       .filter((e): e is [V2, V2] => e !== null);
   }, [slab, model.walls, model.roofPlanes, model.stairs]);
   const color = slab.kind === 'radier' ? COLORS.radier : COLORS.mezzanine;
+  const { radierPbr } = useContext(ViewCtx);
   return (
     <HostGroup id={slab.id} {...common}>
-      <Surface geometry={built.geometry} position={[0, 0, built.zBottom]} color={color} roughness={slab.kind === 'radier' ? 0.95 : 0.8} />
+      <Surface geometry={built.geometry} position={[0, 0, built.zBottom]} color={color} pbr={slab.kind === 'radier' ? radierPbr : undefined} roughness={slab.kind === 'radier' ? 0.95 : 0.8} />
       {free.map(([a, b], i) => (
         <Guardrail key={i} a={a} b={b} z={slab.topZ} roofPlanes={model.roofPlanes} />
       ))}
@@ -581,11 +618,20 @@ export function BuildingView({
   const exploded = mode === 'exploded';
   const gap = computeGap(model.ridgeHeight);
   const facadeId = finishes?.facade;
-  const facadeMap = useMemo(() => getTexture(facadeId), [facadeId]);
+  const tier = usePbrTier();
+  // vistas técnicas (esqueleto, calor) não usam textura
+  const facade = usePbrProps(structural ? undefined : facadeId);
+  const roofPbr = usePbrProps(structural ? undefined : 'roof_sandwich');
+  const radierPbr = usePbrProps(structural ? undefined : 'concrete');
+  const glass = plain ? (tier === 'high' ? 'transmission' : 'envmap') : 'basic';
+  const lamps = usePresentationUi((s) => s.lamps);
+  const elevation = useSunState().elevationDeg;
+  // janelas acesas só com as luzes ligadas e o sol baixo (passos de 0,1 para não refazer o contexto a cada minuto)
+  const glow = plain && lamps ? Math.round((1 - Math.min(1, Math.max(0, (elevation - 2) / 16))) * 10) / 10 : 0;
   const roofColor = ROOF_COLORS.find((c) => c.id === finishes?.roofColor)?.hex ?? COLORS.roof;
   const view = useMemo<ViewState>(
-    () => ({ clip, ghost: structural, selectedOpeningId, onSelectOpening, hoverable, facadeMap, roofColor, plain }),
-    [clip, structural, selectedOpeningId, onSelectOpening, hoverable, facadeMap, roofColor, plain],
+    () => ({ clip, ghost: structural, selectedOpeningId, onSelectOpening, hoverable, facade, roofPbr, radierPbr, glass, glow, roofColor, plain }),
+    [clip, structural, selectedOpeningId, onSelectOpening, hoverable, facade, roofPbr, radierPbr, glass, glow, roofColor, plain],
   );
   const layer = (l: ExplodeLayer, children: ReactNode) => (
     <ExplodeGroup layer={l} active={exploded} gap={gap}>
