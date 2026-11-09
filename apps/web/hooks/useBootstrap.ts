@@ -11,6 +11,8 @@ export interface BootstrapState {
   firstAccess: boolean;
   /** Veio de /editor?new=1 (botão "Novo projeto" em /projetos): abrir o assistente. */
   wantsNew: boolean;
+  /** Modelo pronto pedido em /editor?new=1&template=<id>, lido antes de a URL ser reescrita. */
+  template: string | null;
 }
 
 /**
@@ -18,7 +20,7 @@ export interface BootstrapState {
  * do chalé 6,5 x 8,5 (e o assistente de novo projeto, no primeiro acesso).
  */
 export function useBootstrap(): BootstrapState {
-  const [state, setState] = useState<BootstrapState>({ ready: false, firstAccess: false, wantsNew: false });
+  const [state, setState] = useState<BootstrapState>({ ready: false, firstAccess: false, wantsNew: false, template: null });
 
   useEffect(() => {
     let cancelled = false;
@@ -27,13 +29,14 @@ export function useBootstrap(): BootstrapState {
       const params = new URLSearchParams(window.location.search);
       const id = params.get('id');
       const wantsNew = params.get('new') === '1';
+      const template = wantsNew ? params.get('template') : null;
       try {
         if (id) {
           const rec = await storage.getProject(id);
           if (cancelled) return;
           if (rec) {
             useEditor.getState().loadProject(rec.project, { projectId: id });
-            setState({ ready: true, firstAccess: false, wantsNew });
+            setState({ ready: true, firstAccess: false, wantsNew, template });
             return;
           }
           toast.error('Projeto não encontrado neste navegador. Abrindo o mais recente.');
@@ -47,18 +50,18 @@ export function useBootstrap(): BootstrapState {
           if (rec) {
             useEditor.getState().loadProject(rec.project, { projectId: last.id });
             window.history.replaceState(null, '', `/editor?id=${encodeURIComponent(last.id)}`);
-            setState({ ready: true, firstAccess: false, wantsNew });
+            setState({ ready: true, firstAccess: false, wantsNew, template });
             return;
           }
         }
         useEditor.getState().loadProject(createProject('gable_mezzanine'));
-        setState({ ready: true, firstAccess: !wantsNew, wantsNew });
+        setState({ ready: true, firstAccess: !wantsNew, wantsNew, template });
       } catch (e) {
         if (cancelled) return;
         console.warn('[storage] IndexedDB indisponível:', e);
         toast.warning('Não foi possível acessar o armazenamento local: as alterações não serão salvas.');
         useEditor.getState().loadProject(createProject('gable_mezzanine'));
-        setState({ ready: true, firstAccess: false, wantsNew });
+        setState({ ready: true, firstAccess: false, wantsNew, template });
       }
     })();
     return () => {

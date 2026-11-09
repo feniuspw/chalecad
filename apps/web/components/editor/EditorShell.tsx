@@ -72,7 +72,7 @@ const MODES: { id: ViewMode; label: string; hint: string; icon: typeof Home }[] 
 ];
 
 export function EditorShell() {
-  const { ready, firstAccess, wantsNew } = useBootstrap();
+  const { ready, firstAccess, wantsNew, template } = useBootstrap();
   const [newOpen, setNewOpen] = useState(false);
   const [welcomed, setWelcomed] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -96,10 +96,11 @@ export function EditorShell() {
     if (!ready || !wantsNew || templateHandled.current) return;
     templateHandled.current = true;
     setWelcomed(true);
-    const preset = findPreset(new URLSearchParams(window.location.search).get('template') ?? '');
+    // o bootstrap pode ter trocado a URL (abriu o projeto mais recente): o modelo vem do que ele leu antes
+    const preset = findPreset(template ?? '');
     if (preset) void handleCreateRef.current(preset.build());
     else setNewOpen(true);
-  }, [ready, wantsNew]);
+  }, [ready, wantsNew, template]);
 
   const viewport = useRef<ViewportHandle>(null);
   const [view, setView] = useState<ViewPreset>('3d');
