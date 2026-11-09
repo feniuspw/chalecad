@@ -12,6 +12,10 @@ export interface SheetContext {
   project: Project;
   results: Results;
   catalog: Catalog;
+  /** Data de emissão do carimbo (padrão: hoje). */
+  date?: Date;
+  /** Nome do arquivo que aparece no carimbo (padrão: derivado do nome da obra). */
+  fileName?: string;
 }
 
 /** Desenho pronto para ser posicionado na folha: SVG interno (sem a tag <svg>), em mm de papel, origem no canto superior esquerdo. */

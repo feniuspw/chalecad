@@ -28,6 +28,7 @@
     "geist": "^1.4.0",
     "idb-keyval": "^6.2.1",
     "immer": "^11.2.9",
+    "jspdf": "4.2.1",
     "lucide-react": "^1.70.0",
     "next": "^16.4.5",
     "postprocessing": "6.39.5",
