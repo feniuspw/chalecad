@@ -1,48 +1,48 @@
-# ChaléCAD: spec (resumo operacional)
+# ChaléCAD: spec (operational summary)
 
-> Versão integral da spec do usuário (Nov 7, 2026, Leonardo Villela Costa) está em `~/Documents/Projects/chalecad/docs/spec.md`. Este resumo cobre o necessário para implementar.
+> The full version of the user's spec (Nov 7, 2026, Leonardo Villela Costa) is in `~/Documents/Projects/chalecad/docs/spec.md`. This summary covers what is needed to implement.
 
-## Visão
-App web em que o autoconstrutor desenha um chalé em 3D, de forma paramétrica, e recebe na hora lista de materiais, peso da estrutura, pré-dimensionamento com alertas e estimativa de custo. Uma IA lê esses dados e sugere melhorias. Não substitui projeto estrutural com ART: isso aparece na interface e em todo relatório.
+## Vision
+A web app where the self-builder designs a chalet in 3D, parametrically, and instantly gets a bill of materials, structure weight, preliminary sizing with alerts, and a cost estimate. An AI reads this data and suggests improvements. It does not replace a structural design with an ART (Anotação de Responsabilidade Técnica, the engineer's liability record): this appears in the interface and in every report.
 
-Objetivo: de "tenho uma ideia" para "tenho modelo 3D, lista de compras por fornecedor, orçamento por etapa e pacote para levar ao engenheiro".
+Goal: from "I have an idea" to "I have a 3D model, a shopping list by supplier, a budget by stage, and a package to take to the engineer".
 
-## Fases
-0. **Fundação:** monorepo, schema Zod, catálogo, cena 3D com grade e câmera. Saída: JSON válido carrega e renderiza um volume.
-1. **MVP:** caixa duas águas com mezanino e A-frame; paredes internas, aberturas, escada; quantitativos LSF; radier; telha sanduíche; orçamento com base editável; exportação CSV e PDF. Saída: chalé 6,5 x 8,5 m com mezanino gera lista de materiais em < 300 ms e aço entre 21,9 e 24,7 kg/m².
-2. **Estrutura e extras:** motor de peso e cargas, taxas de uso com cores (verde < 0,7 ≤ amarelo ≤ 1,0 < vermelho), meia-água, telhado plano, varanda/deck, muro, cerca, comparação lado a lado de variantes (custo e peso).
-3. **IA e dados:** IA analista com tool use (`getProject`, `getQuantities`, `getStructuralReport`, `getBudget`, `proposePatch`, `simulateVariant`), patches JSON aprovados pelo usuário, roteiro de obra, pacote para engenheiro, SINAPI por UF (importação), tipologias gambrel e módulos combinados (L, T). Saída: toda resposta da IA com número cita uma ferramenta.
-4. **Terreno inclinado:** inclinação, platô com margens por lado, corte e aterro compensado, volume de terra e destino, talude e muro de arrimo, custo de máquina. Saída: volumes batem com cálculo manual.
+## Phases
+0. **Foundation:** monorepo, Zod schema, catalog, 3D scene with grid and camera. Exit: a valid JSON loads and renders a volume.
+1. **MVP:** gable box with mezzanine (loft) and A-frame; interior walls, openings, stairs; LSF quantity takeoff; radier (raft slab); sandwich roof panel; cost estimate with editable price base; CSV and PDF export. Exit: a 6.5 x 8.5 m chalet with mezzanine produces a bill of materials in < 300 ms and steel between 21.9 and 24.7 kg/m².
+2. **Structure and extras:** weight and load engine, utilization ratios with colors (green < 0.7 ≤ yellow ≤ 1.0 < red), shed roof, flat roof, porch/deck, wall, fence, side-by-side variant comparison (cost and weight).
+3. **AI and data:** analyst AI with tool use (`getProject`, `getQuantities`, `getStructuralReport`, `getBudget`, `proposePatch`, `simulateVariant`), JSON patches approved by the user, construction roadmap, engineer package, SINAPI by state (import), gambrel typologies and combined modules (L, T). Exit: every AI answer containing a number cites a tool.
+4. **Sloped terrain:** slope, building pad with margins per side, balanced cut and fill, volume of earth and its destination, slope/embankment and retaining wall, machine cost. Exit: volumes match manual calculation.
 
 ## Editor
-- Paramétrico primeiro, livre depois: assistente de tipologia → sliders e medidas digitadas → mover objetos no 3D com snap.
-- Fluxo: tipologia e dimensões → paredes internas, aberturas, mezanino, escada, beirais → sistema construtivo e camadas → painel lateral em tempo real (área, materiais, peso, custo, alertas) → análise da IA → exportar (PDF com plantas e lista, CSV por fornecedor, JSON).
-- Vistas: 3D orbital, planta por nível, cortes e fachadas 2D. Modos: acabado, esqueleto (só perfis), explodido por camadas, mapa de calor de carga (Fase 2).
-- Ferramentas: parede interna, abertura, escada (reta, em L, marinheiro), mezanino por polígono, cota, medir.
-- Snap em grade de 10 cm e na modulação dos montantes (40/60 cm), com aviso quando abertura corta a modulação de forma ineficiente.
-- Undo/redo ilimitado, autosave local, versões nomeadas. pt-BR, metros e reais.
+- Parametric first, free-form later: typology assistant → sliders and typed measurements → move objects in 3D with snap.
+- Flow: typology and dimensions → interior walls, openings, mezzanine, stairs, eaves → construction system and layers → real-time side panel (area, materials, weight, cost, alerts) → AI analysis → export (PDF with plans and list, CSV by supplier, JSON).
+- Views: orbital 3D, floor plan per level, 2D sections and elevations. Modes: finished, skeleton (profiles only), exploded by layers, load heat map (Phase 2).
+- Tools: interior wall, opening, stairs (straight, L-shaped, ship's ladder), mezzanine by polygon, dimension, measure.
+- Snap to a 10 cm grid and to the stud modulation (40/60 cm), with a warning when an opening breaks the modulation inefficiently.
+- Unlimited undo/redo, local autosave, named versions. pt-BR, meters and reais.
 
-## Quantitativos
-Peça por peça a partir dos painéis gerados (não por índice kg/m²; o índice 21,9–24,7 kg/m² é só sanidade com alerta). Pipeline: projeto → painéis → peças com comprimento → plano de corte em barras (bin packing 1D em barras de 3 e 6 m) → placas e insumos → lista de compra. Estrutura LSF com guias, montantes, montantes duplos nos cantos, ombreiras, vergas, montantes de composição, bloqueadores, fitas; mezanino com vigas, sanefa, bloqueadores, OSB 18; cobertura com caibros/tesouras e terças/cartolas; fixações (parafusos, chumbadores por metro de guia, hold-downs). Fechamentos por área líquida com paginação de placas e perda. Radier (área + borda, concreto, tela, lona, brita, forma, tubulações nos pontos marcados). Piso (cimento queimado/polido: endurecedor, selador, juntas). Cobertura (área inclinada, telhas por largura útil 0,98 m, cumeeira, rufos, calhas, parafusos). Extras (muro, cerca, deck). Saída por etapa (fundação, estrutura, fechamento, cobertura, piso, acabamento) com item, unidade de compra, quantidade, perda, peso; cada linha rastreável até as peças no 3D.
+## Quantity takeoff
+Piece by piece from the generated panels (not by a kg/m² index; the 21.9–24.7 kg/m² index is only a sanity check with an alert). Pipeline: project → panels → pieces with length → cutting plan on bars (1D bin packing on 3 m and 6 m bars) → boards and supplies → purchase list. LSF structure with tracks, studs, double studs at corners, jack studs, headers, built-up studs, blockers, straps; mezzanine with beams, rim board, blockers, 18 mm OSB; roof with rafters/trusses and purlins/hat channels; fasteners (screws, anchor bolts per meter of track, hold-downs). Cladding by net area with board pagination and waste. Radier (area + edge, concrete, mesh, plastic sheeting, gravel, formwork, pipes at marked points). Flooring (burnished/polished cement: hardener, sealer, joints). Roof (sloped area, panels by effective width 0.98 m, ridge, flashing, gutters, screws). Extras (wall, fence, deck). Output by stage (foundation, structure, cladding, roof, flooring, finishing) with item, purchase unit, quantity, waste, weight; each line traceable to the pieces in 3D.
 
-## Estrutura (Fase 2)
-Nunca "aprovado": só "dentro da faixa usual" ou "precisa de revisão do engenheiro". Peso próprio peça a peça (concreto 2.500 kg/m³). Cargas NBR 6120/6123 (sobrecarga de mezanino e cobertura; vento por V0, categoria, altura: pressão na fachada e sucção no telhado). Caminho de carga telha → terças → caibros → guia → montantes → radier. Verificações simplificadas NBR 14762: montante (compressão com flambagem, flexão por vento, interação), vigas do mezanino e caibros (momento, cortante, flecha L/350 piso, L/250 cobertura), vergas, contraventamento por direção, ancoragem contra arrancamento, pressão no solo x tensão admissível. Vermelho sugere próximo perfil ou espaçamento menor com impacto em custo e peso.
+## Structure (Phase 2)
+Never "approved": only "within the usual range" or "needs engineer review". Self-weight piece by piece (concrete 2,500 kg/m³). Loads per NBR 6120/6123 (mezzanine and roof live load; wind by V0, category, height: pressure on the facade and suction on the roof). Load path: roof panel → purlins → rafters → track → studs → radier. Simplified NBR 14762 checks: stud (compression with buckling, bending from wind, interaction), mezzanine beams and rafters (moment, shear, deflection L/350 floor, L/250 roof), headers, bracing per direction, uplift anchorage, soil pressure x allowable stress. Red suggests the next profile or a smaller spacing with the impact on cost and weight.
 
-## Orçamento
-Lista de compra × base de preços; separa material, mão de obra e frete. Etapas "eu faço" zeram mão de obra. Base editável na interface e importável por CSV; preços > 90 dias como desatualizados. Frete = distância × peso por etapa × R$/t·km. Saídas: total, R$/m², gráfico por etapa, faixa mín/máx, contingência (15%), cronograma de desembolso.
+## Cost estimate
+Purchase list × price base; separates material, labor, and freight. "I do it" ("eu faço") stages zero out labor. Base editable in the interface and importable by CSV; prices > 90 days flagged as outdated. Freight = distance × weight per stage × R$/t·km. Outputs: total, R$/m², chart by stage, min/max range, contingency (15%), disbursement schedule.
 
-Preços de referência (nov/2026): montante LSF 90x0,95 barra 6 m R$ 112–135; guia 90x0,95 R$ 103–111; montante 140x0,95 R$ 144; 200x0,95 R$ 180; placa cimentícia 10 mm R$ 48/m²; drywall 12,5 placa 1,20x2,40 R$ 89; telha sanduíche EPS 30 R$ 80–160/m²; radier 10–15 cm (SINAPI, material + mão de obra) R$ 188–246/m²; retroescavadeira com operador R$ 1.600–2.600/diária.
+Reference prices (Nov/2026): LSF stud 90x0.95 6 m bar R$ 112–135; track 90x0.95 R$ 103–111; stud 140x0.95 R$ 144; 200x0.95 R$ 180; 10 mm cement board R$ 48/m²; 12.5 drywall board 1.20x2.40 R$ 89; EPS 30 sandwich roof panel R$ 80–160/m²; radier 10–15 cm (SINAPI, material + labor) R$ 188–246/m²; backhoe with operator R$ 1,600–2,600/day.
 
-## IA
-Trabalha sobre resultados dos motores, nunca inventa números; cita só números vindos de ferramentas; patches aprovados pelo usuário; chave no servidor; aviso fixo de ART.
+## AI
+Works on the engines' results, never invents numbers; cites only numbers coming from tools; patches approved by the user; key on the server; fixed ART notice.
 
 ## Stack
-TypeScript estrito, pnpm + Turborepo, Next.js App Router, R3F + drei, Zustand + Immer (patches para undo/redo e IA), Zod, Web Worker via Comlink, Tailwind + componentes estilo shadcn, Recharts, Drizzle (SQLite local / Supabase nuvem), @react-pdf/renderer, Anthropic SDK, Vitest, Playwright.
+Strict TypeScript, pnpm + Turborepo, Next.js App Router, R3F + drei, Zustand + Immer (patches for undo/redo and AI), Zod, Web Worker via Comlink, Tailwind + shadcn-style components, Recharts, Drizzle (local SQLite / Supabase cloud), @react-pdf/renderer, Anthropic SDK, Vitest, Playwright.
 
-## Critérios gerais
-- Mudar parâmetro atualiza 3D, materiais, peso e custo em < 300 ms.
-- Clicar numa linha da lista de materiais destaca as peças no 3D.
-- Projeto salvo e reaberto reproduz exatamente os mesmos resultados.
-- 60 fps no modo esqueleto com 2.000 perfis.
-- Aviso de ART na tela de resultados e em todo PDF.
-- Motores com testes unitários para cada fórmula.
+## General criteria
+- Changing a parameter updates 3D, materials, weight, and cost in < 300 ms.
+- Clicking a line in the bill of materials highlights the pieces in 3D.
+- A saved and reopened project reproduces exactly the same results.
+- 60 fps in skeleton mode with 2,000 profiles.
+- ART notice on the results screen and in every PDF.
+- Engines with unit tests for every formula.
