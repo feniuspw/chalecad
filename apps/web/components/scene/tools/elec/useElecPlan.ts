@@ -4,7 +4,7 @@ import { getCatalog } from '@chalecad/catalog';
 import type { BuildingModel } from '@chalecad/engine';
 import { useEditor } from '@/lib/store/editor';
 import { useElecUi } from '@/lib/elec/ui';
-import type { PlaceEnv } from '@/lib/elec/placement';
+import { buildPlaceEnv, type PlaceEnv } from '@/lib/elec/placement';
 import { buildElecPlan, type ElecPlanModel } from '@/lib/elec/symbols';
 
 const catalog = getCatalog();
@@ -21,16 +21,7 @@ export function useElecPlan(model: BuildingModel, level: string): ElecPlanModel 
   return useMemo(() => (report ? buildElecPlan({ layout: report.layout, circuits: report.circuits, conduits: report.conduits, walls, level, override: drag }) : null), [report, walls, level, drag]);
 }
 
-/** Parede, vãos e cômodos do nível para o encaixe das ferramentas. */
+/** Parede, vãos, cômodos e forro local do nível para o encaixe das ferramentas. */
 export function usePlaceEnv(model: BuildingModel, level: string): PlaceEnv {
-  return useMemo(
-    () => ({
-      levelId: level,
-      walls: model.walls.filter((w) => w.level === level).map((w) => ({ id: w.id, from: w.from as [number, number], to: w.to as [number, number], thickness: w.thickness })),
-      openings: model.openings.filter((o) => o.valid && o.hostKind === 'wall').map((o) => ({ hostId: o.hostId, u0: o.u0, u1: o.u1, v0: o.v0, v1: o.v1 })),
-      rooms: model.rooms.filter((r) => r.level === level && r.polygon && r.polygon.length >= 3).map((r) => ({ id: r.id, polygon: r.polygon as [number, number][], ceilingAvg: r.ceiling.avg, use: r.use, area: r.area })),
-      k: catalog.constants.electrical,
-    }),
-    [model, level],
-  );
+  return useMemo(() => buildPlaceEnv(model, level, catalog.constants.electrical), [model, level]);
 }

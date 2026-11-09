@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { Button, Kbd } from '@chalecad/ui';
 import { getCatalog } from '@chalecad/catalog';
-import type { ElecCircuitResult, ElecPoint, ElectricalLayout } from '@chalecad/engine';
-import { assignCircuit, deleteElecSelection, editCircuit, editPoint, setConduitDn, setConduitRun } from '@/lib/elec/actions';
+import { pointInPolygon, type ElecCircuitResult, type ElecPoint, type ElectricalLayout } from '@chalecad/engine';
+import { assignCircuit, deleteElecSelection, editCircuit, editPoint, setConduitDn, setConduitRun, toggleLightControl } from '@/lib/elec/actions';
+import { lightVA, lightingOf, luxText, currentLux } from '@/lib/elec/liveLux';
 import { CIRCUIT_KIND_LABEL, POINT_KIND_LABEL, circuitColor, circuitKindsFor, socketLevel } from '@/lib/elec/kinds';
 import { useElecUi } from '@/lib/elec/ui';
 import { formatNumber } from '@/lib/format';
@@ -149,6 +150,60 @@ function CircuitSection({ layout, result, id }: { layout: ElectricalLayout; resu
   );
 }
 
+
+/** Interruptores que comandam a luz, com seletor para adicionar e botão para remover. */
+function ControlledBy({ layout, light }: { layout: ElectricalLayout; light: ElecPoint }) {
+  const switches = layout.points.filter((x) => x.kind === 'switch' && x.level === light.level);
+  const label = (sw: ElecPoint) => `Interruptor ${layout.points.filter((x) => x.kind === 'switch').findIndex((x) => x.id === sw.id) + 1} · ${sw.switchType === 'two_way' ? 'paralelo' : 'simples'}`;
+  const mine = switches.filter((sw) => sw.controls?.includes(light.id));
+  const others = switches.filter((sw) => !sw.controls?.includes(light.id));
+  return (
+    <Field label="Controlada por" hint={mine.length === 0 ? 'sem interruptor' : `${mine.length} interruptor(es)`}>
+      <ul className="space-y-1" data-testid="elec-controlled-by">
+        {mine.map((sw) => (
+          <li key={sw.id} className="flex items-center justify-between rounded-md bg-stone-50 px-2 py-1 text-xs text-stone-700">
+            <span>{label(sw)}</span>
+            <button type="button" aria-label={`Remover ${label(sw)}`} onClick={() => void toggleLightControl(sw.id, light.id)} className="rounded px-1.5 text-[11px] font-medium text-stone-500 outline-none hover:text-red-700 focus-visible:ring-2 focus-visible:ring-accent/50">
+              Remover
+            </button>
+          </li>
+        ))}
+        {mine.length === 0 ? <li className="text-[11px] leading-snug text-amber-800">Esta luz não tem interruptor: o motor avisa. Escolha um abaixo.</li> : null}
+      </ul>
+      {others.length > 0 ? (
+        <select aria-label="Adicionar interruptor" data-testid="elec-add-switch" className={`${INPUT} mt-1.5`} value="" onChange={(e) => e.target.value && void toggleLightControl(e.target.value, light.id)} onKeyDown={(e) => e.stopPropagation()}>
+          <option value="">Adicionar interruptor…</option>
+          {others.map((sw) => (
+            <option key={sw.id} value={sw.id}>
+              {label(sw)}
+            </option>
+          ))}
+        </select>
+      ) : null}
+    </Field>
+  );
+}
+
+/** "Cômodo: X lux / alvo Y lux" e a potência da luz, do resultado do motor. */
+function LightFeedback({ p, layout }: { p: ElecPoint; layout: ElectricalLayout }) {
+  const model = useEditor((s) => s.results?.model);
+  const lighting = useEditor((s) => s.results?.installations?.electrical?.lighting);
+  const room = model?.rooms.find((r) => r.level === p.level && r.polygon && pointInPolygon(p.position, r.polygon as [number, number][], 0));
+  const l = lightingOf(lighting, room?.id);
+  const cur = currentLux(l);
+  const lum = k.luminaires.find((x) => x.id === p.luminaire) ?? k.luminaires.find((x) => x.id === k.defaultLuminaire)!;
+  const count = layout.points.filter((x) => x.kind === 'light' && x.level === p.level && room?.polygon && pointInPolygon(x.position, room.polygon as [number, number][], 0)).length;
+  return (
+    <div className="space-y-0.5 rounded-md bg-stone-50 p-2 text-[11px] leading-snug text-stone-600" data-testid="elec-light-feedback">
+      {cur && room ? <p className={cur.low ? 'font-medium text-amber-800' : undefined}>{luxText(room.name, cur)}</p> : <p>Fora de um cômodo: sem cálculo de lux.</p>}
+      <p>
+        Esta luz: {formatNumber(lum.watts * (p.count ?? 1), 0)} W (≈ {formatNumber(lightVA(lum.watts, p.count ?? 1, k), 0)} VA) · {formatNumber(lum.lumens * (p.count ?? 1), 0)} lm{room ? ` · ${count} luz(es) no cômodo` : ''}
+      </p>
+      {lum.type === 'flood' || lum.type === 'strip' ? <p className="text-amber-800">{lum.type === 'flood' ? 'Refletor externo' : 'Fita LED'} não é luminária de teto interno; use de propósito.{lum.type === 'strip' ? ' O comprimento é o do catálogo (1 m por unidade).' : ''}</p> : null}
+    </div>
+  );
+}
+
 function PointInspector({ id }: { id: string }) {
   const report = useEditor((s) => s.results?.installations?.electrical);
   const layout = report?.layout;
@@ -195,7 +250,7 @@ function PointInspector({ id }: { id: string }) {
             <p className="text-xs text-stone-600">{POINT_KIND_LABEL[p.kind]}</p>
           )}
         </Field>
-        <NumberField label="Altura da caixa" value={p.height} min={0} max={12} step={0.05} unit="m" onChange={(v) => patch({ height: v })} />
+        <NumberField label={p.kind === 'light' && !p.hostId ? 'Altura da caixa (forro)' : 'Altura da caixa'} value={p.height} min={0} max={12} step={0.05} unit="m" onChange={(v) => patch({ height: v })} />
 
         {p.kind === 'socket_tue' ? (
           <Select label="Aparelho" testId="elec-appliance" value={p.appliance ?? ''} onChange={(v) => patch(v ? { appliance: v } : {}, v ? [] : ['appliance'])}>
@@ -218,6 +273,8 @@ function PointInspector({ id }: { id: string }) {
               ))}
             </Select>
             <NumberField label="Quantidade no ponto" value={p.count ?? 1} min={1} max={20} step={1} onChange={(v) => patch({ count: Math.round(v) })} />
+            <LightFeedback p={p} layout={layout} />
+            <ControlledBy layout={layout} light={p} />
           </>
         ) : null}
 

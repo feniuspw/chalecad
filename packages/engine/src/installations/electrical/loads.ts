@@ -1,5 +1,6 @@
 import { getAssembly, getMaterial, type Catalog } from '@chalecad/catalog';
 import { pointInPolygon, distToSegment, type Vec2 } from '../../geometry';
+import { ceilingZAt } from '../../model/rooms';
 import type { ElecPoint, Project } from '../../schema/project';
 import type { BuildingModel, RoomModel } from '../../schema/results';
 import type { Ctx, ElecK, PointInfo } from './types';
@@ -54,8 +55,14 @@ export function roomAt(ctx: Ctx, level: string, xy: Vec2): RoomModel | null {
   return bd <= NEAR_ROOM ? best : null;
 }
 
-/** Altura do forro (m acima do piso do nível) em um ponto da planta. */
+/**
+ * Altura do forro (m acima do piso do nível) em um ponto da planta: o forro local (menor entre os planos do telhado e
+ * o fundo da laje do mezanino), não a média do cômodo. Sem telhado nem paredes, a média dos cômodos do nível.
+ */
 export function ceilingAt(ctx: Ctx, level: string, xy: Vec2): number {
+  const elev = ctx.elev.get(level) ?? 0;
+  const h = ceilingZAt(ctx.model, level, xy, elev) - elev;
+  if (h > 0.3) return h;
   const r = roomAt(ctx, level, xy);
   if (r) return r.ceiling.avg;
   const same = ctx.rooms.filter((x) => x.level === level);
@@ -111,7 +118,7 @@ export function pointInfos(ctx: Ctx, points: ElecPoint[]): PointInfo[] {
   const infos: PointInfo[] = points.map((p) => {
     const r = roomAt(ctx, p.level, p.position);
     const elevation = ctx.elev.get(p.level) ?? 0;
-    const zCeiling = elevation + (r ? r.ceiling.avg : ceilingAt(ctx, p.level, p.position));
+    const zCeiling = elevation + ceilingAt(ctx, p.level, p.position);
     return { p, roomId: r?.id ?? null, loadVA: 0, ib: 0, zBox: elevation + p.height, zCeiling };
   });
   const lightsIn = new Map<string, number>();

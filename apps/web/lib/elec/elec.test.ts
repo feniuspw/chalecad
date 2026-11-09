@@ -1,12 +1,11 @@
 import { getCatalog } from '@chalecad/catalog';
-import { routeLayoutConduits, type ElecPoint, type Project, type Results } from '@chalecad/engine';
+import { ceilingZAt, levelElevationOf, pointInPolygon, routeLayoutConduits, suggestRoomLighting, type ElecPoint, type Project, type Results } from '@chalecad/engine';
 import { describe, expect, it } from 'vitest';
 import { computeProject } from '../engine/compute';
 import { findPreset } from '../project/templates';
 import { controlInfo, letterOf } from './control';
-import { addConduit, appendPoint, ensureManual, patchPoint, pinCircuit, removePoints, resetToAuto, toggleControl, uncontrolledLightsIn } from './edit';
-import { autoGrid, lightsNeeded, luxWith, pointInPoly } from './lightGrid';
-import { ceilingLuminaire, proposePoint, relocatePoint, roomAt, wallLuminaire, type PlaceEnv, type PlaceOptions } from './placement';
+import { addConduit, appendPoint, connectLights, ensureManual, patchPoint, pinCircuit, removePoints, resetToAuto, toggleControl, uncontrolledLightsIn } from './edit';
+import { buildPlaceEnv, ceilingLuminaire, proposePoint, relocatePoint, roomAt, wallLuminaire, type PlaceEnv, type PlaceOptions } from './placement';
 import { routeConduits, unreachedPoints } from './route';
 import { buildElecPlan, symbolShape } from './symbols';
 import { snapToWallFace } from './wallSnap';
@@ -24,14 +23,7 @@ const elec = results.installations!.electrical!;
 const level = project.levels[0]!.id;
 
 function envFor(): PlaceEnv {
-  const m = results.model;
-  return {
-    levelId: level,
-    walls: m.walls.filter((w) => w.level === level).map((w) => ({ id: w.id, from: w.from as [number, number], to: w.to as [number, number], thickness: w.thickness })),
-    openings: m.openings.filter((o) => o.valid && o.hostKind === 'wall').map((o) => ({ hostId: o.hostId, u0: o.u0, u1: o.u1, v0: o.v0, v1: o.v1 })),
-    rooms: m.rooms.filter((r) => r.polygon && r.level === level).map((r) => ({ id: r.id, polygon: r.polygon as [number, number][], ceilingAvg: r.ceiling.avg, use: r.use, area: r.area })),
-    k,
-  };
+  return buildPlaceEnv(results.model, level, k);
 }
 const OPTS: PlaceOptions = { appliance: 'electric_shower', switchType: 'one_way', luminaire: 'plafon_18w' };
 
@@ -84,7 +76,7 @@ describe('ferramentas da paleta', () => {
     const c = room.polygon.reduce((a, p) => [a[0] + p[0] / room.polygon.length, a[1] + p[1] / room.polygon.length], [0, 0] as [number, number]);
     const ceiling = proposePoint('light', c, env, OPTS);
     if (roomAt(env.rooms, c)) {
-      expect(ceiling!.point).toMatchObject({ kind: 'light', height: roomAt(env.rooms, c)!.ceilingAvg });
+      expect(ceiling!.point).toMatchObject({ kind: 'light', height: env.ceilingAt!(ceiling!.point.position) });
       expect(ceiling!.point.hostId).toBeUndefined();
     }
     const sconce = proposePoint('light', near, env, { ...OPTS, luminaire: 'plafon_18w' })!;
@@ -103,24 +95,111 @@ describe('ferramentas da paleta', () => {
   });
 });
 
-describe('grade automática de luminárias (método dos lúmens)', () => {
-  const room = { polygon: [[0, 0], [5, 0], [5, 4], [0, 4]] as [number, number][], area: 20, use: 'living', ceilingAvg: 2.6 };
-  it('atinge o lux alvo com a luminária escolhida', () => {
-    const g = autoGrid(room, 1600, k, [2.5, 2]);
-    expect(g.positions.length).toBeGreaterThanOrEqual(g.needed);
-    expect(g.lux).toBeGreaterThanOrEqual(g.target);
-    // com uma a menos fica abaixo do alvo
-    expect(luxWith(room, 1600, g.needed - 1, k)).toBeLessThan(g.target);
-    for (const p of g.positions) expect(pointInPoly(p, room.polygon)).toBe(true);
+describe('grade do editor = grade do motor', () => {
+  const m = results.model;
+  it('mesmas posições, luminária e alturas que a sugestão do motor, em todo cômodo', () => {
+    for (const room of m.rooms.filter((r) => r.polygon)) {
+      const a = suggestRoomLighting(room, m, catalog, { luminaire: 'plafon_18w' })!;
+      const b = suggestRoomLighting(room, m, catalog, { luminaire: k.defaultLuminaire })!;
+      expect(a).toEqual(b);
+      // o gerador automático usa a mesma função: os pontos auto-l-* do traçado coincidem
+      const gen = elec.layout.points.filter((p) => p.kind === 'light' && p.id.startsWith(`auto-l-${room.id}-`));
+      if (project.installations.electrical.manual) continue;
+      expect(gen.map((p) => p.position)).toEqual(a.positions);
+      expect(gen.map((p) => p.height)).toEqual(a.heights);
+    }
   });
-  it('luminária mais forte pede menos pontos', () => {
-    expect(lightsNeeded(room, 2200, k)).toBeLessThanOrEqual(lightsNeeded(room, 1000, k));
-    expect(lightsNeeded(room, 2200, k)).toBeGreaterThanOrEqual(1);
+  it('atinge o lux alvo ou avisa que ficou abaixo do mínimo', () => {
+    for (const room of m.rooms.filter((r) => r.polygon)) {
+      const g = suggestRoomLighting(room, m, catalog)!;
+      expect(g.belowMin || g.lux >= g.minLux).toBe(true);
+      for (const p of g.positions) expect(pointInPolygon(p, room.polygon as [number, number][], 0)).toBe(true);
+    }
   });
-  it('cômodo pequeno leva uma luz no centro', () => {
-    const small = { polygon: [[0, 0], [1.5, 0], [1.5, 1.5], [0, 1.5]] as [number, number][], area: 2.25, use: 'bathroom', ceilingAvg: 2.4 };
-    const g = autoGrid(small, 1600, k, [0.75, 0.75]);
-    expect(g.positions).toEqual([[0.75, 0.75]]);
+  it('grade de uma luz cai no centroide, não no cursor', () => {
+    const room = m.rooms.find((r) => r.polygon)!;
+    const small = { ...room, use: 'storage', area: 4, polygon: [[0, 0], [2, 0], [2, 2], [0, 2]], ceiling: { min: 2.4, avg: 2.4, max: 2.4 } } as typeof room;
+    const g = suggestRoomLighting(small, m, catalog)!;
+    expect(g.positions).toEqual([[1, 1]]);
+  });
+});
+
+describe('altura da luz: forro local, não a média do cômodo', () => {
+  for (const preset of ['gable-loft', 'a-frame']) {
+    it(`${preset}: a luz colocada guarda ceilingZAt do ponto`, () => {
+      const pr = findPreset(preset);
+      if (!pr) return;
+      const proj = pr.build();
+      proj.installations.enabled = true;
+      const res = computeProject(proj, catalog);
+      const lvl = proj.levels[0]!;
+      const env = buildPlaceEnv(res.model, lvl.id, k);
+      const elev = levelElevationOf(res.model, lvl.id);
+      const heights = new Set<number>();
+      for (const room of env.rooms) {
+        const xs = room.polygon.map((p) => p[0]);
+        const ys = room.polygon.map((p) => p[1]);
+        for (let i = 1; i < 6; i++) {
+          const pt: [number, number] = [Math.min(...xs) + ((Math.max(...xs) - Math.min(...xs)) * i) / 6, (Math.min(...ys) + Math.max(...ys)) / 2];
+          const pr2 = proposePoint('light', pt, env, OPTS);
+          if (!pr2 || pr2.hit) continue;
+          expect(pr2.point.height).toBeCloseTo(ceilingZAt(res.model, lvl.id, pr2.point.position, elev) - elev, 2);
+          heights.add(Math.round(pr2.point.height * 10));
+        }
+      }
+      // sob telhado inclinado a altura varia ao longo do cômodo (não é a média única)
+      expect(heights.size).toBeGreaterThan(1);
+    });
+  }
+  it('a luz gerada pelo motor também guarda o forro local e nunca passa do telhado', () => {
+    const roof = (xy: [number, number]) => ceilingZAt(results.model, level, xy);
+    for (const p of elec.layout.points.filter((x) => x.kind === 'light' && !x.hostId)) {
+      expect(p.height).toBeLessThanOrEqual(roof(p.position as [number, number]) + 1e-3);
+    }
+  });
+  it('arrastar a luz regrava a altura do forro no novo lugar', () => {
+    const env = envFor();
+    const light = elec.layout.points.find((p) => p.kind === 'light' && !p.hostId)!;
+    const room = env.rooms.find((r) => pointInPolygon(light.position as [number, number], r.polygon, 0))!;
+    const target: [number, number] = [(Math.min(...room.polygon.map((p) => p[0])) + 0.4), light.position[1]];
+    const to = relocatePoint(light, target, env);
+    if (to) expect(to.height).toBeCloseTo(env.ceilingAt!(to.position), 6);
+  });
+});
+
+describe('luz nova liga ao interruptor do cômodo', () => {
+  const poly: [number, number][] = [[0, 0], [4, 0], [4, 3], [0, 3]];
+  const room = { level: 'L0', polygon: poly };
+  const mkE = (points: ElecPoint[]) => ({ ...structuredClone(project.installations.electrical), manual: true, points });
+  const light = (id: string, x: number): ElecPoint => ({ id, kind: 'light', level: 'L0', position: [x, 1.5], height: 2.6 });
+  const sw = (id: string, x: number, controls: string[]): ElecPoint => ({ id, kind: 'switch', level: 'L0', position: [x, 0], height: 1.1, controls, switchType: 'one_way' });
+  const spot: Omit<ElecPoint, 'id'> = { kind: 'switch', level: 'L0', position: [0.2, 0] as [number, number], height: 1.1, switchType: 'one_way', controls: [] };
+
+  it('no cômodo com interruptor, fica ligada ao mais próximo', () => {
+    const e = mkE([sw('a', 0.2, ['l0']), sw('b', 3.8, ['l9']), light('l0', 1), light('l9', 3), light('n', 3.5)]);
+    const r = connectLights(e, ['n'], room, spot, () => 'novo');
+    expect(r).toEqual({ switchId: 'b', created: false });
+    expect(e.points.find((p) => p.id === 'b')!.controls).toEqual(['l9', 'n']);
+    expect(e.points.find((p) => p.id === 'a')!.controls).toEqual(['l0']);
+  });
+  it('interruptores paralelos recebem juntos', () => {
+    const e = mkE([sw('a', 0.2, ['l0']), sw('b', 3.8, ['l0']), light('l0', 1), light('n', 1.2)]);
+    connectLights(e, ['n'], room, spot, () => 'novo');
+    expect(e.points.find((p) => p.id === 'a')!.controls).toEqual(['l0', 'n']);
+    expect(e.points.find((p) => p.id === 'b')!.controls).toEqual(['l0', 'n']);
+  });
+  it('sem interruptor no cômodo, ganha um junto à porta que a comanda', () => {
+    const e = mkE([light('n', 2)]);
+    const r = connectLights(e, ['n'], room, spot, () => 'novo');
+    expect(r).toEqual({ switchId: 'novo', created: true });
+    expect(e.points.find((p) => p.id === 'novo')).toMatchObject({ kind: 'switch', controls: ['n'], position: [0.2, 0] });
+  });
+  it('luz que já tem interruptor não é religada; interruptor de outro cômodo não conta', () => {
+    const far = { ...sw('f', 9, []), position: [9, 9] as [number, number] };
+    const e = mkE([sw('a', 0.2, ['l0']), far, light('l0', 1)]);
+    expect(connectLights(e, ['l0'], room, spot, () => 'x')).toEqual({ switchId: null, created: false });
+    const e2 = mkE([far, light('n', 2)]);
+    expect(connectLights(e2, ['n'], room, spot, () => 'novo').created).toBe(true);
   });
 });
 
@@ -182,7 +261,7 @@ describe('comando (controls)', () => {
   };
   it('clicar liga e desliga a luz no interruptor', () => {
     const e = sw();
-    const s = e.points.find((p) => p.kind === 'switch')!;
+    const s = e.points.find((p) => p.kind === 'switch' && (p.controls ?? []).length < 20)!;
     const l = lights.find((x) => !(s.controls ?? []).includes(x.id))!;
     expect(toggleControl(e, s.id, l.id)).toBe(true);
     expect(s.controls).toContain(l.id);

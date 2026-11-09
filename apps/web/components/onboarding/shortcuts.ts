@@ -43,6 +43,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'approval', group: 'Ferramentas', context: 'editor', keys: ['Shift+A'], label: 'Abrir a tela Aprovação (dados legais, verificação normativa, ART/RRT e pacote)' },
   // "E" já é a Escada: a camada Elétrica da planta usa Shift+E (não conflita: os atalhos de ferramenta ignoram o Shift)
   { id: 'elec-layer', group: 'Ferramentas', context: 'editor', keys: ['Shift+E'], label: 'Camada Elétrica na planta (tomadas, luz, interruptores, eletrodutos)' },
+  { id: 'elec-light', group: 'Ferramentas', context: 'editor', keys: ['Shift+L'], label: 'Ferramenta Luz da camada Elétrica (teto ou arandela; liga ao interruptor da porta)' },
 
   // Edição
   { id: 'undo', group: 'Edição', context: 'editor', keys: ['Mod+Z'], label: 'Desfazer' },

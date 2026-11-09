@@ -20,7 +20,7 @@ export const ELEC_TOOLS: readonly ElecToolDef[] = [
   { id: 'socket_high', label: 'Tomada alta', hint: 'Tomada a 2,20 m (ar-condicionado, TV). Clique perto de uma parede.' },
   { id: 'socket_tue', label: 'Uso específico', hint: 'Tomada de uso específico (chuveiro, forno, ar-condicionado...). Escolha o aparelho.' },
   { id: 'switch', label: 'Interruptor', hint: 'Interruptor simples ou paralelo, a 1,10 m. Clique perto de uma parede.' },
-  { id: 'light', label: 'Luz', hint: 'Clique dentro do cômodo para luz no teto, ou perto da parede para arandela. Shift = grade automática.' },
+  { id: 'light', label: 'Luz', hint: 'Clique dentro do cômodo para luz no teto, ou perto da parede para arandela. Shift = grade automática. Atalho: Shift+L.' },
   { id: 'panel', label: 'Quadro', hint: 'Quadro de distribuição, a 1,50 m. Clique perto de uma parede.' },
   { id: 'conduit', label: 'Eletroduto', hint: 'Clique ponto a ponto. Encaixa em pontos, no quadro e em outros eletrodutos. Duplo clique ou Enter conclui.' },
 ] as const;

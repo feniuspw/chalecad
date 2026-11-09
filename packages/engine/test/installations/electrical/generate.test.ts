@@ -180,3 +180,21 @@ test('computeElectrical sem cômodos devolve null', () => {
   expect(computeElectrical(p, buildModel(p, testCatalog), testCatalog)).toBeNull();
 });
 
+
+describe('suggestRoomSwitch', () => {
+  test('interruptor junto à porta do cômodo, igual ao do traçado gerado, sem comando', async () => {
+    const { suggestRoomSwitch } = await import('../../../src');
+    const p = house();
+    const model = buildModel(p, testCatalog);
+    const e = computeAll(p, testCatalog).installations!.electrical!;
+    for (const room of model.rooms) {
+      const s = suggestRoomSwitch(p, model, testCatalog, room.id)!;
+      const gen = e.layout.points.find((x) => x.kind === 'switch' && x.id.startsWith(`auto-sw-${room.id}-1`))!;
+      expect(s.position).toEqual(gen.position);
+      expect(s.hostId).toBe(gen.hostId);
+      expect(s.height).toBe(1.1);
+      expect(s.controls).toEqual([]);
+    }
+    expect(suggestRoomSwitch(p, model, testCatalog, 'nao-existe')).toBeNull();
+  });
+});

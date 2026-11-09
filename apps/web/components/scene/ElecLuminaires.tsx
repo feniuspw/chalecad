@@ -3,9 +3,9 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getCatalog } from '@chalecad/catalog';
-import type { BuildingModel } from '@chalecad/engine';
+import { ceilingZAt, type BuildingModel } from '@chalecad/engine';
 import { useEditor } from '@/lib/store/editor';
-import { cctToHex, fixturesOf, lightRig, nearestFixtures, roofZAt, SPOT_TYPES, type Fixture } from '@/lib/elec/lights';
+import { cctToHex, fixturesOf, lightRig, nearestFixtures, SPOT_TYPES, type Fixture } from '@/lib/elec/lights';
 import { faceNormal } from '@/lib/elec/wallSnap';
 
 const k = getCatalog().constants.electrical;
@@ -129,11 +129,11 @@ function usePlaced(model: BuildingModel, elevations: Record<string, number>): Pl
     return fixturesOf(layout.points, k).map((f) => {
       let z = (elevations[f.level] ?? 0) + f.height;
       const n = f.hostId ? faceNormal(f.position, walls.get(f.hostId)) : null;
-      // luminária de teto sob o telhado inclinado: o pé-direito médio pode estar acima do forro neste ponto
+      // O ponto já guarda a altura real do forro (telhado e laje do mezanino). Aqui só proteção para projetos antigos,
+      // que guardavam a média do pé-direito: a peça não passa do forro local.
       if (!f.hostId) {
-        const roof = roofZAt(model.roofPlanes, f.position);
-        const drop = f.luminaire.type === 'pendant' ? 0.7 : 0.25;
-        if (roof !== null && z > roof - drop) z = roof - drop;
+        const ceil = ceilingZAt(model, f.level, f.position, elevations[f.level] ?? 0);
+        if (z > ceil) z = ceil;
       }
       const yaw = n ? Math.atan2(n[1], n[0]) : 0;
       const type = f.luminaire.type;
@@ -142,7 +142,7 @@ function usePlaced(model: BuildingModel, elevations: Record<string, number>): Pl
         type === 'wall' && n ? [pos[0] + n[0] * 0.18, z, pos[2] - n[1] * 0.18] : [pos[0], z - (type === 'pendant' ? 0.55 : LIGHT_DROP), pos[2]];
       return { f, pos, yaw, spot: SPOT_TYPES.has(type), lightAt };
     });
-  }, [layout, model.walls, model.roofPlanes, elevations]);
+  }, [layout, model, elevations]);
 }
 
 /** As luzes reais (poucas, fixas em número para não recompilar o shader) seguem as luminárias mais próximas da câmera. */

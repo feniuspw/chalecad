@@ -2,6 +2,7 @@ export { ENGINE_VERSION } from './version';
 export * from './schema';
 export * from './load';
 export * from './model';
+export { ceilingZAt, levelElevationOf } from './model/rooms';
 export * from './geometry';
 export * from './framing';
 export * from './quantities';

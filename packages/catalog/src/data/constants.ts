@@ -220,8 +220,9 @@ export const constants: TechnicalConstants = {
       RS: 220, SC: 220, BA: 220, AL: 220, CE: 220, DF: 220, GO: 220, MA: 220, PB: 220, PE: 220, PI: 220, RN: 220, TO: 220,
     },
     lighting: {
-      targetLux: { living: 150, kitchen: 250, bedroom: 150, bathroom: 200, laundry: 200, circulation: 100, storage: 100, office: 400, other: 150 },
-      minLux: { living: 100, kitchen: 150, bedroom: 100, bathroom: 100, laundry: 100, circulation: 75, storage: 75, office: 300, other: 100 },
+      // NBR ISO/CIE 8995-1:2013: sala 150-300, cozinha (bancada) 500, escritório 500, banheiro (espelho) 300, quarto 150, circulação/escada 100-150
+      targetLux: { living: 200, kitchen: 500, bedroom: 150, bathroom: 300, laundry: 200, circulation: 150, storage: 100, office: 500, other: 150 },
+      minLux: { living: 150, kitchen: 300, bedroom: 100, bathroom: 200, laundry: 150, circulation: 100, storage: 75, office: 300, other: 100 },
       workPlane: { living: 0.75, kitchen: 0.9, bedroom: 0.75, bathroom: 0.9, laundry: 0.9, circulation: 0, storage: 0, office: 0.75, other: 0.75 },
       maintenanceFactor: 0.8,
       utilization: [
