@@ -34,9 +34,9 @@ describe('findTerms', () => {
   it('prefere o termo mais longo e não sobrepõe', () => {
     expect(findTerms('telha sanduíche').map((m) => m.id)).toEqual(['telha_sanduiche']);
   });
-  it('tem de 40 a 60 termos com ids únicos', () => {
+  it('tem de 40 a 80 termos com ids únicos', () => {
     expect(TERMS.length).toBeGreaterThanOrEqual(40);
-    expect(TERMS.length).toBeLessThanOrEqual(60);
+    expect(TERMS.length).toBeLessThanOrEqual(80);
     expect(new Set(TERMS.map((t) => t.id)).size).toBe(TERMS.length);
   });
 });

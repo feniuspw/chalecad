@@ -39,6 +39,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'tool-dimension', group: 'Ferramentas', context: 'editor', keys: ['C'], label: 'Cota', tool: 'dimension' },
   { id: 'tool-measure', group: 'Ferramentas', context: 'editor', keys: ['T'], label: 'Medir (trena)', tool: 'measure' },
   { id: 'plumb-layer', group: 'Ferramentas', context: 'editor', keys: ['H'], label: 'Camada Hidráulica na planta (tubos, pontos de água, pressão); a paleta tem ponto, caixa e tubos' },
+  { id: 'lot-layer', group: 'Ferramentas', context: 'editor', keys: ['L'], label: 'Camada Lote na planta (contorno, recuos cotados, fossa e poço)' },
+  { id: 'approval', group: 'Ferramentas', context: 'editor', keys: ['Shift+A'], label: 'Abrir a tela Aprovação (dados legais, verificação normativa, ART/RRT e pacote)' },
   // "E" já é a Escada: a camada Elétrica da planta usa Shift+E (não conflita: os atalhos de ferramenta ignoram o Shift)
   { id: 'elec-layer', group: 'Ferramentas', context: 'editor', keys: ['Shift+E'], label: 'Camada Elétrica na planta (tomadas, luz, interruptores, eletrodutos)' },
 

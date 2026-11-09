@@ -30,6 +30,8 @@ import { NewProjectDialog } from './NewProjectDialog';
 import { PropertiesPanel } from './properties/PropertiesPanel';
 // Painel de resultados (F1-W2).
 import { ResultsPanel } from '@/components/results/ResultsPanel';
+import { ApprovalDialog } from '@/components/approval/ApprovalDialog';
+import { LotToggle } from '@/components/scene/tools/lot/LotToggle';
 import { TopBar } from './TopBar';
 import { useResizablePanel } from './useResizablePanel';
 import { usePanelVisibility } from './usePanelVisibility';
@@ -275,6 +277,7 @@ export function EditorShell() {
     <TooltipProvider>
       <div className="flex h-dvh w-full flex-col overflow-hidden bg-surface-muted">
         <TopBar onNew={() => setNewOpen(true)} />
+        <ApprovalDialog />
         <ValidationBanner />
 
         <div className="flex min-h-0 flex-1">
@@ -408,6 +411,7 @@ export function EditorShell() {
                   ))}
                 </div>
               ) : null}
+              <LotToggle />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="outline" size="sm" className="shadow-float" onClick={() => viewport.current?.center()}>

@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
-import { ChevronDown, Download, FileJson, FileText, FolderKanban, FolderOpen, History, ClipboardList, Link2, Presentation, ShieldCheck, Plus, Redo2, Undo2 } from 'lucide-react';
+import { ChevronDown, Download, FileJson, FileText, FolderKanban, FolderOpen, History, ClipboardList, Link2, Presentation, ShieldCheck, Stamp, Plus, Redo2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
@@ -24,6 +24,7 @@ import { CompareButton } from '@/components/compare/CompareButton';
 import { exportBudgetCsv, exportPurchaseCsv } from '@/lib/export/csv';
 import { downloadBytes, downloadText } from '@/lib/export/download';
 import { dxfBytes, dxfFileName, exportDxf } from '@/lib/export/dxf';
+import { useApprovalUi } from '@/lib/approval/ui';
 import { ReportsDialog, type ReportKind } from '@/components/reports/ReportsDialog';
 import { ImportErrorsDialog } from './ImportErrorsDialog';
 import { ProjectName } from './ProjectName';
@@ -200,6 +201,10 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           <Redo2 />
         </IconButton>
         <Separator orientation="vertical" className="mx-1 h-5" />
+
+        <Button variant="outline" size="sm" onClick={() => useApprovalUi.getState().show()} title="Aprovação: dados legais, verificação normativa, ART/RRT e pacote (Shift+A)">
+          <Stamp /> Aprovação
+        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
