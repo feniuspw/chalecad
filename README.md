@@ -78,3 +78,7 @@ pnpm e2e         # Playwright (starts the app)
 - `docs/tasks/`: executed cards.
 
 The textures are from Poly Haven (CC0): see `apps/web/public/textures/LICENSE.md`.
+
+## License
+
+MIT: see `LICENSE`. The textures keep their own CC0 license.
