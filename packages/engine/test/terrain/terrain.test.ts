@@ -120,7 +120,7 @@ describe('terreno inclinado', () => {
   test('geotêxtil e dreno só com corte de talude > 1,5 m; alertas', () => {
     const lo = terrain(plat10x12({ platformElevation: 0 }));
     expect(lo.items.find((i) => i.itemId === 'geotextile')).toBeUndefined();
-    const steep = terrain(plat10x12({ platformElevation: -2, slopePct: 40, cutSlopeHV: 1 }));
+    const steep = terrain(plat10x12({ platformElevation: -2, slopePct: 40, cutSlopeHV: 1, edges: 'slope' }));
     expect(steep.items.find((i) => i.itemId === 'geotextile')!.net).toBeGreaterThan(0);
     expect(steep.items.find((i) => i.itemId === 'drain_pipe')!.net).toBeGreaterThan(0);
     const codes = steep.warnings.map((w) => w.code);

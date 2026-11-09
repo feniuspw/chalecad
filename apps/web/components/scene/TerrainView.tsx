@@ -8,6 +8,8 @@ import { SCENARIOS } from '@/lib/three/foliage';
 import { getTerrainBuffers } from '@/lib/three/presentationPrep';
 import { terrainZOffset, TERRAIN_COLORS } from '@/lib/three/terrain';
 import { useEditor } from '@/lib/store/editor';
+import { padOutlinePoints } from '@/lib/three/terrain';
+import { useTerrainUi } from './tools/terrain/store';
 import { MotorGroup } from './MotorGroup';
 import { usePresentationUi } from './presentationUi';
 import { useSunState } from './useSunState';
@@ -34,12 +36,13 @@ function makeGrainTexture() {
 
 export interface TerrainViewProps {
   terrain: TerrainReport;
-  /** Contorno do platô (planta) para destacar o terreno plano em volta da casa. */
-  plateau?: [number, number][];
+  /** Platô da casa e áreas aplainadas (`terrain.pads`): contorno desenhado sobre a malha. Omitido na apresentação. */
+  pads?: TerrainReport['pads'];
 }
 
 /** Malha do terreno: z do motor para cima; o platô fica em z = 0 (deslocada por `-platformZ`). */
-export function TerrainView({ terrain, plateau }: TerrainViewProps) {
+export function TerrainView({ terrain, pads }: TerrainViewProps) {
+  const selectedPad = useTerrainUi((s) => s.selectedPadId);
   const presentation = useEditor((s) => s.viewMode === 'presentation');
   const scenario = usePresentationUi((s) => s.scenario);
   const sc = SCENARIOS[scenario];
@@ -86,12 +89,19 @@ export function TerrainView({ terrain, plateau }: TerrainViewProps) {
           <meshStandardMaterial vertexColors map={tex} roughness={1} metalness={0} side={THREE.DoubleSide} />
         )}
       </mesh>
-      {plateau ? (
-        <group position={[0, 0, -z - 0.03 + 0.012]}>
-          {/* platô: tira sutil mais clara e contorno */}
-          <Line points={[...plateau, plateau[0]!].map(([x, y]) => [x, y, 0.0] as [number, number, number])} color="#f5f0e6" lineWidth={1.5} transparent opacity={0.9} />
-        </group>
-      ) : null}
+      {pads
+        ? pads.map((pad) => (
+            // contorno: a cota do pad (coordenadas do terreno) mais 1 cm, para não brigar com a malha
+            <Line
+              key={pad.id}
+              points={padOutlinePoints(pad.polygon, pad.z + 0.012)}
+              color={pad.id === selectedPad ? '#f59e0b' : pad.id === 'house' ? '#f5f0e6' : '#7dd3fc'}
+              lineWidth={pad.id === selectedPad ? 2.5 : 1.5}
+              transparent
+              opacity={0.9}
+            />
+          ))
+        : null}
     </MotorGroup>
   );
 }

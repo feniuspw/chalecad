@@ -235,6 +235,23 @@ export const implantationRenderer: ContentRenderer = (ctx, content, scale) => {
       const out = [c[0] < (bb.x0 + bb.x1) / 2 ? -1 : 1, c[1] < (bb.y0 + bb.y1) / 2 ? 1 : -1] as const;
       L.push(group(tag('circle', { cx, cy, r: 0.7, fill: INK }) + text(cx + out[0] * 3, cy + out[1] * 3.4, `NT ${fmtLevel(z)}`, { 'font-size': 2, 'text-anchor': out[0] < 0 ? 'end' : 'start', stroke: '#fff', 'stroke-width': 1, 'paint-order': 'stroke' }), { 'data-role': 'natural-level' }));
     }
+    // Áreas aplainadas e muros de arrimo (motor): contorno tracejado com a cota e traço grosso nos muros.
+    const terr = ctx.results.terrain;
+    for (const pad of terr?.pads ?? []) {
+      if (pad.id === 'house') continue;
+      const pts = pad.polygon.map((v) => P(toLot(ctx, v)));
+      const name = site.pads.find((q) => q.id === pad.id)?.name || 'ÁREA';
+      L.push(poly(pts, { fill: 'none', stroke: INK, 'stroke-width': ST.view, 'stroke-dasharray': '3 1.2', 'data-role': 'terrain-pad' }));
+      const cx = pts.reduce((s2, q) => s2 + q[0], 0) / pts.length;
+      const cy = pts.reduce((s2, q) => s2 + q[1], 0) / pts.length;
+      L.push(text(cx, cy, `${name.toUpperCase()} ${fmtLevel(pad.z - pz)}`, { 'font-size': ST.text, 'font-weight': 700, 'text-anchor': 'middle', stroke: '#fff', 'stroke-width': 1.2, 'paint-order': 'stroke', 'data-role': 'terrain-pad-level' }));
+    }
+    for (const w of terr?.walls ?? []) {
+      const pts = w.path.map((v) => P(toLot(ctx, v)));
+      L.push(tag('polyline', { points: pts.map(([x, y]) => `${n2(x)},${n2(y)}`).join(' '), fill: 'none', stroke: INK, 'stroke-width': ST.cut * 2.2, 'stroke-linejoin': 'round', 'data-role': 'terrain-wall', 'data-wall': w.id }));
+      const m = pts[Math.floor(pts.length / 2)]!;
+      L.push(text(m[0], m[1] - 1.6, `ARRIMO h = ${fmt(w.maxHeight, 2)}`, { 'font-size': ST.text * 0.85, 'font-weight': 700, 'text-anchor': 'middle', stroke: '#fff', 'stroke-width': 1, 'paint-order': 'stroke', 'data-role': 'terrain-wall-label' }));
+    }
     const [hx, hy] = P([mx, my]);
     L.push(text(hx, hy, 'PLATÔ ±0,00', { 'font-size': ST.text, 'font-weight': 700, stroke: '#fff', 'stroke-width': 1.2, 'paint-order': 'stroke', 'data-role': 'platform-level' }));
   } else {

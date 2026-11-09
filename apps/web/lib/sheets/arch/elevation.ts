@@ -3,7 +3,7 @@ import type { HostWall, ResolvedOpening, RoofPlane, Vec2 } from '@chalecad/engin
 import { fmt } from '../../project/format';
 import { bounds } from '../../plan2d/geom';
 import { fmtLevel, hatchPattern, levelMark, pDimH, pDimV } from '../../plan2d/paper';
-import { terrainProfile } from '../../plan2d/section';
+import { terrainProfile, wallDrawThickness } from '../../plan2d/section';
 import { GUIDE, INK, MUTED, group, line, n2, poly, rect, tag, text } from '../../plan2d/svg';
 import type { ContentRenderer, SheetContext } from '../types';
 import { LEGEND, ST, mmPerM, safeId } from './common';
@@ -74,7 +74,7 @@ export const elevationRenderer: ContentRenderer = (ctx, content, scale) => {
       default: return [fp.x0, -hh];
     }
   };
-  const terrain = terrainProfile(fp, ctx.project.site, ctx.results.terrain?.platformZ ?? 0, nearDepthPt, minH - pad, maxH + pad);
+  const terrain = terrainProfile(fp, ctx.project.site, ctx.results.terrain?.platformZ ?? 0, nearDepthPt, minH - pad, maxH + pad, ctx.results.terrain);
   const zLow = Math.min(-found, ...terrain.final.map((p) => p[1]), ...(terrain.natural ?? []).map((p) => p[1]));
   const hLo = (terrain.natural ? minH - pad - 1 : minH - pad);
   const hHi = (terrain.natural ? maxH + pad + 1 : maxH + pad);
@@ -99,6 +99,11 @@ export const elevationRenderer: ContentRenderer = (ctx, content, scale) => {
   const gb = Z(zLow - 0.2);
   L.push(poly([...gp, [gp[gp.length - 1]![0], gb], [gp[0]![0], gb]], { fill: `url(#${hatchG})`, stroke: 'none', opacity: 0.5, 'data-role': 'ground' }));
   if (terrain.natural) L.push(tag('polyline', { points: terrain.natural.map(([hh, z]) => `${n2(X(hh))},${n2(Z(z))}`).join(' '), fill: 'none', stroke: MUTED, 'stroke-width': ST.view, 'stroke-dasharray': '2.5 1.2', 'data-role': 'natural-terrain' }));
+  // Muros de arrimo do terreno que a linha da fachada cruza.
+  for (const w of terrain.walls ?? []) {
+    const t = wallDrawThickness(w.type, w.height);
+    L.push(rect(X(w.padSide === -1 ? w.h : w.h - t), Z(w.topZ), t * k, w.height * k, { fill: w.type === 'gabion' ? '#d6d3c9' : '#e7e5e4', stroke: INK, 'stroke-width': ST.view, 'data-role': 'terrain-wall' }));
+  }
   if (radier) {
     const a = Math.min(...radierXs);
     const c = Math.max(...radierXs);

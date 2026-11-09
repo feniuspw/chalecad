@@ -133,3 +133,36 @@ describe('terreno inclinado na apresentação', () => {
     expect(surfaceY(d.surface, 3, 4)).toBeCloseTo(d.surface.groundY + groundHeight(3 - d.surface.center[0], 4 - d.surface.center[1], d.shape), 9);
   });
 });
+
+describe('pads e muros na apresentação', () => {
+  function withPad(level: number) {
+    const project = createProject('gable_mezzanine', { name: 'Pad' });
+    project.site = {
+      type: 'sloped', slopePct: 20, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10,
+      pads: [{ id: 'p1', name: 'Garagem', polygon: [[12, -2], [18, -2], [18, 4], [12, 4]], level, edges: 'auto' }], edges: 'auto', retaining: { type: 'auto', drainage: true },
+    };
+    const r = computeAll(project, getCatalog());
+    return { project, model: r.model, terrain: r.terrain! };
+  }
+
+  it('a altura da superfície vem da malha do motor: dentro do pad é a cota do pad', () => {
+    const { project, model, terrain } = withPad(-0.5);
+    const slope = slopeSurfaceFrom(project.site, model.footprint, terrain)!;
+    const padZ = terrain.pads.find((p) => p.id === 'p1')!.z;
+    expect(slopeHeight(slope, 15, 1)).toBeCloseTo(padZ + terrainZOffset(terrain.platformZ), 6);
+    const p = terrain.mesh.positions;
+    let worst = 0;
+    for (let i = 0; i < p.length; i += 3) worst = Math.max(worst, Math.abs(slopeHeight(slope, p[i]!, p[i + 1]!) - (p[i + 2]! + terrainZOffset(terrain.platformZ))));
+    expect(worst).toBeLessThan(1e-9);
+  });
+
+  it('nenhuma planta fica sobre o pad (nem o contorno + 1 m)', () => {
+    const { project, model, terrain } = withPad(0);
+    const data = buildLandscapeData(options(project, model, terrain, 'field'));
+    expect(data.placements.length).toBeGreaterThan(10);
+    for (const pl of data.placements) {
+      const inside = pl.x > 11 && pl.x < 19 && pl.y > -3 && pl.y < 5;
+      expect(inside).toBe(false);
+    }
+  });
+});

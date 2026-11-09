@@ -7,7 +7,6 @@ import { getCatalog } from '@chalecad/catalog';
 import type { BuildingModel } from '@chalecad/engine';
 import type { ThreeBounds } from '@/lib/three/convert';
 import { buildHeatIndex } from '@/lib/three/heatmap';
-import { plateauRect } from '@/lib/three/terrain';
 import { explodeGap } from '@/lib/three/views';
 import { selectionFromHost } from '@/lib/project/selection';
 import { useEditor } from '@/lib/store/editor';
@@ -37,6 +36,7 @@ import { useSceneInfo } from './sceneInfo';
 import { SkeletonView } from './SkeletonView';
 import { SceneMountProbe } from './SceneMountProbe';
 import { TerrainView } from './TerrainView';
+import { TerrainWallsView } from './TerrainWallsView';
 import { MeasurementsLayer } from './tools/MeasureTool';
 import { PathDrawLayer } from './tools/PathDrawLayer';
 import { envFloorZ, FurnitureDropTarget, FurnitureGhostLayer } from './tools/FurnitureTool';
@@ -179,13 +179,6 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const selectedOpeningId = selection?.kind === 'opening' ? selection.id : null;
   const selectedPieceId = selection?.kind === 'piece' ? selection.id : null;
 
-  const plateau = useMemo(() => {
-    if (!terrain || project.site.type !== 'sloped') return undefined;
-    const xs = model.footprint.map((p) => p[0]);
-    const ys = model.footprint.map((p) => p[1]);
-    return plateauRect({ min: [Math.min(...xs), Math.min(...ys)], max: [Math.max(...xs), Math.max(...ys)] }, project.site.platformMargin);
-  }, [terrain, project.site, model.footprint]);
-
   return (
     <>
       {walking ? (
@@ -206,7 +199,8 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
         </>
       )}
 
-      {terrain ? <TerrainView terrain={terrain} plateau={presentation ? undefined : plateau} /> : null}
+      {terrain ? <TerrainView terrain={terrain} pads={presentation ? undefined : terrain.pads} /> : null}
+      {terrain ? <TerrainWallsView terrain={terrain} /> : null}
 
       <BuildingView
         model={model}

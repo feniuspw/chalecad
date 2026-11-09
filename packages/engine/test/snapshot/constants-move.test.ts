@@ -21,7 +21,7 @@ const everything = () =>
     site: {
       type: 'sloped', slopePct: 40, downhillAzimuthDeg: 0,
       platformMargin: { front: 3, back: 3, left: 3, right: 3 }, platformElevation: 0,
-      cutSlopeHV: 0.2, fillSlopeHV: 0.5, disposalDistanceKm: 10,
+      cutSlopeHV: 0.2, fillSlopeHV: 0.5, disposalDistanceKm: 10, edges: 'slope', // F18-T: bordas `auto` passam a gerar muros; o snapshot cobre o terreno só em talude
     },
     extras: [
       { id: 'm1', kind: 'wall', path: [[10, -5], [20, -5]], height: 2, system: 'concrete_block', foundation: 'strip' },

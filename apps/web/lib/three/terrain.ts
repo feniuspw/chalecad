@@ -58,3 +58,75 @@ export function plateauRect(
   const y1 = bbox.max[1] + margin.back;
   return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
 }
+
+// ---------------------------------------------------------------------------
+// Muros de arrimo do terreno (F18-T)
+// ---------------------------------------------------------------------------
+
+type WallInput = Pick<TerrainReport['walls'][number], 'path' | 'heights' | 'topZ' | 'type' | 'maxHeight'>;
+
+/** Espessura do corpo do muro (m): bloco e concreto 20 cm; gabião 50 cm + 10 cm por metro de altura. */
+export function wallThickness(type: WallInput['type'], maxHeight: number): number {
+  return type === 'gabion' ? 0.5 + 0.1 * maxHeight : 0.2;
+}
+
+export interface Prism {
+  positions: Float32Array;
+  indices: Uint32Array;
+}
+
+/**
+ * Corpo do muro como prismas por trecho, no referencial do motor (z para cima, coordenadas do terreno). O muro fica do
+ * lado de fora da área (à direita do sentido anti-horário do contorno), com topo `topZ` e base `topZ - altura` em cada
+ * vértice. `grow` alarga o corpo (coroamento) e `lift` o eleva.
+ */
+export function buildWallPrisms(w: WallInput, thickness: number, opts: { grow?: number; lift?: number; capHeight?: number } = {}): Prism {
+  const grow = opts.grow ?? 0;
+  const capH = opts.capHeight;
+  const pos: number[] = [];
+  const idx: number[] = [];
+  const quad = (a: number[], b: number[], c: number[], d: number[]) => {
+    const i = pos.length / 3;
+    pos.push(...a, ...b, ...c, ...d);
+    idx.push(i, i + 1, i + 2, i, i + 2, i + 3);
+  };
+  for (let k = 1; k < w.path.length; k++) {
+    const p0 = w.path[k - 1]!;
+    const p1 = w.path[k]!;
+    const dx = p1[0] - p0[0];
+    const dy = p1[1] - p0[1];
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-6) continue;
+    const nx = dy / len;
+    const ny = -dx / len;
+    const t0 = -grow;
+    const t1 = thickness + grow;
+    const top0 = w.topZ[k - 1]! + (opts.lift ?? 0);
+    const top1 = w.topZ[k]! + (opts.lift ?? 0);
+    const bot0 = capH !== undefined ? top0 - capH : w.topZ[k - 1]! - w.heights[k - 1]! - 0.05;
+    const bot1 = capH !== undefined ? top1 - capH : w.topZ[k]! - w.heights[k]! - 0.05;
+    const P = (p: [number, number], t: number, z: number) => [p[0] + nx * t, p[1] + ny * t, z];
+    // topo, face externa, face interna e tampas
+    quad(P(p0, t0, top0), P(p1, t0, top1), P(p1, t1, top1), P(p0, t1, top0));
+    quad(P(p0, t1, bot0), P(p1, t1, bot1), P(p1, t1, top1), P(p0, t1, top0));
+    quad(P(p1, t0, bot1), P(p0, t0, bot0), P(p0, t0, top0), P(p1, t0, top1));
+    if (k === 1) quad(P(p0, t0, bot0), P(p0, t1, bot0), P(p0, t1, top0), P(p0, t0, top0));
+    if (k === w.path.length - 1) quad(P(p1, t1, bot1), P(p1, t0, bot1), P(p1, t0, top1), P(p1, t1, top1));
+  }
+  return { positions: Float32Array.from(pos), indices: Uint32Array.from(idx) };
+}
+
+/** Coroamento (capa) de muro de bloco e concreto: faixa de 6 cm, 4 cm mais larga de cada lado. Gabião não tem. */
+export const wallCoping = (w: WallInput, thickness: number): Prism | null =>
+  w.type === 'gabion' ? null : buildWallPrisms(w, thickness, { grow: 0.04, lift: 0.06, capHeight: 0.06 });
+
+/** Cor do corpo do muro por tipo (mesmas do `ExtrasView`: bloco claro, concreto cinza, gabião pedra). */
+export const WALL_COLORS = { block: '#d6d3d1', concrete: '#a8a29e', gabion: '#8f8878' } as const;
+
+/**
+ * Previsão do desenho das bordas de um pad a partir das paredes do motor: segmentos de contorno em muro (laranja)
+ * com a altura de cada vértice. O restante do contorno é talude.
+ */
+export function padOutlinePoints(polygon: readonly [number, number][], z: number): [number, number, number][] {
+  return [...polygon, polygon[0]!].map(([x, y]) => [x, y, z] as [number, number, number]);
+}
