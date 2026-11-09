@@ -744,6 +744,41 @@ export const TechnicalConstants = z.object({
     hardware: LeadTime,
     foundationMaterial: LeadTime,
   }),
+  /** Fase 17: documentação para aprovação (normas citadas, folhas ABNT, atividades de ART/RRT). Nada municipal aqui. */
+  approval: z.object({
+    /** Normas citadas em verificações e memoriais. `confirmed: false` = edição/conteúdo a conferir (nunca vira "ok" sozinho). */
+    norms: z.array(z.object({
+      id: z.string(),
+      code: z.string(),
+      edition: z.string(),
+      title: z.string(),
+      confirmed: z.boolean(),
+      note: z.string().optional(),
+    })),
+    /** Formatos da série A (NBR 10068), mm: largura × altura em paisagem, margens. */
+    sheetFormats: z.array(z.object({
+      id: z.enum(['A0', 'A1', 'A2', 'A3', 'A4']),
+      w: pos,
+      h: pos,
+      marginLeft: pos,
+      margin: pos,
+    })),
+    /** Carimbo (selo), mm: largura e altura mínima; espaço livre para o carimbo de aprovação da prefeitura. */
+    titleBlock: z.object({ width: pos, minHeight: pos, approvalBox: z.object({ w: pos, h: pos }) }),
+    /** Escalas preferidas (denominadores, NBR 8196). */
+    scales: z.array(pos),
+    /** Modelos das linhas da ficha de ART/RRT por disciplina. */
+    artActivities: z.array(z.object({
+      discipline: z.enum(['architecture', 'structure', 'foundation', 'electrical', 'plumbing', 'execution']),
+      council: z.enum(['CREA', 'CAU', 'any']),
+      activity: z.string(),
+      unit: z.enum(['m²', 'kVA', 'kW', 'm³', 'un', 'm']),
+      /** De onde sai a quantidade. */
+      quantity: z.enum(['built_area', 'radier_area', 'installed_kva', 'demand_kva', 'water_points', 'septic_volume']),
+    })),
+    /** Etapas (NBR 16636-2): rótulo e sigla. */
+    stages: z.array(z.object({ id: z.enum(['preliminary', 'draft', 'legal', 'executive']), label: z.string(), code: z.string() })),
+  }),
 });
 export type TechnicalConstants = z.infer<typeof TechnicalConstants>;
 

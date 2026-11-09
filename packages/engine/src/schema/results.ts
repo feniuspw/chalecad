@@ -2,7 +2,7 @@
  * Contratos de saída do motor. Tudo aqui é JSON serializável (sem classes, Map, funções).
  * Convenção de coordenadas: [x, y, z] com z para cima (ver project.ts).
  */
-import type { CircuitDef, Conduit, ElecPoint, OpeningType, Pipe, RoomUse, Stage, TypologyKind, Vec2, WaterPoint } from './project';
+import type { CircuitDef, ComplianceReview, Conduit, Discipline, ElecPoint, OpeningType, Pipe, ProjectStage, RoomUse, Stage, TypologyKind, Vec2, WaterPoint } from './project';
 
 export type Vec3 = [number, number, number];
 
@@ -705,6 +705,200 @@ export interface PerformanceReport {
   rain: RainReport | null;
 }
 
+// ---------------------------------------------------------------------------
+// Fase 17: aprovação legal (verificação normativa, índices urbanísticos, ART/RRT, pranchas, memoriais)
+// ---------------------------------------------------------------------------
+
+/**
+ * ok/warn/fail: conferido automaticamente. `manual`: o programa não tem como verificar, o profissional confere.
+ * `missing`: falta dado de entrada (`needs`). `na`: não se aplica a este projeto.
+ */
+export type ComplianceStatus = 'ok' | 'warn' | 'fail' | 'manual' | 'missing' | 'na';
+
+export interface ComplianceItem {
+  /** Estável entre cálculos (chave do parecer em `project.legal.reviews`). Ex.: `nbr5410.dr-wet`, `struct.stud`. */
+  id: string;
+  discipline: Discipline;
+  /** Norma ou lei, ex.: "ABNT NBR 5410:2004" ou "Código de Obras do município". */
+  norm: string;
+  /** Seção/item da norma, quando houver. */
+  clause?: string;
+  title: string;
+  /** O que é exigido, em uma frase. */
+  criterion: string;
+  status: ComplianceStatus;
+  /** Valor encontrado e limite, já formatados (pt-BR, com unidade). */
+  value?: string;
+  limit?: string;
+  detail?: string;
+  /** Hospedeiros/peças/pontos envolvidos (Mostrar no 3D/planta). */
+  refs: string[];
+  /** De onde veio: verificação estrutural, aviso do motor, regra própria do módulo ou dado de entrada. */
+  source: 'check' | 'warning' | 'rule' | 'input';
+  /** Chaves de `MissingInput` que impedem a verificação. */
+  needs?: string[];
+  /** Parecer do profissional, copiado de `project.legal.reviews[id]`. */
+  review?: ComplianceReview;
+}
+
+export interface MissingInput {
+  /** Caminho no projeto, ex.: `legal.lot`, `legal.zoning.maxOccupancyPct`, `legal.soil`. */
+  key: string;
+  label: string;
+  discipline: Discipline | 'general';
+  /** Obrigatório para gerar a documentação da etapa (`legal.stage`) ou só recomendado. */
+  required: boolean;
+}
+
+export interface UrbanCheck {
+  id: 'occupancy' | 'far' | 'permeable' | 'setback_front' | 'setback_back' | 'setback_left' | 'setback_right' | 'height' | 'floors';
+  label: string;
+  value: number;
+  /** Limite do zoneamento; ausente = não informado. */
+  limit?: number;
+  unit: '%' | 'm' | '' | 'pav.';
+  status: 'ok' | 'fail' | 'missing';
+}
+
+export interface UrbanIndices {
+  lotArea: number;
+  /** Projeção da edificação no terreno (cobertura incluída, beirais até o limite do código: ver `notes`). */
+  footprintArea: number;
+  /** Área construída total (soma dos pavimentos e mezaninos, pelo contorno externo). */
+  builtArea: number;
+  permeableArea: number;
+  occupancyPct: number;
+  far: number;
+  permeablePct: number;
+  /** Menores distâncias da edificação às divisas (m). */
+  setbacks: { front: number; back: number; left: number; right: number };
+  /** Do terreno ao ponto mais alto (m). */
+  height: number;
+  floors: number;
+  checks: UrbanCheck[];
+  notes: string[];
+}
+
+export interface AreaRow {
+  level: string;
+  levelName: string;
+  /** Cômodo ou "Área construída do pavimento". */
+  name: string;
+  use?: RoomUse;
+  area: number;
+  perimeter?: number;
+}
+
+export interface AreaTable {
+  rooms: AreaRow[];
+  /** Por pavimento: construída (contorno externo) e útil (soma dos cômodos). */
+  levels: { level: string; levelName: string; built: number; useful: number }[];
+  totalBuilt: number;
+  totalUseful: number;
+  /** Áreas abertas cobertas (varanda, deck coberto) informadas à parte. */
+  coveredOpen: number;
+}
+
+/** Linha da ficha de preenchimento da ART/RRT (uma por atividade técnica). */
+export interface ArtActivity {
+  discipline: Discipline;
+  council: 'CREA' | 'CAU' | 'any';
+  /** Descrição da atividade como aparece nos sistemas (ex.: "Projeto estrutural de estrutura metálica — light steel frame"). */
+  activity: string;
+  quantity: number;
+  unit: 'm²' | 'kVA' | 'kW' | 'm³' | 'un' | 'm';
+  professionalId?: string;
+  contractValue?: number;
+  /** Observação técnica sugerida para o campo de observações da ART/RRT. */
+  notes: string;
+}
+
+/** Ficha com os campos para copiar no SITAC (CREA) ou SICCAU (CAU). Campos vazios = falta preencher. */
+export interface ArtSheet {
+  owner: { name: string; doc: string; address: string };
+  contractor: { name: string; doc: string; address: string };
+  /** Endereço da obra em uma linha e coordenadas (graus decimais), quando houver. */
+  siteAddress: string;
+  coordinates?: { lat: number; lon: number };
+  startDate?: string;
+  endDate?: string;
+  activities: ArtActivity[];
+  /** Campos obrigatórios ainda vazios (rótulos). */
+  blanks: string[];
+}
+
+export type SheetContentKind =
+  | 'situation' | 'implantation' | 'plan' | 'section' | 'elevation' | 'roof' | 'areas'
+  | 'foundation' | 'framing_plan' | 'wall_panels' | 'roof_framing' | 'structure_notes'
+  | 'electrical_plan' | 'single_line' | 'load_table'
+  | 'plumbing_plan' | 'water_isometric' | 'sewer_plan' | 'septic' | 'tank_detail';
+
+export interface SheetContent {
+  kind: SheetContentKind;
+  /** Nível (plantas), lado (fachadas: front|back|left|right) ou corte (A|B). */
+  target?: string;
+  title: string;
+  /** Escala sugerida: denominador (50 = 1:50). */
+  scale?: number;
+}
+
+/** Prancha prevista para a etapa: o app desenha cada `contents` numa folha com carimbo. */
+export interface SheetSpec {
+  /** Código da prancha, ex.: ARQ-01, EST-02, ELE-01, HID-01. */
+  code: string;
+  discipline: Discipline;
+  title: string;
+  /** Formato ABNT sugerido (NBR 10068). */
+  format: 'A0' | 'A1' | 'A2' | 'A3' | 'A4';
+  contents: SheetContent[];
+}
+
+export interface MemorialSection {
+  title: string;
+  paragraphs: string[];
+  /** Tabela opcional (cabeçalho + linhas), já formatada. */
+  table?: { head: string[]; rows: string[][] };
+}
+
+/** Memorial descritivo ou de cálculo de uma disciplina. */
+export interface Memorial {
+  id: 'architecture' | 'structure' | 'foundation' | 'electrical' | 'plumbing' | 'performance';
+  discipline: Discipline;
+  kind: 'descriptive' | 'calculation';
+  title: string;
+  /** Normas citadas. */
+  norms: string[];
+  sections: MemorialSection[];
+}
+
+export interface DisciplineSummary {
+  discipline: Discipline;
+  ok: number;
+  warn: number;
+  fail: number;
+  manual: number;
+  missing: number;
+  na: number;
+  /** Itens já com parecer do profissional (aceitos ou n/a). */
+  reviewed: number;
+}
+
+export interface ApprovalReport {
+  stage: ProjectStage;
+  compliance: ComplianceItem[];
+  summary: DisciplineSummary[];
+  missingInputs: MissingInput[];
+  /** null sem `legal.lot`. */
+  urban: UrbanIndices | null;
+  areas: AreaTable;
+  art: ArtSheet;
+  sheets: SheetSpec[];
+  memorials: Memorial[];
+  /** Pronto para exportar: nenhum `fail` sem parecer, nenhum `missing` obrigatório. */
+  ready: boolean;
+  disclaimer: string;
+}
+
 export interface Results {
   engineVersion: string;
   catalogVersion: string;
@@ -720,8 +914,15 @@ export interface Results {
   /** null até o motor de desempenho (F9-E1) entrar. */
   performance: PerformanceReport | null;
   warnings: EngineWarning[];
+  /** Fase 17: verificação normativa e dados para aprovação. Ausente em resultados antigos. */
+  approval?: ApprovalReport;
   timingsMs: Record<string, number>;
 }
 
 export const DISCLAIMER =
   'Estimativa para planejamento. Não substitui projeto estrutural com ART de engenheiro habilitado.';
+
+/** Aviso dos documentos de aprovação: a verificação automática apoia, quem responde é o profissional que assina. */
+export const APPROVAL_NOTICE =
+  'Verificação automática de apoio ao profissional. Itens "a conferir" e "manual" dependem de conferência; a responsabilidade técnica é do ' +
+  'profissional que assina a ART/RRT. ' + DISCLAIMER;

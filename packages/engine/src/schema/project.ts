@@ -693,6 +693,171 @@ export const Performance = z.object({
 });
 export type Performance = z.infer<typeof Performance>;
 
+// ---------------------------------------------------------------------------
+// Fase 17: aprovação legal, ART/RRT e validação pelo profissional
+// ---------------------------------------------------------------------------
+
+const txt = (max: number) => z.string().max(max).default('');
+
+/** Disciplinas de projeto (uma ART/RRT por atividade; pranchas e verificações agrupadas por disciplina). */
+export const Discipline = z.enum(['architecture', 'structure', 'foundation', 'electrical', 'plumbing', 'execution']);
+export type Discipline = z.infer<typeof Discipline>;
+
+/** Pessoa física ou jurídica (proprietário, contratante). `doc` = CPF ou CNPJ, só dígitos ou formatado. */
+export const LegalPerson = z.object({
+  name: txt(160),
+  doc: txt(20),
+  address: txt(240),
+  email: txt(120),
+  phone: txt(40),
+});
+export type LegalPerson = z.infer<typeof LegalPerson>;
+const personDefault = (): LegalPerson => ({ name: '', doc: '', address: '', email: '', phone: '' });
+
+/** Responsável técnico por uma ou mais disciplinas. `docNumber` = nº da ART (CREA) ou RRT (CAU) depois de emitida. */
+export const Professional = z.object({
+  id: Id,
+  name: z.string().min(1).max(160),
+  /** Título profissional (ex.: Engenheiro Civil, Arquiteto e Urbanista, Engenheiro Eletricista). */
+  title: txt(80),
+  council: z.enum(['CREA', 'CAU']),
+  /** Registro no conselho (CREA: nº RNP ou regional; CAU: A000000-0). */
+  registry: txt(40),
+  uf: UF.optional(),
+  company: txt(160),
+  companyRegistry: txt(40),
+  disciplines: z.array(Discipline).min(1),
+  docNumber: txt(40),
+});
+export type Professional = z.infer<typeof Professional>;
+
+/** Endereço e identificação do imóvel. */
+export const LegalAddress = z.object({
+  street: txt(160),
+  number: txt(20),
+  complement: txt(80),
+  district: txt(80),
+  city: txt(80),
+  cep: txt(12),
+  /** Matrícula do imóvel e cartório de registro. */
+  registry: txt(40),
+  registryOffice: txt(120),
+  /** Inscrição imobiliária / cadastral (IPTU), ou CCIR/NIRF em área rural. */
+  cadastral: txt(40),
+  lot: txt(20),
+  block: txt(20),
+  subdivision: txt(120),
+});
+export type LegalAddress = z.infer<typeof LegalAddress>;
+const addressDefault = (): LegalAddress => ({
+  street: '', number: '', complement: '', district: '', city: '', cep: '', registry: '', registryOffice: '', cadastral: '', lot: '', block: '', subdivision: '',
+});
+
+/**
+ * Lote retangular (testada × profundidade) ou poligonal, em coordenadas do lote: origem no canto da testada à esquerda
+ * de quem olha da rua, x ao longo da testada, y para dentro do lote. A edificação (origem do projeto) fica em
+ * `buildingOffset`, girada `rotationDeg` (anti-horário) — com 0, a frente do chalé (y = 0) olha para a rua.
+ */
+export const Lot = z.object({
+  front: len(3, 1000),
+  depth: len(3, 2000),
+  polygon: z.array(Vec2).min(3).max(64).optional(),
+  buildingOffset: Vec2,
+  rotationDeg: z.number().finite().min(-180).max(180).default(0),
+  /** Áreas impermeáveis além da edificação (calçadas, garagem, piscina), m². */
+  pavedArea: len(0, 100000).default(0),
+  streetName: txt(160),
+});
+export type Lot = z.infer<typeof Lot>;
+
+/** Parâmetros urbanísticos do lote (plano diretor / zoneamento do município): o programa só confere. Ausente = não informado. */
+export const Zoning = z.object({
+  zone: txt(80),
+  /** Taxa de ocupação máxima (%) = projeção ÷ lote. */
+  maxOccupancyPct: len(0, 100).optional(),
+  /** Coeficiente de aproveitamento máximo = área computável ÷ lote. */
+  maxFar: len(0, 20).optional(),
+  /** Taxa de permeabilidade mínima (%). */
+  minPermeablePct: len(0, 100).optional(),
+  setbackFront: len(0, 50).optional(),
+  setbackSide: len(0, 50).optional(),
+  setbackBack: len(0, 50).optional(),
+  /** Altura máxima da edificação (m, do terreno ao ponto mais alto). */
+  maxHeight: len(0, 200).optional(),
+  maxFloors: z.number().int().min(1).max(50).optional(),
+  /** Pé-direito mínimo dos ambientes de permanência prolongada pelo código de obras (m). */
+  minCeiling: len(2, 4).optional(),
+  /** O mezanino entra na área computável (CA) e conta como pavimento? Depende do município. */
+  mezzanineCounts: z.boolean().default(true),
+  /** Fonte dos parâmetros (lei, artigo, data da consulta). */
+  source: txt(200),
+});
+export type Zoning = z.infer<typeof Zoning>;
+
+/** Parecer do profissional sobre um item da verificação normativa (`ComplianceItem.id`). */
+export const ComplianceReview = z.object({
+  status: z.enum(['accepted', 'rejected', 'na']),
+  note: txt(1000),
+  /** `Professional.id` de quem revisou. */
+  by: Id.optional(),
+  at: IsoDate,
+});
+export type ComplianceReview = z.infer<typeof ComplianceReview>;
+
+/** Etapa do projeto (NBR 16636-2): define o que as pranchas e memoriais trazem. */
+export const ProjectStage = z.enum(['preliminary', 'draft', 'legal', 'executive']);
+export type ProjectStage = z.infer<typeof ProjectStage>;
+
+export const Legal = z.object({
+  stage: ProjectStage.default('legal'),
+  owner: LegalPerson.default(personDefault),
+  /** Contratante diferente do proprietário (ART/RRT). Ausente = o proprietário. */
+  contractor: LegalPerson.optional(),
+  address: LegalAddress.default(addressDefault),
+  /** Área urbana (alvará na prefeitura) ou rural (INCRA/CCIR; prefeitura pode não exigir alvará). */
+  area: z.enum(['urban', 'rural']).default('urban'),
+  lot: Lot.optional(),
+  zoning: Zoning.default(() => ({ zone: '', mezzanineCounts: true, source: '' })),
+  /** Concessionária de energia (padrão de entrada) e de saneamento. */
+  powerUtility: txt(80),
+  waterUtility: txt(80),
+  professionals: z.array(Professional).max(20).default([]),
+  /** Valor do contrato de cada atividade técnica (R$), por disciplina; vai para a ficha da ART/RRT. */
+  contractValues: z.partialRecord(Discipline, z.number().min(0)).default({}),
+  startDate: IsoDate.optional(),
+  endDate: IsoDate.optional(),
+  /** Origem da tensão admissível do solo usada no radier (`design.soilBearingKPa`), furos SPT e nível d'água. */
+  soil: z
+    .object({
+      source: z.enum(['assumed', 'spt', 'other']).default('assumed'),
+      reference: txt(160),
+      boreholes: z.number().int().min(0).max(50).default(0),
+      /** Profundidade do nível d'água (m); ausente = não encontrado / não informado. */
+      waterTableDepth: len(0, 50).optional(),
+    })
+    .default(() => ({ source: 'assumed' as const, reference: '', boreholes: 0 })),
+  /** Esquema de aterramento (NBR 5410). */
+  earthing: z.enum(['TN-S', 'TN-C-S', 'TT']).default('TN-S'),
+  /** Abastecimento de água. */
+  waterSource: z.enum(['public', 'well']).default('public'),
+  /** Fossa/sumidouro e poço em coordenadas do lote (implantação e distâncias). Ausente = não locado. */
+  septicPosition: Vec2.optional(),
+  wellPosition: Vec2.optional(),
+  /** Teste de percolação (min por cm de rebaixamento), para a disposição final do esgoto. */
+  percolationMinPerCm: len(0, 1000).optional(),
+  /** Formato das pranchas: automático (menor que cabe na escala) ou fixo. */
+  sheetFormat: z.enum(['auto', 'A0', 'A1', 'A2', 'A3']).default('auto'),
+  /** Iniciais de quem desenhou e de quem conferiu (carimbo). */
+  drawnBy: txt(40),
+  checkedBy: txt(40),
+  /** Revisões das pranchas (carimbo). */
+  revisions: z.array(z.object({ code: z.string().min(1).max(8), date: IsoDate, description: txt(200) })).max(50).default([]),
+  /** Pareceres por item da verificação normativa. */
+  reviews: z.record(z.string(), ComplianceReview).default({}),
+});
+export type Legal = z.infer<typeof Legal>;
+export const legalDefault = (): Legal => Legal.parse({});
+
 export const ProjectBase = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   meta: Meta,
@@ -724,6 +889,7 @@ export const ProjectBase = z.object({
   priceBookId: Id.default('default-2026-11'),
   /** Preços editados pelo usuário, por itemId do catálogo. Salvos no projeto para reprodutibilidade. */
   priceOverrides: z.record(z.string(), PriceOverride).default({}),
+  legal: Legal.default(legalDefault),
 });
 
 /** Integridade referencial. Hospedeiros gerados (ext-*, roof-*, wing-*) são checados no motor, não aqui. */

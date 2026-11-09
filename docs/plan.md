@@ -73,3 +73,9 @@ Fluxos paralelos: motor (E) e editor (W).
 ## Fechamento (2026-11-07)
 - Critérios de saída verificados: JSON válido carrega e renderiza (F0); chalé 6,5 x 8,5 calcula tudo em ~3 ms (< 300 ms) (F1); verificações estruturais com taxas e cores, extras, meia-água, telhado plano e comparação de variantes (F2); IA com tool use citando ferramentas, gambrel e L/T, roteiro e pacote do engenheiro (F3); terreno com corte/aterro testado contra cálculo manual (F4).
 - Pendências conhecidas: índice de aço do exemplo (~15,5 kg/m²) abaixo da faixa 21,9–24,7 da spec (ver decisions.md #11); validação estrutural por engenheiro não feita; IA não testada com chave real; importação automática do SINAPI não implementada (importação de preços por CSV sim); Supabase não configurado (modo local SQLite).
+
+## Fase 17 — aprovação legal e documentação para ART/RRT
+- [ ] F17-E1 relatório de aprovação (verificação normativa, índices urbanísticos, quadro de áreas, ART/RRT, pranchas, memoriais)
+- [ ] F17-W1 pranchas ABNT com carimbo, arquitetura (situação, implantação, plantas, cortes, fachadas, cobertura) e PDF vetorial
+- [ ] F17-W2 conteúdos das pranchas de engenharia (fundação, estrutura, elétrica, hidrossanitária)
+- [ ] F17-W3 tela Aprovação (dados legais, lote, verificação com parecer, ficha ART/RRT, memoriais, pacote .zip)
