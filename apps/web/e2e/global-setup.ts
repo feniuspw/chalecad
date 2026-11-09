@@ -9,7 +9,8 @@ export default async function globalSetup(config: FullConfig) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   for (const path of ['/', '/projetos', '/editor']) {
-    await page.goto(baseURL + path);
+    // /editor sem projeto pode redirecionar antes do `load` (navegação interrompida): só aquece, não falha
+    await page.goto(baseURL + path).catch(() => undefined);
     await page.waitForLoadState('networkidle').catch(() => undefined);
   }
   // espera o editor assentar (sem novas recargas)
