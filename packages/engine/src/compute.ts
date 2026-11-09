@@ -1,5 +1,6 @@
 import type { Catalog } from '@chalecad/catalog';
 import { getPriceBook } from '@chalecad/catalog';
+import { computeApproval } from './approval';
 import { computeBudget } from './budget';
 import { computeInstallations } from './installations';
 import { computePerformance } from './performance';
@@ -76,9 +77,7 @@ export function computeAllWith(
     structure,
   });
   lap('warnings');
-  timingsMs.total = performance.now() - t0;
-
-  return {
+  const base = {
     engineVersion: ENGINE_VERSION,
     catalogVersion: catalog.version,
     model,
@@ -93,6 +92,10 @@ export function computeAllWith(
     warnings,
     timingsMs,
   };
+  const approval = computeApproval(project, base, catalog);
+  lap('approval');
+  timingsMs.total = performance.now() - t0;
+  return { ...base, approval };
 }
 
 export type ComputeFromJsonResult =

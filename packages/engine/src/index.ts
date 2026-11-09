@@ -15,3 +15,4 @@ export * from './performance';
 export * from './warnings';
 export * from './compute';
 export * from './reports';
+export * from './approval';
