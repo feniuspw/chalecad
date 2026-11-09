@@ -5,6 +5,7 @@ import { buildGraph, pathEdges, type Graph } from './graph';
 import { lightingResults } from './lighting';
 import { pointInfos, pointNeedsDr } from './loads';
 import { demandOf, drGroups, entranceFor, feederFor, mainBreakerFor, panelModules, type Demand } from './panel';
+import { HEAVY_A } from './route';
 import { sizeCircuit } from './sizing';
 import { conductorArea, groupingFactor, peSection, tempFactor, voltageDropPct, type Method } from './tables';
 import { manhattan, type Ctx, type PointInfo } from './types';
@@ -57,15 +58,56 @@ export function calculate(ctx: Ctx, layout: ElectricalLayout): Computed {
   }
   const works: Work[] = [];
   const panelXY = layout.panel.position;
-  for (const def of layout.circuits) {
+
+  // Eletrodutos paralelos entre as mesmas duas caixas (o gerador desenha um por circuito pesado, e o grafo junta pontas
+  // a 2 cm): o caminho mínimo acharia sempre o mais curto e empilharia todos os circuitos nele. Cada circuito usa um dos
+  // paralelos: pesado (chuveiro, forno) sozinho se houver vaga, e os leves nos que têm menos circuitos.
+  const siblings = new Map<number, number[]>();
+  {
+    const byKey = new Map<string, number[]>();
+    graph.edges.forEach((e, i) => {
+      if (e.a === e.b || e.conduitId === null) return;
+      const key = e.a < e.b ? `${e.a}|${e.b}` : `${e.b}|${e.a}`;
+      (byKey.get(key) ?? byKey.set(key, []).get(key)!).push(i);
+    });
+    for (const list of byKey.values()) {
+      if (list.length < 2) continue;
+      list.sort((x, y) => graph.edges[x]!.len - graph.edges[y]!.len || x - y);
+      for (const i of list) siblings.set(i, list);
+    }
+  }
+  const siblingLoad = new Map<number, { n: number; heavy: boolean }>();
+  const loadOf = (e: number) => siblingLoad.get(e) ?? { n: 0, heavy: false };
+  const chosen = new Map<string, number>();
+  const pick = (circuit: string, heavy: boolean, e: number): number => {
+    const group = siblings.get(e);
+    if (!group) return e;
+    const key = `${circuit}|${group[0]}`;
+    let c = chosen.get(key);
+    if (c === undefined) {
+      const pool = heavy ? group : group.filter((x) => !loadOf(x).heavy);
+      const cands = pool.length > 0 ? pool : group;
+      c = cands.reduce((a, b) => (loadOf(b).n < loadOf(a).n ? b : a));
+      chosen.set(key, c);
+      const l = loadOf(c);
+      siblingLoad.set(c, { n: l.n + 1, heavy: l.heavy || heavy });
+    }
+    return c;
+  };
+  // pesados primeiro, para pegarem eletroduto livre
+  const loadVA = new Map<string, number>();
+  for (const i of infos) if (i.p.circuitId && i.p.kind !== 'data') loadVA.set(i.p.circuitId, (loadVA.get(i.p.circuitId) ?? 0) + i.loadVA);
+  const order = [...layout.circuits].sort((a, b) => (loadVA.get(b.id) ?? 0) - (loadVA.get(a.id) ?? 0));
+  for (const def of order) {
     const members = infos.filter((i) => i.p.circuitId === def.id && i.p.kind !== 'data');
     if (members.length === 0) continue;
+    const heavy = (loadVA.get(def.id) ?? 0) / voltage > HEAVY_A;
     const w: Work = { def, members, loadVA: 0, ib: 0, edgeSet: new Set(), flow: new Map(), ret: new Map(), fallback: [], unreached: [], farthest: 0 };
     const paths = new Map<string, number[]>();
     for (const m of members) {
       w.loadVA += m.loadVA;
       const node = graph.nodeOfPoint.get(m.p.id)!;
-      const pe = pathEdges(graph, node);
+      const pe = pathEdges(graph, node).map((e) => pick(def.id, heavy, e));
       if (pe.length === 0 && node !== graph.panel) {
         w.unreached.push(m.p.id);
         const len = manhattan(panelXY, m.p.position) * inst.routingFactor + inst.dropPerPoint + (ctx.elev.get(m.p.level) ?? 0);
@@ -100,6 +142,8 @@ export function calculate(ctx: Ctx, layout: ElectricalLayout): Computed {
     }
     works.push(w);
   }
+  const rank = new Map(layout.circuits.map((c, i) => [c.id, i]));
+  works.sort((a, b) => rank.get(a.def.id)! - rank.get(b.def.id)!);
 
   // --- agrupamento: circuitos por trecho ------------------------------------------------------------------
   const onEdge = new Map<number, Set<string>>();

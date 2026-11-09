@@ -48,7 +48,10 @@ describe('traçado manual', () => {
       }),
     );
     const after = r.circuits.find((c) => c.id === sock.circuitId)!;
-    expect(after.lengthM).toBeGreaterThan(before.lengthM + 3);
+    // `lengthM` é o ponto mais distante do circuito: com várias tomadas no circuito, a movida pode não ser a mais
+    // distante antes; o comprimento nunca diminui e o cabo e a queda crescem pelo trecho novo.
+    expect(after.lengthM).toBeGreaterThanOrEqual(before.lengthM - 1e-9);
+    expect(after.cable.phase).toBeGreaterThan(before.cable.phase + 3);
     expect(after.voltageDropPct).toBeGreaterThan(before.voltageDropPct);
     expect(after.cable.phase).toBeGreaterThan(before.cable.phase);
   });
