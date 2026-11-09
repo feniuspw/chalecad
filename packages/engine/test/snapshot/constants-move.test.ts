@@ -12,7 +12,8 @@ import { mk } from '../helpers/inline';
  */
 const catalog = getCatalog();
 const hash = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex').slice(0, 16);
-const strip = <T extends { timingsMs: unknown }>(r: T) => ({ ...r, timingsMs: {} });
+// `approval` (F17) é campo novo e tem testes próprios: o hash continua cobrindo só o que existia antes dele.
+const strip = <T extends { timingsMs: unknown; approval?: unknown }>({ approval: _approval, ...r }: T) => ({ ...r, timingsMs: {} });
 
 const house = { kind: 'gable_mezzanine', width: 6.5, depth: 8.5, wallHeight: 2.8, roofPitchDeg: 35 };
 const everything = () =>

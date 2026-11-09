@@ -24,7 +24,7 @@ describe('computeAllWith', () => {
     expect(res.terrain).toBeNull();
     expect(res.pieces.length).toBeGreaterThan(0);
     expect(res.budget.total).toBeGreaterThan(0);
-    expect(Object.keys(res.timingsMs).sort()).toEqual(['budget', 'framing', 'model', 'performance', 'quantities', 'structure', 'total', 'warnings', 'weight']);
+    expect(Object.keys(res.timingsMs).sort()).toEqual(['approval', 'budget', 'framing', 'model', 'performance', 'quantities', 'structure', 'total', 'warnings', 'weight']);
   });
 
   test('serializável e determinístico (exceto timingsMs)', () => {
