@@ -23,6 +23,9 @@ import { InstallationsView } from './InstallationsView';
 import { Plumb3D } from './tools/plumb/Plumb3D';
 import { usePlumb } from '@/lib/plumb/store';
 import { ElecLuminaires } from './ElecLuminaires';
+import { ElecDevices } from './ElecDevices';
+
+const ELEC_REPLACED = new Set<string>(['light', 'outlet', 'outlet_high', 'switch', 'tue']);
 import { RainTankView, SolarPanelsView } from './PerformanceView';
 import { MotorGroup } from './MotorGroup';
 import { PresentationFx } from './PresentationFx';
@@ -111,8 +114,12 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const toolEnv = useToolEnv(model);
   const rawInstallations = project.installations.enabled ? (results?.installations ?? null) : null;
   const hasElecLayout = !!rawInstallations?.electrical;
-  // as luminárias do projeto elétrico (ElecLuminaires) substituem os discos dos pontos de luz estimados
-  const installationsReport = useMemo(() => (rawInstallations && hasElecLayout ? { ...rawInstallations, points: rawInstallations.points.filter((p) => p.kind !== 'light') } : rawInstallations), [rawInstallations, hasElecLayout]);
+  // as luminárias e as tomadas/interruptores do projeto elétrico (ElecLuminaires, ElecDevices) substituem os marcadores
+  // esquemáticos dos pontos estimados
+  const installationsReport = useMemo(
+    () => (rawInstallations && hasElecLayout ? { ...rawInstallations, points: rawInstallations.points.filter((p) => !ELEC_REPLACED.has(p.kind)) } : rawInstallations),
+    [rawInstallations, hasElecLayout],
+  );
   const lampsOn = usePresentationUi((s) => s.lamps);
   const showLuminaires = hasElecLayout && !plan && !structural && !exploded;
   const showInstallations = !!installationsReport && !plan && !structural && (presentation ? presentationInstallations && !walking : true);
@@ -290,7 +297,10 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
       ) : null}
 
       {showLuminaires ? (
-        <ElecLuminaires model={model} elevations={levelElevations} lit={presentation && lampsOn} />
+        <>
+          <ElecLuminaires model={model} elevations={levelElevations} lit={presentation && lampsOn} />
+          <ElecDevices model={model} elevations={levelElevations} />
+        </>
       ) : null}
 
       {solarReport || rainReport ? (
