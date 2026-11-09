@@ -68,8 +68,11 @@ function Options() {
           ))}
         </select>
         <span className="block text-[11px] text-stone-500">
-          <Kbd>Shift</Kbd> + clique no cômodo: grade automática até o lux alvo.
+          <Kbd>Shift</Kbd> + clique no cômodo: grade automática até o lux alvo. A luz liga ao interruptor da porta (ou cria um).
         </span>
+        {k.luminaires.find((l) => l.id === luminaire && (l.type === 'flood' || l.type === 'strip')) ? (
+          <span className="block text-[11px] text-amber-800">Refletor externo e fita não são de teto interno: a grade automática não os escolhe. A fita vale 1 m por unidade.</span>
+        ) : null}
       </label>
     );
   if (tool === 'conduit')
@@ -107,7 +110,7 @@ export function toggleElecLayer(on?: boolean) {
 
 /**
  * Camada "Elétrica" da planta: botão para ligar e paleta (Tomada, Tomada alta, Uso específico, Interruptor, Luz, Quadro,
- * Eletroduto) com as opções da ferramenta e as ações do traçado (rotear, gerar automaticamente). Atalho Shift+E.
+ * Eletroduto) com as opções da ferramenta e as ações do traçado (rotear, gerar automaticamente). Atalhos: Shift+E (camada) e Shift+L (ferramenta Luz).
  */
 export function ElecDock() {
   const layerOn = useElecUi((s) => s.layerOn);
@@ -130,10 +133,17 @@ export function ElecDock() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || !e.shiftKey || e.key.toLowerCase() !== 'e') return;
+      const key = e.key.toLowerCase();
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || !e.shiftKey || (key !== 'e' && key !== 'l')) return;
       if (isTyping(e.target) || document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
       e.preventDefault();
-      toggleElecLayer();
+      if (key === 'e') {
+        toggleElecLayer();
+        return;
+      }
+      // Shift+L: ferramenta Luz (liga a camada Elétrica se preciso)
+      if (!useElecUi.getState().layerOn) toggleElecLayer(true);
+      if (useElecUi.getState().layerOn) useElecUi.getState().setTool('light');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

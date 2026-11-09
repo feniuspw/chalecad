@@ -65,6 +65,39 @@ export function roofBelowAt(planes: RoofPlane[], p: Vec2): number | null {
   return best;
 }
 
+/**
+ * Cota absoluta (m) do forro sobre um ponto: o menor entre o telhado (a água mais baixa que cobre o ponto, ou
+ * `roofFallback` quando nenhuma cobre) e o fundo da laje de mezanino acima do piso `elev` que cobre o ponto.
+ */
+export function ceilingTopZ(model: Pick<BuildingModel, 'roofPlanes' | 'slabs'>, elev: number, p: Vec2, roofFallback: (x: number, y: number) => number): number {
+  let top = roofBelowAt(model.roofPlanes, p) ?? roofFallback(p[0], p[1]);
+  for (const s of model.slabs) {
+    const bottom = s.topZ - s.thickness;
+    if (s.kind !== 'mezzanine' || bottom < elev + 0.05) continue;
+    if (pointInPolygon(p, s.polygon, 0)) top = Math.min(top, bottom);
+  }
+  return top;
+}
+
+/** Cota absoluta do piso de um nível (base das paredes ou topo da laje do nível); 0 se não achar. */
+export function levelElevationOf(model: Pick<BuildingModel, 'walls' | 'slabs'>, levelId: string): number {
+  const w = model.walls.find((x) => x.level === levelId);
+  if (w) return w.baseZ;
+  const s = model.slabs.find((x) => x.level === levelId);
+  return s ? s.topZ : 0;
+}
+
+/**
+ * Cota absoluta (m) do forro do nível `levelId` sobre o ponto `xy` da planta: o menor entre os planos do telhado e o
+ * fundo da laje do mezanino acima do ponto (quando ele está sob o mezanino). Sem telhado sobre o ponto, a maior
+ * parede do nível. `elevation` ausente = cota do nível pelas paredes.
+ */
+export function ceilingZAt(model: Pick<BuildingModel, 'roofPlanes' | 'slabs' | 'walls'>, levelId: string, xy: Vec2, elevation?: number): number {
+  const elev = elevation ?? levelElevationOf(model, levelId);
+  const wallTop = (): number => model.walls.filter((w) => w.level === levelId).reduce((m, w) => Math.max(m, w.baseZ + Math.max(0, ...w.outline.map((o) => o[1]))), elev);
+  return ceilingTopZ(model, elev, xy, wallTop);
+}
+
 // ---------------------------------------------------------------------------
 // Grafo planar
 // ---------------------------------------------------------------------------
@@ -483,15 +516,7 @@ export function completeRooms(layouts: RoomLayout[], { project, catalog, model, 
     const xs = polygon.map((p) => p[0]);
     const ys = polygon.map((p) => p[1]);
     const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-    const heightAt = (p: Vec2): number => {
-      let top = roofBelowAt(model.roofPlanes, p) ?? roofZ(p[0], p[1]);
-      for (const s of model.slabs) {
-        const bottom = s.topZ - s.thickness;
-        if (s.kind !== 'mezzanine' || bottom < elev + 0.05) continue;
-        if (pointInPolygon(p, s.polygon, 0)) top = Math.min(top, bottom);
-      }
-      return Math.max(0, top - elev);
-    };
+    const heightAt = (p: Vec2): number => Math.max(0, ceilingTopZ(model, elev, p, roofZ) - elev);
     const hs: number[] = [];
     for (let x = x0 + CEILING_GRID / 2; x < x1; x += CEILING_GRID) {
       for (let y = y0 + CEILING_GRID / 2; y < y1; y += CEILING_GRID) {

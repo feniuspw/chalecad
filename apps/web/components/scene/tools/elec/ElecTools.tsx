@@ -4,12 +4,11 @@ import { Line } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { toast } from 'sonner';
 import { getCatalog } from '@chalecad/catalog';
-import type { BuildingModel, ElecPoint, Vec2 } from '@chalecad/engine';
+import { suggestRoomLighting, type BuildingModel, type ElecPoint, type Vec2 } from '@chalecad/engine';
 import { useEditor } from '@/lib/store/editor';
-import { commitConduit, deleteElecSelection, movePoint, placePoint, setPanelPosition, toggleLightControl, editElec, elecId } from '@/lib/elec/actions';
-import { replaceRoomLights } from '@/lib/elec/edit';
+import { commitConduit, deleteElecSelection, movePoint, placeLight, placeLightGrid, placePoint, setPanelPosition, toggleLightControl, elecId } from '@/lib/elec/actions';
 import { ELEC_TOOLS, symbolKind } from '@/lib/elec/kinds';
-import { autoGrid, pointInPoly } from '@/lib/elec/lightGrid';
+import { lightingOf, luxText, luxWithExtra, currentLux, type LuxReading } from '@/lib/elec/liveLux';
 import { pickElec, snapConduit, type ConduitSnap } from '@/lib/elec/pick';
 import { proposePoint, relocatePoint, ceilingLuminaire, type Proposal } from '@/lib/elec/placement';
 import { symbolShape } from '@/lib/elec/symbols';
@@ -122,28 +121,53 @@ function SelectTool({ model, level, elevation }: { model: BuildingModel; level: 
   return null;
 }
 
+interface Ghost {
+  proposal: Proposal;
+  grid: Vec2[];
+  gridHeights: number[];
+  gridLuminaire: string;
+  /** Lux do cômodo depois da ação (grade substitui as luzes; luz avulsa soma). */
+  lux: LuxReading | null;
+  roomName: string;
+}
+
 function PlaceTool({ model, level, elevation }: { model: BuildingModel; level: string; elevation: number }) {
   const tool = useElecUi((s) => s.tool);
   const appliance = useElecUi((s) => s.appliance);
   const switchType = useElecUi((s) => s.switchType);
   const luminaire = useElecUi((s) => s.luminaire);
   const env = usePlaceEnv(model, level);
-  const [ghost, setGhost] = useState<{ proposal: Proposal; grid: Vec2[] } | null>(null);
+  const lighting = useEditor((s) => s.results?.installations?.electrical?.lighting);
+  const [ghost, setGhost] = useState<Ghost | null>(null);
   const opts = useMemo(() => ({ appliance, switchType, luminaire }), [appliance, switchType, luminaire]);
   const k = catalog.constants.electrical;
   const groundId = useEditor((s) => s.project.levels.find((l) => l.elevation === 0)?.id ?? s.project.levels[0]?.id);
   const gl = useThree((s) => s.gl);
 
-  const propose = useCallback((p: Vec2, shift: boolean) => {
+  const propose = useCallback((p: Vec2, shift: boolean): Ghost | null => {
     const pr = proposePoint(tool, p, env, opts);
     if (!pr) return null;
     let grid: Vec2[] = [];
-    if (tool === 'light' && shift && !pr.hit) {
-      const room = env.rooms.find((r) => r.id === pr.roomId);
-      if (room) grid = autoGrid({ polygon: room.polygon, area: room.area, use: room.use, ceilingAvg: room.ceilingAvg }, k.luminaires.find((l) => l.id === ceilingLuminaire(k, luminaire))!.lumens, k, pr.point.position).positions;
+    let gridHeights: number[] = [];
+    let gridLuminaire = ceilingLuminaire(k, luminaire);
+    let lux: LuxReading | null = null;
+    const placeRoom = env.rooms.find((r) => r.id === pr.roomId);
+    const modelRoom = pr.roomId ? model.rooms.find((r) => r.id === pr.roomId) : undefined;
+    if (tool === 'light' && shift && !pr.hit && modelRoom) {
+      // a mesma sugestão do gerador automático (posições, luminária, alturas do forro e lux)
+      const sug = suggestRoomLighting(modelRoom, model, catalog, { luminaire });
+      if (sug) {
+        grid = sug.positions;
+        gridHeights = sug.heights;
+        gridLuminaire = sug.luminaire;
+        lux = { lux: sug.lux, target: sug.target, min: sug.minLux, low: sug.belowMin };
+      }
+    } else if (tool === 'light' && pr.roomId) {
+      const lum = k.luminaires.find((l) => l.id === pr.point.luminaire);
+      lux = luxWithExtra(lightingOf(lighting, pr.roomId), (lum?.lumens ?? 0) * (pr.point.count ?? 1), k) ?? currentLux(lightingOf(lighting, pr.roomId));
     }
-    return { proposal: pr, grid };
-  }, [tool, env, opts, k, luminaire]);
+    return { proposal: pr, grid, gridHeights, gridLuminaire, lux, roomName: placeRoom ? (modelRoom?.name ?? placeRoom.use) : '' };
+  }, [tool, env, opts, k, luminaire, model, lighting]);
 
   usePlanePointer(
     {
@@ -169,16 +193,21 @@ function PlaceTool({ model, level, elevation }: { model: BuildingModel; level: s
           useElecUi.getState().setTool('none');
           return;
         }
-        if (tool === 'light' && e.shift && !pr.hit && pr.roomId) {
-          const room = env.rooms.find((r) => r.id === pr.roomId)!;
-          const lum = ceilingLuminaire(k, luminaire);
-          const fresh: ElecPoint[] = grid.map((position) => ({ id: elecId('e'), kind: 'light', level, position, height: room.ceilingAvg, luminaire: lum, count: 1 }));
-          const ag = autoGrid({ polygon: room.polygon, area: room.area, use: room.use, ceilingAvg: room.ceilingAvg }, k.luminaires.find((l) => l.id === lum)!.lumens, k, pr.point.position);
-          const ok = editElec('Grade de luminárias', (el) => void replaceRoomLights(el, level, (p) => pointInPoly(p.position, room.polygon), fresh));
-          if (ok) toast.success(`${fresh.length} luminária(s) em grade: cerca de ${Math.round(ag.lux)} lux (alvo ${ag.target}).`);
+        const room = env.rooms.find((r) => r.id === pr.roomId);
+        if (tool === 'light' && e.shift && !pr.hit && room && grid.length > 0) {
+          const fresh: ElecPoint[] = grid.map((position, i) => ({ id: elecId('e'), kind: 'light', level, position, height: g.gridHeights[i] ?? pr.point.height, luminaire: g.gridLuminaire, count: 1 }));
+          const ok = placeLightGrid({ id: room.id, level, polygon: room.polygon }, fresh);
+          if (ok && g.lux) {
+            const msg = `${fresh.length} luminária(s) em grade: cerca de ${Math.round(g.lux.lux)} lux (alvo ${Math.round(g.lux.target)}).`;
+            if (g.lux.low) toast.warning(`${msg} Abaixo do mínimo de ${Math.round(g.lux.min)} lux: use uma luminária mais forte.`);
+            else toast.success(msg);
+          }
           return;
         }
-        const room = env.rooms.find((r) => r.id === pr.roomId);
+        if (tool === 'light') {
+          placeLight(pr.point, room ? { id: room.id, level, polygon: room.polygon } : null);
+          return;
+        }
         placePoint(pr.point, tool === 'switch' && room ? { autoControl: { polygon: room.polygon } } : {});
       },
     },
@@ -193,6 +222,9 @@ function PlaceTool({ model, level, elevation }: { model: BuildingModel; level: s
   const kind = tool === 'panel' ? 'panel' : symbolKind({ id: 'g', ...pr.point });
   const shape = symbolShape(kind, pr.point.position, pr.normal);
   const z = elevation + 1.3;
+  const va = tool === 'light' ? lightVAText(pr.point, grid.length, ghost.gridLuminaire) : '';
+  const lines = [grid.length > 1 ? `${pr.label} · grade de ${grid.length}` : pr.label];
+  if (ghost.lux) lines.push(luxText(ghost.roomName || 'Cômodo', ghost.lux) + va);
   return (
     <MotorGroup>
       <SymbolMesh shape={shape} color={GHOST} z={z} order={80} />
@@ -200,10 +232,19 @@ function PlaceTool({ model, level, elevation }: { model: BuildingModel; level: s
         <SymbolMesh key={i} shape={symbolShape('light_ceiling', g, null)} color={GHOST} z={z} order={80} opacity={0.7} />
       ))}
       <SceneLabel position={[pr.point.position[0], pr.point.position[1] + 0.5, z]} tone="live">
-        {grid.length > 1 ? `${pr.label} · grade de ${grid.length}` : pr.label}
+        {lines.join(' · ')}
       </SceneLabel>
     </MotorGroup>
   );
+}
+
+/** " · 40 W" da luz (ou da grade) do fantasma. */
+function lightVAText(point: Omit<ElecPoint, 'id'>, gridCount: number, gridLuminaire: string): string {
+  const k = catalog.constants.electrical;
+  const lum = k.luminaires.find((l) => l.id === (gridCount > 0 ? gridLuminaire : point.luminaire));
+  if (!lum) return '';
+  const n = gridCount > 0 ? gridCount : (point.count ?? 1);
+  return ` · ${Math.round(lum.watts * n)} W`;
 }
 
 const SNAP_KIND = { point: 'endpoint', panel: 'endpoint', vertex: 'endpoint', segment: 'midpoint', grid: 'grid', none: 'none' } as const;

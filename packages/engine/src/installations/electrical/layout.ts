@@ -1,19 +1,17 @@
 import { pointInPolygon, distToSegment, bbox2, type Vec2 } from '../../geometry';
-import type { ElecPoint } from '../../schema/project';
-import type { FurnitureModel, RoomModel } from '../../schema/results';
+import type { Catalog } from '@chalecad/catalog';
+import type { ElecPoint, Project } from '../../schema/project';
+import type { BuildingModel, FurnitureModel, RoomModel } from '../../schema/results';
 import { nearestEdge, onEdge, polygonCentroid, roomEdges, type EdgeInfo } from '../geo';
-import type { PlacedPoints } from '../points';
-import { gridPositions, luminairesNeeded } from './lighting';
-import { luminaireOf, minSockets } from './loads';
+import { placePoints, type PlacedPoints } from '../points';
+import { suggestRoomLighting } from './lighting';
+import { makeCtx, minSockets } from './loads';
 import { dist2, type Ctx } from './types';
 
 /** Corredor mais longo que isso (m) ganha interruptor paralelo (boa prática, pesquisa §5.5). */
 const LONG_CORRIDOR = 5;
 /** Folga mínima das tomadas ao vão de porta e às pontas da parede (m). */
 const DOOR_CLEAR = 0.3;
-/** Mais que isso e o gerador troca para o plafon maior do catálogo; teto de luminárias por cômodo. */
-const PREFERRED_MAX_LIGHTS = 6;
-const MAX_LIGHTS_PER_ROOM = 30;
 /** Tomada de bancada: distância máxima à bancada (m) para contar como "acima dela". */
 export const COUNTER_REACH = 1.2;
 const COUNTER_ITEMS = new Set(['furn_kitchen_sink', 'furn_kitchen_counter', 'furn_stove']);
@@ -65,7 +63,6 @@ export function generatePoints(ctx: Ctx, placed: PlacedPoints): ElecPoint[] {
       return full;
     },
   };
-  const lum = luminaireOf(k, k.defaultLuminaire);
   const groundId = ctx.project.levels.find((l) => l.elevation === 0)?.id ?? ctx.project.levels[0]!.id;
   const seedOf = (r: RoomModel): Vec2 | undefined => ctx.project.rooms.find((x) => x.id === r.id)?.seed as Vec2 | undefined;
 
@@ -75,22 +72,10 @@ export function generatePoints(ctx: Ctx, placed: PlacedPoints): ElecPoint[] {
     const edges = roomEdges(room, model);
     const roomFurn = model.furniture.filter((f) => f.roomId === room.id);
 
-    // --- Luz no teto: grade pelo método dos lúmens com a luminária padrão ---------------------------------------
-    let roomLum = lum;
-    let n = luminairesNeeded(room, roomLum.lumens, k);
-    if (n > PREFERRED_MAX_LIGHTS) {
-      // cômodo grande: o plafon de maior fluxo do catálogo, em vez de uma grade enorme do padrão
-      const bigger = k.luminaires.filter((l) => l.type === lum.type && l.lumens > lum.lumens).sort((a, b) => a.lumens - b.lumens);
-      for (const cand of bigger) {
-        roomLum = cand;
-        n = luminairesNeeded(room, cand.lumens, k);
-        if (n <= PREFERRED_MAX_LIGHTS) break;
-      }
-    }
-    n = Math.min(MAX_LIGHTS_PER_ROOM, n);
-    const spots = n === 1 ? [centroid] : gridPositions(poly, n, centroid);
-    const lights = spots.map((pos) =>
-      gen.add('l', room.id, { kind: 'light', level: room.level, position: round3(pos), height: room.ceiling.avg, luminaire: roomLum.id, count: 1 }),
+    // --- Luz no teto: grade pelo método dos lúmens (a mesma `suggestRoomLighting` do editor) ---------------------
+    const sug = suggestRoomLighting(room, model, ctx.catalog, { luminaire: k.defaultLuminaire, ...(seedOf(room) ? { seed: seedOf(room)! } : {}) })!;
+    const lights = sug.positions.map((pos, i) =>
+      gen.add('l', room.id, { kind: 'light', level: room.level, position: pos, height: sug.heights[i]!, luminaire: sug.luminaire, count: 1 }),
     );
 
     // --- Interruptor junto à porta (do `placePoints`), paralelo em escada e corredor longo -----------------------------
@@ -256,4 +241,27 @@ function placeCounterSockets(ctx: Ctx, edges: EdgeInfo[], furn: FurnitureModel[]
     s.position = round3(onEdge(edge, tt));
     s.hostId = edge.wall.id;
   }
+}
+
+/**
+ * Interruptor para um cômodo que não tem: junto à porta principal (a mesma posição que o traçado gerado usa), sem
+ * comando (`controls` vazio). null se o cômodo não existe ou não tem polígono.
+ */
+export function suggestRoomSwitch(project: Project, model: BuildingModel, catalog: Catalog, roomId: string): Omit<ElecPoint, 'id'> | null {
+  const ctx = makeCtx(project, model, catalog);
+  const room = ctx.rooms.find((r) => r.id === roomId);
+  if (!room) return null;
+  const placed = placePoints(project, model, catalog);
+  const sw = placed.points.find((p) => p.kind === 'switch' && p.roomId === room.id);
+  const seed = project.rooms.find((x) => x.id === room.id)?.seed as Vec2 | undefined;
+  const pos = sw?.position ?? polygonCentroid(room.polygon!, seed);
+  return {
+    kind: 'switch',
+    level: room.level,
+    position: round3(pos),
+    ...(sw?.hostId ? { hostId: sw.hostId } : {}),
+    height: ctx.k.heights.switch,
+    switchType: 'one_way',
+    controls: [],
+  };
 }

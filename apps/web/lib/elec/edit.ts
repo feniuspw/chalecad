@@ -2,7 +2,7 @@
  * Edição do projeto elétrico (puro, sobre o rascunho Immer de `project.installations.electrical`).
  * Na primeira edição o traçado gerado pelo motor é copiado para o projeto com `manual: true`.
  */
-import type { CircuitDef, Conduit, ElecPoint, Electrical, ElectricalLayout } from '@chalecad/engine';
+import { distToSegment, pointInPolygon, type CircuitDef, type Conduit, type ElecPoint, type Electrical, type ElectricalLayout, type Vec2 } from '@chalecad/engine';
 
 const MAX_POINTS = 2000;
 const MAX_CONDUITS = 2000;
@@ -142,4 +142,65 @@ export function replaceRoomLights(e: Electrical, level: string, inside: (p: Elec
   for (const p of fresh) appendPoint(e, p);
   for (const s of owners) s.controls = [...(s.controls ?? []).filter((c) => !oldIds.has(c)), ...fresh.map((p) => p.id)].slice(0, 20);
   return { removed: old.length };
+}
+
+const NEAR_ROOM = 0.35;
+
+function distToPoly(p: Vec2, poly: Vec2[]): number {
+  if (pointInPolygon(p, poly, 0)) return 0;
+  let d = Infinity;
+  for (let i = 0; i < poly.length; i++) d = Math.min(d, distToSegment(p, poly[i]!, poly[(i + 1) % poly.length]!));
+  return d;
+}
+
+/** Interruptores do cômodo: os do nível dentro do polígono ou na face da parede dele (até 35 cm). */
+export function switchesInRoom(points: ElecPoint[], level: string, polygon: Vec2[]): ElecPoint[] {
+  return points.filter((p) => p.kind === 'switch' && p.level === level && distToPoly(p.position as Vec2, polygon) <= NEAR_ROOM);
+}
+
+export interface ConnectResult {
+  /** Interruptor que passou a comandar as luzes (null = nenhum). */
+  switchId: string | null;
+  /** O interruptor foi criado agora (o cômodo não tinha). */
+  created: boolean;
+}
+
+const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
+
+/**
+ * Liga luzes (que ainda não têm interruptor) ao interruptor do cômodo mais próximo delas (o da porta mais perto;
+ * interruptores paralelos, com o mesmo comando, recebem juntos). Sem interruptor no cômodo e com `newSwitch`, cria
+ * um (junto à porta principal, do motor) que as comanda. Sem nenhum dos dois, nada muda.
+ */
+export function connectLights(e: Electrical, lightIds: string[], room: { level: string; polygon: Vec2[] }, newSwitch: Omit<ElecPoint, 'id'> | null, newId: () => string): ConnectResult {
+  const controlled = new Set(e.points.filter((p) => p.kind === 'switch').flatMap((p) => p.controls ?? []));
+  const lights = e.points.filter((p) => p.kind === 'light' && lightIds.includes(p.id) && !controlled.has(p.id));
+  if (lights.length === 0) return { switchId: null, created: false };
+  const ids = lights.map((l) => l.id);
+  const switches = switchesInRoom(e.points, room.level, room.polygon);
+  if (switches.length === 0) {
+    if (!newSwitch) return { switchId: null, created: false };
+    const sw: ElecPoint = { id: newId(), ...newSwitch, controls: ids.slice(0, 20) };
+    if (!appendPoint(e, sw)) return { switchId: null, created: false };
+    return { switchId: sw.id, created: true };
+  }
+  const cx = lights.reduce((s, l) => s + l.position[0], 0) / lights.length;
+  const cy = lights.reduce((s, l) => s + l.position[1], 0) / lights.length;
+  const near = switches.reduce((a, b) => (Math.hypot(b.position[0] - cx, b.position[1] - cy) < Math.hypot(a.position[0] - cx, a.position[1] - cy) ? b : a));
+  const group = switches.filter((s) => s.id === near.id || sameSet(s.controls ?? [], near.controls ?? []));
+  for (const s of group) s.controls = [...(s.controls ?? []), ...ids.filter((i) => !(s.controls ?? []).includes(i))].slice(0, 20);
+  return { switchId: near.id, created: false };
+}
+
+/**
+ * A luz mudou de cômodo: sai do comando dos interruptores de fora do novo cômodo, perde o circuito (o motor
+ * redistribui) e liga-se ao interruptor do novo cômodo (ou cria um).
+ */
+export function rewireLight(e: Electrical, lightId: string, room: { level: string; polygon: Vec2[] }, newSwitch: Omit<ElecPoint, 'id'> | null, newId: () => string): ConnectResult {
+  const light = e.points.find((p) => p.id === lightId && p.kind === 'light');
+  if (!light) return { switchId: null, created: false };
+  const here = new Set(switchesInRoom(e.points, room.level, room.polygon).map((s) => s.id));
+  for (const s of e.points) if (s.kind === 'switch' && !here.has(s.id) && s.controls?.includes(lightId)) s.controls = s.controls.filter((c) => c !== lightId);
+  delete light.circuitId;
+  return connectLights(e, [lightId], room, newSwitch, newId);
 }

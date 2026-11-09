@@ -4,11 +4,10 @@
  * edição copia o traçado gerado para o projeto com `manual: true`.
  */
 import { toast } from 'sonner';
-import { routeLayoutConduits, type CircuitDef, type Conduit, type ElecPoint, type Electrical, type ElectricalLayout, type Vec2 } from '@chalecad/engine';
+import { pointInPolygon, routeLayoutConduits, suggestRoomSwitch, type CircuitDef, type Conduit, type ElecPoint, type Electrical, type ElectricalLayout, type Vec2 } from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
 import { useEditor } from '@/lib/store/editor';
-import { addConduit, adoptCircuit, appendPoint, ensureManual, patchCircuit, patchPoint, pinCircuit, removeConduits, removePoints, resetToAuto, toggleControl, uncontrolledLightsIn } from './edit';
-import { pointInPoly } from './lightGrid';
+import { addConduit, adoptCircuit, appendPoint, connectLights, replaceRoomLights, rewireLight, type ConnectResult, ensureManual, patchCircuit, patchPoint, pinCircuit, removeConduits, removePoints, resetToAuto, toggleControl, uncontrolledLightsIn } from './edit';
 import { routeConduits } from './route';
 import { useElecUi } from './ui';
 
@@ -48,7 +47,7 @@ export function placePoint(point: Omit<ElecPoint, 'id'>, opts: { autoControl?: {
     if (point.kind === 'switch' && opts.autoControl) {
       const poly = opts.autoControl.polygon;
       const all = e.manual ? e.points : (layout?.points ?? []);
-      full.controls = uncontrolledLightsIn(all, (p) => p.level === point.level && pointInPoly(p.position, poly));
+      full.controls = uncontrolledLightsIn(all, (p) => p.level === point.level && pointInPolygon(p.position, poly, 0));
     }
     if (!appendPoint(e, full)) toast.error('Limite de 2.000 pontos elétricos.');
   });
@@ -64,10 +63,75 @@ export function placePoints(points: Omit<ElecPoint, 'id'>[], label = 'Grade de l
   return ok ? ids : [];
 }
 
+/** Interruptor novo para o cômodo (junto à porta principal, pela lógica do motor); null sem modelo. */
+function switchSpot(roomId: string): Omit<ElecPoint, 'id'> | null {
+  const st = useEditor.getState();
+  const model = st.results?.model;
+  return model ? suggestRoomSwitch(st.project, model, getCatalog(), roomId) : null;
+}
+
+export interface LightRoom {
+  id: string;
+  level: string;
+  polygon: Vec2[];
+}
+
+function announceConnect(r: ConnectResult, plural: boolean): void {
+  const what = plural ? 'As luzes' : 'A luz';
+  if (r.created) toast.message(`${what} ligada${plural ? 's' : ''} a um interruptor novo, junto à porta do cômodo.`, { id: 'elec-light-switch', duration: 3500, action: { label: 'Desfazer', onClick: () => useEditor.getState().undo() } });
+  else if (r.switchId) toast.message(`${what} ligada${plural ? 's' : ''} ao interruptor da porta mais próxima.`, { id: 'elec-light-switch', duration: 2500 });
+  else toast.info(`${what} sem interruptor: não há interruptor no cômodo. Adicione um com a ferramenta Interruptor.`, { id: 'elec-light-switch', duration: 4000 });
+}
+
+/** Luz nova (teto ou arandela): liga ao interruptor do cômodo mais próximo ou cria um junto à porta, num passo só. */
+export function placeLight(point: Omit<ElecPoint, 'id'>, room: LightRoom | null): string | null {
+  const id = elecId('e');
+  const spot = room ? switchSpot(room.id) : null;
+  let res: ConnectResult = { switchId: null, created: false };
+  const ok = editElec('Adicionar luz', (e) => {
+    if (!appendPoint(e, { id, ...point })) {
+      toast.error('Limite de 2.000 pontos elétricos.');
+      return;
+    }
+    if (room) res = connectLights(e, [id], room, spot, () => elecId('e'));
+  });
+  if (ok && room) announceConnect(res, false);
+  return ok ? id : null;
+}
+
+/** Grade de luzes de teto no cômodo: troca as antigas, as novas herdam o comando, e o cômodo sem interruptor ganha um. */
+export function placeLightGrid(room: LightRoom, fresh: ElecPoint[]): boolean {
+  const spot = switchSpot(room.id);
+  let res: ConnectResult = { switchId: null, created: false };
+  const ok = editElec('Grade de luminárias', (e) => {
+    replaceRoomLights(e, room.level, (p) => pointInPolygon(p.position, room.polygon, 0), fresh);
+    res = connectLights(e, fresh.map((p) => p.id), room, spot, () => elecId('e'));
+  });
+  if (ok && (res as ConnectResult).created) announceConnect(res, true);
+  return ok;
+}
+
+/** Cômodo (do último cálculo) que contém o ponto, no nível. */
+function roomOf(level: string, p: Vec2): LightRoom | null {
+  const r = useEditor.getState().results?.model.rooms.find((x) => x.level === level && x.polygon && pointInPolygon(p, x.polygon, 0));
+  return r?.polygon ? { id: r.id, level: r.level, polygon: r.polygon as Vec2[] } : null;
+}
+
 export function movePoint(id: string, to: { position: Vec2; hostId?: string; height?: number }): void {
+  const from = currentLayout()?.points.find((p) => p.id === id);
+  const oldRoom = from?.kind === 'light' ? roomOf(from.level, from.position as Vec2) : null;
+  const newRoom = from?.kind === 'light' ? roomOf(from.level, to.position) : null;
+  const moved = !!from && from.kind === 'light' && !!newRoom && oldRoom?.id !== newRoom.id;
+  const spot = moved && newRoom ? switchSpot(newRoom.id) : null;
+  let res: ConnectResult = { switchId: null, created: false };
   editElec('Mover ponto elétrico', (e) => {
     patchPoint(e, id, { position: to.position, ...(to.height !== undefined ? { height: to.height } : {}), ...(to.hostId ? { hostId: to.hostId } : {}) });
+    if (moved && newRoom) res = rewireLight(e, id, newRoom, spot, () => elecId('e'));
   });
+  if (moved) {
+    toast.message('A luz mudou de cômodo: saiu do comando antigo e perdeu o circuito (o motor distribui de novo).', { id: 'elec-light-moved', duration: 3500 });
+    announceConnect(res, false);
+  }
 }
 
 export function editPoint(id: string, patch: Partial<Omit<ElecPoint, 'id'>>, remove: (keyof ElecPoint)[] = [], label = 'Editar ponto elétrico'): void {

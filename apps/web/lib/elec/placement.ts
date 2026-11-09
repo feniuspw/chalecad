@@ -3,8 +3,7 @@
  * com a altura padrão do tipo (catálogo `heights`); "Luz" vai ao teto dentro do cômodo ou vira arandela na parede.
  */
 import type { Catalog } from '@chalecad/catalog';
-import type { ElecPoint, Vec2 } from '@chalecad/engine';
-import { pointInPoly } from './lightGrid';
+import { ceilingZAt, levelElevationOf, pointInPolygon, type BuildingModel, type ElecPoint, type Vec2 } from '@chalecad/engine';
 import type { ElecToolId } from './kinds';
 import { snapToWallFace, type OpeningSpan, type WallHit, type WallLike } from './wallSnap';
 
@@ -24,6 +23,26 @@ export interface PlaceEnv {
   openings: OpeningSpan[];
   rooms: PlaceRoom[];
   k: ElecK;
+  /** Altura do forro (m acima do piso do nível) sobre um ponto: telhado e laje do mezanino. Ausente = média do cômodo. */
+  ceilingAt?: (xy: Vec2) => number;
+}
+
+/** Parede, vãos, cômodos e forro local de um nível, para o encaixe das ferramentas (puro, sem React). */
+export function buildPlaceEnv(model: BuildingModel, level: string, k: ElecK): PlaceEnv {
+  const elev = levelElevationOf(model, level);
+  return {
+    levelId: level,
+    walls: model.walls.filter((w) => w.level === level).map((w) => ({ id: w.id, from: w.from as [number, number], to: w.to as [number, number], thickness: w.thickness })),
+    openings: model.openings.filter((o) => o.valid && o.hostKind === 'wall').map((o) => ({ hostId: o.hostId, u0: o.u0, u1: o.u1, v0: o.v0, v1: o.v1 })),
+    rooms: model.rooms.filter((r) => r.level === level && r.polygon && r.polygon.length >= 3).map((r) => ({ id: r.id, polygon: r.polygon as [number, number][], ceilingAvg: r.ceiling.avg, use: r.use, area: r.area })),
+    k,
+    ceilingAt: (xy) => Math.max(0, Math.round((ceilingZAt(model, level, xy, elev) - elev) * 1000) / 1000),
+  };
+}
+
+/** Altura do forro no ponto: a local do ambiente (telhado inclinado, mezanino) ou, sem ela, a média do cômodo. */
+export function ceilingHeight(env: PlaceEnv, room: PlaceRoom, xy: Vec2): number {
+  return env.ceilingAt ? env.ceilingAt(xy) : room.ceilingAvg;
 }
 
 export interface PlaceOptions {
@@ -43,7 +62,7 @@ export interface Proposal {
   normal: Vec2 | null;
 }
 
-export const roomAt = (rooms: PlaceRoom[], p: Vec2): PlaceRoom | null => rooms.find((r) => pointInPoly(p, r.polygon)) ?? null;
+export const roomAt = (rooms: PlaceRoom[], p: Vec2): PlaceRoom | null => rooms.find((r) => pointInPolygon(p, r.polygon, 0)) ?? null;
 
 /** Altura da caixa do TUE pelo aparelho: ar-condicionado e chuveiro no alto, forno e micro-ondas na bancada, o resto baixo. */
 export function applianceHeight(key: string, k: ElecK): number {
@@ -114,11 +133,12 @@ export function proposePoint(tool: ElecToolId, p: Vec2, env: PlaceEnv, o: PlaceO
       }
       if (!room) return null;
       const pos: Vec2 = [Math.round(p[0] * 20) / 20, Math.round(p[1] * 20) / 20];
+      const h = ceilingHeight(env, room, pos);
       return {
-        point: { kind: 'light', level: env.levelId, position: pos, height: room.ceilingAvg, luminaire: ceilingLuminaire(k, o.luminaire), count: 1 },
+        point: { kind: 'light', level: env.levelId, position: pos, height: h, luminaire: ceilingLuminaire(k, o.luminaire), count: 1 },
         hit: null,
         roomId: room.id,
-        label: `Luz no teto · ${fm(room.ceilingAvg)}`,
+        label: `Luz no teto · ${fm(h)}`,
         normal: null,
       };
     }
@@ -133,5 +153,6 @@ export function relocatePoint(pt: ElecPoint, p: Vec2, env: PlaceEnv, reach = 0.6
   }
   const room = roomAt(env.rooms, p);
   if (!room) return null;
-  return { position: [Math.round(p[0] * 20) / 20, Math.round(p[1] * 20) / 20], height: room.ceilingAvg };
+  const position: Vec2 = [Math.round(p[0] * 20) / 20, Math.round(p[1] * 20) / 20];
+  return { position, height: ceilingHeight(env, room, position) };
 }
