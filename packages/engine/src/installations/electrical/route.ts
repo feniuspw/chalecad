@@ -32,7 +32,7 @@ interface Node {
 }
 
 /** Circuito com corrente acima disso (A) segue em eletroduto só dele (chuveiro, forno, cooktop). */
-const HEAVY_A = 16;
+export const HEAVY_A = 16;
 const MAX_CIRCUITS_HEAVY = 1;
 /** Trecho reto pela parede (furos dos montantes) só até esta distância (m); acima disso, pelo forro. */
 const MAX_WALL_RUN = 4;
