@@ -1,44 +1,44 @@
 # ChaléCAD
 
-Editor web paramétrico de chalés em 3D (LSF, radier, telha sanduíche) com quantitativos, peso, pré-dimensionamento e orçamento. Spec: `docs/spec.md`. Decisões: `docs/decisions.md`. Plano: `docs/plan.md`. Cards: `docs/tasks/<ID>.md`.
+Parametric 3D web editor for chalets (LSF, radier (raft slab), sandwich roof panel) with quantity takeoff, weight, preliminary sizing, and cost estimate. Spec: `docs/spec.md`. Decisions: `docs/decisions.md`. Plan: `docs/plan.md`. Cards: `docs/tasks/<ID>.md`.
 
-## Comandos
+## Commands
 
 ```bash
 pnpm install
-pnpm dev                                   # apps/web em localhost:3000
-pnpm test                                  # Vitest em todos os pacotes (Turborepo)
-pnpm typecheck                             # tsc --noEmit em todos os pacotes
+pnpm dev                                   # apps/web at localhost:3000
+pnpm test                                  # Vitest in all packages (Turborepo)
+pnpm typecheck                             # tsc --noEmit in all packages
 pnpm lint                                  # ESLint
-pnpm --filter @chalecad/engine test        # motor isolado: sem banco, rede ou navegador
+pnpm --filter @chalecad/engine test        # engine in isolation: no database, network, or browser
 pnpm e2e                                   # Playwright (apps/web)
 ```
 
-Ambiente local: `DATA_MODE=sqlite` e `AI_ENABLED=false` (ver `.env.example`).
+Local environment: `DATA_MODE=sqlite` and `AI_ENABLED=false` (see `.env.example`).
 
-## Estrutura
+## Structure
 
 - `apps/web`: Next.js 16 (App Router) + React Three Fiber + drei, Zustand + Immer, Tailwind 4, Comlink (Web Worker).
-- `packages/engine`: `@chalecad/engine`. Schema Zod do projeto (`src/schema`) e funções puras: `buildModel`, `generatePieces`, quantitativos, peso, estrutura, orçamento, terreno, `computeAll`.
-- `packages/catalog`: `@chalecad/catalog`. Perfis, materiais, assemblies, base de preços e constantes técnicas versionadas.
-- `packages/ui`: `@chalecad/ui`. Componentes visuais compartilhados (estilo shadcn).
+- `packages/engine`: `@chalecad/engine`. Project Zod schema (`src/schema`) and pure functions: `buildModel`, `generatePieces`, quantity takeoff, weight, structure, cost estimate, terrain, `computeAll`.
+- `packages/catalog`: `@chalecad/catalog`. Profiles, materials, assemblies, price base, and versioned technical constants.
+- `packages/ui`: `@chalecad/ui`. Shared visual components (shadcn style).
 
-## Regras de arquitetura
+## Architecture rules
 
-- O projeto é um único JSON versionado (`schemaVersion`), validado por Zod. Geometria, quantitativos e orçamento são derivados por funções puras, nunca salvos como fonte de verdade.
-- `packages/engine` e `packages/catalog` não importam React, Three.js, Node nem nada de browser. Entrada e saída em JSON serializável.
-- Toda constante técnica (perdas, cargas, limites de flecha, densidades) vem de `packages/catalog`. Nunca fixa no código do motor.
-- Cálculo roda em Web Worker via Comlink.
-- Renderização com instancing por tipo de perfil (meta: 60 fps com 2.000+ peças).
-- Acesso a dados só via Drizzle ORM e a interface `StorageAdapter`.
-- Coordenadas do motor: [x, y, z] com z para cima; a cena converte para y-up em `apps/web/lib/three/convert.ts`.
-- Unidades internas: metros, graus, kg, BRL. Interface em pt-BR.
-- Todo resultado/relatório mostra o aviso de que não substitui projeto estrutural com ART (`DISCLAIMER` em `@chalecad/engine`).
-- TypeScript estrito (`strict`, `noUncheckedIndexedAccess`).
+- The project is a single versioned JSON (`schemaVersion`), validated by Zod. Geometry, quantity takeoff, and cost estimate are derived by pure functions, never saved as the source of truth.
+- `packages/engine` and `packages/catalog` do not import React, Three.js, Node, or anything browser-specific. Input and output are serializable JSON.
+- Every technical constant (losses, loads, deflection limits, densities) comes from `packages/catalog`. Never hard-coded in the engine.
+- Calculation runs in a Web Worker via Comlink.
+- Rendering uses instancing per profile type (target: 60 fps with 2,000+ pieces).
+- Data access only via Drizzle ORM and the `StorageAdapter` interface.
+- Engine coordinates: [x, y, z] with z up; the scene converts to y-up in `apps/web/lib/three/convert.ts`.
+- Internal units: meters, degrees, kg, BRL. UI in Brazilian Portuguese (pt-BR).
+- Every result/report shows the notice that it does not replace a structural design with an ART (Anotação de Responsabilidade Técnica, the engineer's liability record) (`DISCLAIMER` in `@chalecad/engine`).
+- Strict TypeScript (`strict`, `noUncheckedIndexedAccess`).
 
-## Regras de colaboração (orquestrador + subagents)
+## Collaboration rules (orchestrator + subagents)
 
-- Schemas (`packages/engine/src/schema`, `packages/catalog/src/schema.ts`) e este arquivo só mudam pela sessão orquestradora.
-- Subagent `implementer` executa exatamente um card e só toca os arquivos listados em "Pode alterar".
-- Um commit por card, com o ID no título (ex.: `F1-E1: gerador de peças LSF`).
-- Antes de terminar qualquer card: `pnpm typecheck` e testes do pacote verdes.
+- Schemas (`packages/engine/src/schema`, `packages/catalog/src/schema.ts`) and this file only change through the orchestrator session.
+- The `implementer` subagent executes exactly one card and only touches the files listed under "Pode alterar" (Allowed changes).
+- One commit per card, with the ID in the title (e.g., `F1-E1: gerador de peças LSF`).
+- Before finishing any card: `pnpm typecheck` and the package's tests green.

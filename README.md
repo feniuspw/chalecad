@@ -1,80 +1,80 @@
 # ChaléCAD
 
-Editor web paramétrico de chalés em 3D (light steel frame ou wood frame, radier, telha sanduíche). Você desenha a casa e recebe na hora:
+Parametric 3D web editor for chalets (light steel frame or wood frame, radier (raft slab), sandwich roof panel). You draw the house and instantly get:
 
-- a lista de materiais com o plano de corte;
-- o peso da estrutura;
-- um pré-dimensionamento com alertas;
-- o orçamento;
-- a documentação para aprovação.
+- the bill of materials with the cutting plan;
+- the weight of the structure;
+- a preliminary sizing with alerts;
+- the cost estimate;
+- the documentation for approval.
 
-> Estimativa para planejamento. Não substitui projeto estrutural com ART de engenheiro habilitado.
+> Planning estimate. It does not replace a structural design with an ART (Anotação de Responsabilidade Técnica, the engineer's liability record) from a licensed engineer.
 
-## O que faz
+## What it does
 
-- **Modelagem 3D paramétrica.** Tipologias:
-  - duas águas com mezanino, A-frame, meia-água, telhado plano e gambrel;
-  - plantas em L/T e anexos.
-  Inclui cômodos, aberturas, escadas e móveis. Há planta 2D, vista explodida e mapa de calor da estrutura.
-- **Motor puro em TypeScript** (`@chalecad/engine`): peças LSF e wood frame, quantitativos, peso, verificações estruturais simplificadas (NBR 14762, 6120, 6123 e 7190), orçamento com mão de obra regional, cronograma e compras.
-- **Terreno inclinado:** platô, corte e aterro, taludes, muros de arrimo, máquinas e caminhões.
-- **Extras:** deck, muro, cerca e torre da caixa d'água.
-- **Instalações estimadas:**
-  - elétrica: pontos, circuitos, quadro e unifilar (NBR 5410);
-  - hidrossanitária: água fria, esgoto e fossa (NBR 5626 e 8160).
-- **Desempenho:** térmico (NBR 15575), solar fotovoltaico e água de chuva.
-- **Aprovação legal:**
-  - verificação normativa com parecer do profissional;
-  - índices urbanísticos (TO, CA, permeabilidade, recuos);
-  - ficha para ART (CREA) e RRT (CAU);
-  - memoriais;
-  - pranchas ABNT com carimbo em PDF vetorial e DXF;
-  - pacote .zip para a prefeitura.
-- **Apresentação:** sol real pela localização, céu, sombras, renderização realista com texturas CC0, primeira pessoa, fotos em lote e vídeo 360°.
-- **Para leigos:** assistente "Me ajude a montar", modelos prontos, tour, glossário e alertas explicados.
-- **IA analista** (opcional): lê o projeto e propõe mudanças (Claude, via tool use).
+- **Parametric 3D modeling.** Typologies:
+  - gable roof with mezzanine (loft), A-frame, shed roof, flat roof, and gambrel;
+  - L/T-shaped floor plans and annexes.
+  Includes rooms, openings, stairs, and furniture. There is a 2D floor plan, an exploded view, and a structure heat map.
+- **Pure TypeScript engine** (`@chalecad/engine`): LSF and wood frame pieces, quantity takeoff, weight, simplified structural checks (NBR 14762, 6120, 6123, and 7190), cost estimate with regional labor, schedule, and purchasing.
+- **Sloped terrain:** building pad, cut and fill, slopes/embankments, retaining walls, machines, and trucks.
+- **Extras:** deck, wall, fence, and water tank tower.
+- **Estimated utilities:**
+  - electrical: points, circuits, distribution board, and single-line diagram (NBR 5410);
+  - plumbing and sewage: cold water, sewage, and septic tank (NBR 5626 and 8160).
+- **Performance:** thermal (NBR 15575), solar photovoltaic, and rainwater harvesting.
+- **Legal approval:**
+  - code compliance check with the professional's review;
+  - zoning indices (TO, CA, permeability, setbacks);
+  - ART (CREA) and RRT (CAU; the architect's equivalent) forms;
+  - descriptive specifications (memoriais);
+  - ABNT drawing sheets (pranchas) with title block (carimbo) in vector PDF and DXF;
+  - .zip package for the city hall.
+- **Presentation:** real sun by location, sky, shadows, realistic rendering with CC0 textures, first person, batch photos, and 360° video.
+- **For beginners:** "Me ajude a montar" (Help me build) assistant, ready-made templates, tour, glossary, and explained alerts.
+- **AI analyst** (optional): reads the project and proposes changes (Claude, via tool use).
 
-## Rodar local
+## Run locally
 
-Pré-requisitos: Node 22+ e pnpm 11.
+Prerequisites: Node 22+ and pnpm 11.
 
 ```bash
 pnpm install
 cp .env.example apps/web/.env.local   # DATA_MODE=sqlite, AI_ENABLED=false
-pnpm db:migrate                       # cria apps/web/data/chalecad.sqlite
-pnpm dev                              # http://localhost:3000 (modo desenvolvimento)
+pnpm db:migrate                       # creates apps/web/data/chalecad.sqlite
+pnpm dev                              # http://localhost:3000 (development mode)
 ```
 
-Para a versão otimizada, que abre bem mais rápido, use `pnpm app` (build + start em http://localhost:3000).
+For the optimized version, which opens much faster, use `pnpm app` (build + start at http://localhost:3000).
 
-Para ligar a IA analista, defina em `apps/web/.env.local`:
+To enable the AI analyst, set in `apps/web/.env.local`:
 - `AI_ENABLED=true`;
 - `ANTHROPIC_API_KEY=...`.
 
-O modelo padrão é `claude-opus-5-5`; troque com `AI_MODEL`.
+The default model is `claude-opus-5-5`; override it with `AI_MODEL`.
 
-## Testes
+## Tests
 
 ```bash
-pnpm test        # motor, catálogo e app (Vitest)
+pnpm test        # engine, catalog and app (Vitest)
 pnpm typecheck
 pnpm lint
-pnpm e2e         # Playwright (sobe o app)
+pnpm e2e         # Playwright (starts the app)
 ```
 
-## Estrutura
+## Structure
 
-- `packages/engine`: motor puro, sem React, Three ou Node. Tem o schema Zod do projeto, geometria, peças, quantitativos, peso, estrutura, orçamento, terreno, instalações, desempenho, aprovação e relatórios. O projeto é um único JSON versionado; tudo o mais é derivado por funções puras.
-- `packages/catalog`: perfis, materiais, composições, base de preços (nov/2026) e constantes técnicas versionadas.
-- `packages/ui`: componentes visuais.
-- `apps/web`: Next.js 16, React Three Fiber, Zustand e Tailwind 4. O cálculo roda em Web Worker (Comlink).
+- `packages/engine`: pure engine, with no React, Three, or Node. It holds the project's Zod schema, geometry, pieces, quantity takeoff, weight, structure, cost estimate, terrain, utilities, performance, approval, and reports. The project is a single versioned JSON; everything else is derived by pure functions.
+- `packages/catalog`: profiles, materials, assemblies, price base (Nov/2026), and versioned technical constants.
+- `packages/ui`: visual components.
+- `apps/web`: Next.js 16, React Three Fiber, Zustand, and Tailwind 4. Calculation runs in a Web Worker (Comlink).
 
-## Documentos
+## Documents
 
-- `docs/spec.md`: especificação.
-- `docs/plan.md`: plano por fase.
-- `docs/decisions.md`: decisões.
-- `docs/research/`: pesquisas (normas, aprovação).
-- `docs/tasks/`: cards executados.
+- `docs/spec.md`: specification.
+- `docs/plan.md`: plan by phase.
+- `docs/decisions.md`: decisions.
+- `docs/research/`: research (standards, approval).
+- `docs/tasks/`: executed cards.
 
-As texturas são da Poly Haven (CC0): veja `apps/web/public/textures/LICENSE.md`.
+The textures are from Poly Haven (CC0): see `apps/web/public/textures/LICENSE.md`.

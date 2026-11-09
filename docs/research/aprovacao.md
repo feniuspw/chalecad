@@ -1,507 +1,511 @@
-# Aprovação e documentação técnica: ART/RRT, prefeitura, normas, memoriais e checklist para o ChaléCAD
+# Approval and Technical Documentation: ART/RRT, City Hall, Standards, Descriptive Specifications, and Checklist for ChaléCAD
 
-Data da pesquisa: 2026-11-09. Escopo: residência unifamiliar de 1 a 2 pavimentos (com mezanino), 30 a 120 m², LSF ou wood frame, radier, telha sanduíche, instalações elétricas e hidrossanitárias com fossa/sumidouro, qualquer estado do Brasil.
+Research date: 2026-11-09. Scope: single-family home of 1 to 2 floors (with mezzanine/loft), 30 to 120 m², LSF (light steel frame) or wood frame, radier (raft slab), sandwich roof panel, electrical and plumbing/sanitary installations with septic tank/soakaway pit, any state in Brazil.
 
-Convenções de confiança:
-- **[confirmado]**: encontrado em fonte oficial ou catálogo de normas nesta pesquisa.
-- **[secundário]**: encontrado só em fonte secundária (artigo, TCC, notícia). Usar com cautela.
-- **[a conferir]**: não foi possível confirmar na pesquisa; vem de conhecimento geral e precisa ser verificado no texto oficial antes de virar regra no código.
+Confidence conventions:
+- **[confirmado]** (confirmed): found in an official source or standards catalog during this research.
+- **[secundário]** (secondary): found only in a secondary source (article, thesis, news). Use with caution.
+- **[a conferir]** (to verify): could not be confirmed in the research; comes from general knowledge and must be checked against the official text before becoming a rule in the code.
 
-Aviso geral: as normas ABNT são pagas e o texto integral não foi lido. Todo critério numérico de norma listado aqui como "a conferir" deve ser validado por um profissional habilitado antes de entrar em `packages/catalog` como constante técnica versionada. O ChaléCAD é ferramenta de apoio e não substitui projeto com ART/RRT (ver `DISCLAIMER` em `@chalecad/engine`).
+General notice: ABNT standards are paid and the full text was not read. Every numeric standard criterion listed here as "a conferir" must be validated by a licensed professional before entering `packages/catalog` as a versioned technical constant. ChaléCAD is a support tool and does not replace a project with ART/RRT (see `DISCLAIMER` in `@chalecad/engine`).
 
 ---
 
-## Sumário executivo (achados críticos)
+## Executive summary (critical findings)
 
-1. **ART vigente**: Resolução Confea nº 1.137, de 31/03/2023 (DOU 05/04/2023), revogou a Res. 1.025/2009. O Plenário do Confea aprovou em 11/12/2025 (Sessão Plenária nº 1132) uma **atualização** da 1.137 que revisa os modelos A, B e D do Anexo I (formulários). Número e vigência da norma de atualização: **a conferir**. [confirmado parcialmente]
-2. **RRT vigente**: Lei 12.378/2010 (arts. 45 a 50) e Res. CAU/BR nº 91/2014, alterada pelas Res. 166/2018 e 184/2019. Verificar se há consolidação mais recente. [confirmado parcialmente]
-3. **NBR 16970 (LSF)** existe, em 3 partes, publicadas em maio/2022: parte 1 Desempenho, parte 2 Projeto estrutural, parte 3 Interfaces entre sistemas. [confirmado]
-4. **NBR 17076:2024** substituiu NBR 7229:1993 e NBR 13969:1997 (tratamento local de esgoto). Novidades relevantes: afastamentos mais restritivos e uso alternado obrigatório das unidades de disposição final; só um tipo de filtro anaeróbio de fluxo ascendente; não trata mais de tanque séptico de câmaras múltiplas. [secundário, vindo de TCC/artigos]
-5. **NBR 5444** (símbolos gráficos de instalações elétricas prediais) consta como **cancelada**, sem substituta direta. Na prática os projetistas seguem usando a simbologia da NBR 5444:1989 e/ou legenda própria no projeto. [secundário/catálogo]
-6. **NBR 7190** foi reeditada em 2022 em partes (Parte 1 critérios de dimensionamento, 06/2022; demais partes são métodos de ensaio). [confirmado]
-7. **Carimbo**: não existe lista única obrigatória por lei; vale a NBR 10582 (carimbo na NBR 6492:2021 também) mais exigências de cada prefeitura/conselho. Os campos mínimos práticos estão na seção 4.4.
-8. **Parâmetros urbanísticos** (recuos, TO, CA, TP, gabarito) são municipais. O programa só pode pedir o valor e conferir.
-9. **Taxas ART 2026**: tabela base por faixa de contrato (Tabela A). Exemplo Crea-MT 2026: R$ 108,39 até R$ 15.000 e R$ 285,59 acima. Valores variam por Crea. [confirmado para MT]
+1. **Current ART**: Confea Resolution No. 1.137, of 03/31/2023 (DOU 04/05/2023), revoked Res. 1.025/2009. On 12/11/2025 the Confea Plenary (Plenary Session No. 1132) approved an **update** to 1.137 that revises models A, B, and D of Annex I (forms). Number and effective date of the update rule: **a conferir**. [partially confirmed]
+2. **Current RRT**: Law 12.378/2010 (arts. 45 to 50) and CAU/BR Res. No. 91/2014, amended by Res. 166/2018 and 184/2019. Check whether a more recent consolidation exists. [partially confirmed]
+3. **NBR 16970 (LSF)** exists, in 3 parts, published in May 2022: part 1 Performance, part 2 Structural design, part 3 Interfaces between systems. [confirmado]
+4. **NBR 17076:2024** replaced NBR 7229:1993 and NBR 13969:1997 (on-site sewage treatment). Relevant changes: more restrictive setback distances and mandatory alternating use of the final disposal units; only one type of upflow anaerobic filter; no longer covers the multi-chamber septic tank. [secundário, from theses/articles]
+5. **NBR 5444** (graphic symbols for building electrical installations) is listed as **canceled**, with no direct replacement. In practice, designers keep using the NBR 5444:1989 symbology and/or a legend of their own in the project. [secundário/catalog]
+6. **NBR 7190** was reissued in 2022 in parts (Part 1 design criteria, 06/2022; the other parts are test methods). [confirmado]
+7. **Title block (carimbo)**: there is no single list mandated by law; NBR 10582 applies (title block also in NBR 6492:2021) plus the requirements of each city hall/council. The practical minimum fields are in section 4.4.
+8. **Urban planning parameters** (setbacks, TO (site coverage), CA (floor-area ratio), TP (permeability rate), height limit) are municipal. The program can only ask for the value and check it.
+9. **ART fees 2026**: base table by contract bracket (Table A). Example Crea-MT 2026: R$ 108,39 up to R$ 15.000 and R$ 285,59 above. Values vary by Crea. [confirmado for MT]
 
 ---
 
 ## 1. ART (Confea/Crea)
 
-### 1.1 Base legal
-- **Lei nº 6.496, de 07/12/1977**: institui a ART para toda obra ou serviço de engenharia, arquitetura e agronomia. [confirmado, conhecimento geral]
-- **Resolução Confea nº 1.137/2023** (31/03/2023): dispõe sobre a ART, o Acervo Técnico-Profissional e o Acervo Operacional. Revoga, entre outras, a Res. 1.025/2009. [confirmado] Fontes:
+ART = Anotação de Responsabilidade Técnica (the engineer's technical liability record); Confea/Crea = the federal and regional engineering councils.
+
+### 1.1 Legal basis
+- **Law No. 6.496, of 12/07/1977**: establishes the ART for every engineering, architecture, and agronomy work or service. [confirmado, general knowledge]
+- **Confea Resolution No. 1.137/2023** (03/31/2023): governs the ART, the Professional Technical Collection (Acervo Técnico-Profissional) and the Operational Collection (Acervo Operacional). Revokes, among others, Res. 1.025/2009. [confirmado] Sources:
   - https://netcpa.com.br/noticias/conselho-federal-de-engenharia-e-agronomia-fixados-os-procedimentos-necessarios-para-anotacao-de-responsabilidade-tecnica-art-e-requerimento-de-acervo-tecnico-profissional-e-operacional/15479
   - https://www.coad.com.br/home/noticias-detalhe/118517/confea-fixa-procedimentos-sobre-art-anotacao-de-responsabilidade-tecnica
-- **Atualização (dez/2025)**: Confea aprovou ajustes nos modelos A, B e D do Anexo I, procedimentos mais objetivos de comprovação de acervo e uniformização entre Creas. Número da resolução e data de vigência: a conferir. https://www.confea.org.br/confea-atualiza-regras-de-art-e-acervo-tecnico-e-moderniza-o-sistema
-- **Resolução Confea nº 1.067/2015**: (valores) regra de que o valor da ART de obra/serviço incide sobre o valor do contrato; a ART múltipla soma as ARTs de rotina (Tabelas A e B). Conferir se ainda vigente após a 1.137. https://www.normasbrasil.com.br/norma/resolucao-1067-2015_303886.html
-- **Decisão Plenária Confea nº 0449/2025**: valores de anuidades, serviços e ARTs para 2026. https://www.confea.org.br/profissional/taxas
-- Atribuições profissionais: **Res. Confea 218/1973** (atividades), **Res. Confea 1.073/2016** (atribuições de títulos profissionais) e Decisões Normativas por modalidade. Conferir vigência. [a conferir]
-- Está em andamento um grupo de trabalho para reformular a norma (ART de substituição, ART complementar, CAT/CAO). https://www.confea.org.br/node/230892
+- **Update (Dec 2025)**: Confea approved adjustments to models A, B, and D of Annex I, more objective procedures for proving technical collections, and uniformity among Creas. Resolution number and effective date: a conferir. https://www.confea.org.br/confea-atualiza-regras-de-art-e-acervo-tecnico-e-moderniza-o-sistema
+- **Confea Resolution No. 1.067/2015**: (fees) rule that the ART fee for a work/service is based on the contract value; the multiple ART adds up the routine ARTs (Tables A and B). Check whether still in force after 1.137. https://www.normasbrasil.com.br/norma/resolucao-1067-2015_303886.html
+- **Confea Plenary Decision No. 0449/2025**: annual fees, service fees, and ART fees for 2026. https://www.confea.org.br/profissional/taxas
+- Professional attributions: **Confea Res. 218/1973** (activities), **Confea Res. 1.073/2016** (attributions of professional titles), and Normative Decisions by modality. Check validity. [a conferir]
+- A working group is under way to reformulate the rule (substitution ART, complementary ART, CAT/CAO). https://www.confea.org.br/node/230892
 
-### 1.2 Tipos de ART (Res. 1.137/2023)
-Classificação por **forma de registro** (art. 10, conforme resultados): [secundário]
-- **ART inicial**: primeira anotação relativa à obra/serviço.
-- **ART de substituição**: vinculada à inicial, substitui dados anotados.
-- **ART complementar**: proposta/estudos em revisão; verificar se já está na norma atualizada. [a conferir]
+### 1.2 ART types (Res. 1.137/2023)
+Classification by **form of registration** (art. 10, per the results): [secundário]
+- **Initial ART**: first record for the work/service.
+- **Substitution ART**: linked to the initial one, replaces recorded data.
+- **Complementary ART**: proposal/studies under review; check whether it is already in the updated rule. [a conferir]
 
-Classificação por **modalidade de participação**: [secundário]
-- **ART individual** (um profissional), **de coautoria** (mais de um profissional na mesma atividade), **de corresponsabilidade**, **de equipe** (a conferir).
+Classification by **participation modality**: [secundário]
+- **Individual ART** (one professional), **co-authorship** (more than one professional in the same activity), **joint responsibility**, **team** (a conferir).
 
-Por **natureza do vínculo/objeto**:
-- **ART de obra ou serviço** (modelo A do Anexo I, a conferir): vinculada a contrato (escrito ou verbal), com contratante, valor, período. É a usada para projeto e execução do chalé.
-- **ART de cargo ou função** (modelo B, a conferir): vínculo empregatício ou cargo público. Não se aplica ao autor autônomo.
-- **ART múltipla** (art. 9, II, conforme resultados): mensal, para obras/serviços de rotina (Tabela B), com um único recolhimento. Não é adequada a projeto de edificação novo; serve a serviços recorrentes. [confirmado parcialmente]
-- **ART de obra/serviço de rotina**: arts. 34 e 35 da 1.137. [secundário]
-- **Baixa da ART**: arts. 13 a 15; a baixa não exime responsabilidades administrativas, civis e penais. [secundário]
-- **ART extemporânea / de regularização**: lançada após o início/fim da atividade; pode ter multa. [a conferir]
+By **nature of the link/object**:
+- **Work or service ART** (model A of Annex I, a conferir): tied to a contract (written or verbal), with client, value, period. This is the one used for the chalet's design and construction.
+- **Position or function ART** (model B, a conferir): employment relationship or public office. Does not apply to the self-employed author.
+- **Multiple ART** (art. 9, II, per the results): monthly, for routine works/services (Table B), with a single payment. Not suitable for a new building project; serves recurring services. [partially confirmed]
+- **Routine work/service ART**: arts. 34 and 35 of 1.137. [secundário]
+- **ART closure (baixa)**: arts. 13 to 15; closure does not release administrative, civil, and criminal liability. [secundário]
+- **Late / regularization ART**: filed after the activity started/ended; may carry a fine. [a conferir]
 
-### 1.3 Campos do formulário (obra ou serviço)
-A lista oficial está no Anexo I da Res. 1.137/2023 e muda com a atualização de 2025; a lista abaixo é a estrutura geral do sistema de ART dos Creas (SITAC/ART Web) e **deve ser conferida contra o formulário vigente de cada Crea**. [a conferir]
+### 1.3 Form fields (work or service)
+The official list is in Annex I of Res. 1.137/2023 and changes with the 2025 update; the list below is the general structure of the Creas' ART system (SITAC/ART Web) and **must be checked against each Crea's current form**. [a conferir]
 
-**A. Dados do profissional**
-- Nome, título profissional, nº de registro no Crea, UF do registro, CPF.
-- Tipo de ART (individual, coautoria, corresponsabilidade, equipe), forma de registro (inicial, substituição, complementar).
-- Empresa contratada (quando houver): razão social, CNPJ, nº de registro da PJ no Crea.
-- Se coautoria/equipe: dados dos demais profissionais e das ARTs vinculadas.
+**A. Professional data**
+- Name, professional title, Crea registration number, registration state (UF), CPF (individual taxpayer ID).
+- ART type (individual, co-authorship, joint responsibility, team), form of registration (initial, substitution, complementary).
+- Contracted company (when applicable): corporate name, CNPJ (company taxpayer ID), company registration number at the Crea.
+- If co-authorship/team: data of the other professionals and of the linked ARTs.
 
-**B. Dados do contratante**
-- Nome ou razão social, CPF/CNPJ, endereço completo (logradouro, número, complemento, bairro, cidade, UF, CEP), telefone/e-mail, tipo de contratante (pessoa física, jurídica privada, pública).
-- **Proprietário** (quando diferente do contratante): nome, CPF/CNPJ.
+**B. Client data**
+- Name or corporate name, CPF/CNPJ, full address (street, number, complement, neighborhood, city, UF, CEP (postal code)), phone/e-mail, client type (individual, private legal entity, public).
+- **Owner** (when different from the client): name, CPF/CNPJ.
 
-**C. Dados do contrato**
-- Nº do contrato (ou "verbal"), data de celebração, **valor do contrato (R$)** (base para a taxa), vínculo (contratual, estágio etc.), ação institucional (a conferir), finalidade (residencial, comercial, industrial, etc.), tipo de contratante.
-- Data de início e **data prevista de término**.
+**C. Contract data**
+- Contract no. (or "verbal"), signing date, **contract value (R$)** (basis for the fee), relationship (contractual, internship, etc.), institutional action (a conferir), purpose (residential, commercial, industrial, etc.), client type.
+- Start date and **expected end date**.
 
-**D. Local da obra/serviço**
-- Endereço completo, bairro, cidade, UF, CEP.
-- **Coordenadas geográficas** (latitude e longitude) do local: o sistema pede em muitos Creas (obrigatório para obras; a conferir se na versão atual de cada Crea).
-- Tipo de local (urbano/rural), nº de matrícula/inscrição (a conferir).
+**D. Work/service site**
+- Full address, neighborhood, city, UF, CEP.
+- **Geographic coordinates** (latitude and longitude) of the site: many Creas ask for them (mandatory for works; a conferir whether in each Crea's current version).
+- Site type (urban/rural), matrícula (property registry number)/registration no. (a conferir).
 
-**E. Atividades técnicas**
-- Para cada linha: **Grupo/Modalidade → Nível de atuação → Atividade → Obra/serviço → Complemento**, mais **Quantidade** e **Unidade de medida**. O sistema gera um código hierárquico da tabela de obras/serviços e da tabela de atividades; códigos específicos: a conferir no Crea.
-- Descrição complementar (texto livre) com a especificação (ex.: "projeto estrutural em LSF com radier").
-- Campo de **observações** e **declarações** (ex.: acessibilidade, "ART de execução com projeto vinculado").
+**E. Technical activities**
+- For each line: **Group/Modality → Level of action → Activity → Work/service → Complement**, plus **Quantity** and **Unit of measure**. The system generates a hierarchical code from the works/services table and the activities table; specific codes: a conferir at the Crea.
+- Complementary description (free text) with the specification (e.g., "structural design in LSF with radier").
+- **Remarks** and **declarations** fields (e.g., accessibility, "execution ART with linked project").
 
-**F. Valores e pagamento**
-- Valor da ART (calculado), boleto, data de pagamento, nº da ART (gerado), data de registro.
-- Assinaturas: profissional e contratante (digital, gov.br/ICP-Brasil, conforme Crea).
+**F. Values and payment**
+- ART value (calculated), payment slip, payment date, ART no. (generated), registration date.
+- Signatures: professional and client (digital, gov.br/ICP-Brasil, depending on the Crea).
 
-### 1.4 Atividades técnicas típicas de um chalé
-Mapeamento sugerido (nomes e códigos exatos: a conferir na tabela do Crea da UF). Unidades usuais seguem entre parênteses.
+### 1.4 Typical technical activities for a chalet
+Suggested mapping (exact names and codes: a conferir in the table of the state's Crea). Usual units follow in parentheses.
 
-| Serviço | Atividade típica na ART | Unidade usual |
+| Service | Typical activity in the ART | Usual unit |
 |---|---|---|
-| Projeto arquitetônico (se Eng. Civil com atribuição; o arquiteto usa RRT) | Projeto > edificação residencial | m² |
-| Projeto estrutural em LSF / wood frame | Projeto > estrutura metálica/de madeira | m² (área construída) ou t (aço), conforme Crea |
-| Projeto de fundação (radier) | Projeto > fundação | m² (área do radier) |
-| Projeto de concreto armado (radier) | Projeto > estrutura de concreto | m² ou m³ |
-| Projeto elétrico baixa tensão | Projeto > instalações elétricas em BT | kVA ou kW (carga instalada/demanda), ou m² |
-| Projeto hidrossanitário (água, esgoto, pluvial) | Projeto > instalações hidrossanitárias | m² ou nº de pontos |
-| Projeto de fossa/sumidouro | Projeto > sistema de esgotamento local | un ou m³ |
-| Execução de obra (edificação) | Execução > edificação residencial | m² |
-| Execução de fundação | Execução > fundação | m² / m³ |
-| Execução de instalações elétricas BT | Execução > instalações elétricas | kVA |
-| Execução de instalações hidrossanitárias | Execução > instalações hidrossanitárias | m² / un |
-| Direção/fiscalização de obra | Direção ou Fiscalização > edificação | m² |
-| Laudo/ART de projeto de combate a incêndio (se exigido) | Projeto > PPCI | m² |
+| Architectural design (if a Civil Engineer with attribution; the architect uses RRT) | Design > residential building | m² |
+| Structural design in LSF / wood frame | Design > metal/timber structure | m² (built area) or t (steel), depending on the Crea |
+| Foundation design (radier) | Design > foundation | m² (radier area) |
+| Reinforced concrete design (radier) | Design > concrete structure | m² or m³ |
+| Low-voltage electrical design | Design > low-voltage (BT) electrical installations | kVA or kW (installed load/demand), or m² |
+| Plumbing/sanitary design (water, sewage, stormwater) | Design > plumbing/sanitary installations | m² or number of points |
+| Septic tank/soakaway design | Design > on-site sewage system | un or m³ |
+| Construction execution (building) | Execution > residential building | m² |
+| Foundation execution | Execution > foundation | m² / m³ |
+| Execution of low-voltage electrical installations | Execution > electrical installations | kVA |
+| Execution of plumbing/sanitary installations | Execution > plumbing/sanitary installations | m² / un |
+| Construction management/inspection | Management or Inspection > building | m² |
+| Fire-protection design report/ART (if required) | Design > PPCI (fire prevention and protection plan) | m² |
 
-Notas:
-- Um único contrato pode listar várias atividades em uma mesma ART, cada uma com sua quantidade.
-- Profissionais diferentes (estruturas, elétrica, hidráulica) emitem ARTs separadas, ou uma só ART de coautoria/equipe.
-- **Atribuições**: engenheiro civil tem atribuição para edificações; engenheiro eletricista, para elétrica; arquitetos usam RRT para arquitetura (e podem fazer estrutural/instalações dentro de suas atribuições em RRT, conforme Lei 12.378). Conferir competência pela Res. 1.073/2016 e pelo Crea. [a conferir]
+Notes:
+- A single contract can list several activities in one ART, each with its own quantity.
+- Different professionals (structures, electrical, plumbing) issue separate ARTs, or a single co-authorship/team ART.
+- **Attributions**: civil engineers have attribution for buildings; electrical engineers, for electrical work; architects use RRT for architecture (and may do structural/installations design within their attributions under RRT, per Law 12.378). Check competence via Res. 1.073/2016 and the Crea. [a conferir]
 
-### 1.5 Taxas (aproximadas)
-- Estrutura: **Tabela A** (obra/serviço, por faixa do valor do contrato) e **Tabela B** (rotina, valores menores por faixa). [confirmado]
-- **Crea-MT 2026** (Tabela A): até R$ 15.000,00: R$ 108,39; acima de R$ 15.000,00: R$ 285,59. https://www.crea-mt.org.br/portal/wp-content/uploads/2026/01/TABELA-DE-SERVICOS-E-ART-2026.pdf [confirmado]
-- A página do Confea também lista valores para um exercício seguinte (R$ 112,48 e R$ 296,35 para as mesmas faixas): não confundir; usar o valor do ano da emissão. https://www.confea.org.br/profissional/taxas
-- Outros Creas (SC, RS, MS) publicam tabelas anuais próprias com pequena variação: https://portal.crea-sc.org.br/anuidades-servicos-multas-e-arts-tem-valores-definidos-para-2026/
-- **Ordem de grandeza (2026, aproximado)**: R$ 110 a R$ 300 por ART de obra/serviço de chalé. Cada Crea define; um chalé de projeto + execução costuma exigir de 3 a 6 ARTs.
-- **No ChaléCAD**: expor `tabelaArt` como dado versionado em `packages/catalog` (por UF e ano), nunca como constante no código, com campo "fonte e data".
+### 1.5 Fees (approximate)
+- Structure: **Table A** (work/service, by contract value bracket) and **Table B** (routine, lower values by bracket). [confirmado]
+- **Crea-MT 2026** (Table A): up to R$ 15.000,00: R$ 108,39; above R$ 15.000,00: R$ 285,59. https://www.crea-mt.org.br/portal/wp-content/uploads/2026/01/TABELA-DE-SERVICOS-E-ART-2026.pdf [confirmado]
+- The Confea page also lists values for a following fiscal year (R$ 112,48 and R$ 296,35 for the same brackets): do not confuse them; use the value for the year of issue. https://www.confea.org.br/profissional/taxas
+- Other Creas (SC, RS, MS) publish their own annual tables with small variations: https://portal.crea-sc.org.br/anuidades-servicos-multas-e-arts-tem-valores-definidos-para-2026/
+- **Order of magnitude (2026, approximate)**: R$ 110 to R$ 300 per work/service ART for a chalet. Each Crea sets its own; a design + construction chalet usually requires 3 to 6 ARTs.
+- **In ChaléCAD**: expose `tabelaArt` as versioned data in `packages/catalog` (by UF and year), never as a constant in the code, with a "source and date" field.
 
 ---
 
 ## 2. RRT (CAU)
 
-### 2.1 Base legal
-- **Lei nº 12.378, de 31/12/2010**: regulamenta o exercício da Arquitetura e Urbanismo; arts. 45 a 50 tratam do RRT. [confirmado]
-- **Resolução CAU/BR nº 91, de 09/10/2014** (DOU 21/10/2014): dispõe sobre o RRT de projetos, obras e demais serviços técnicos. Alterações: **Res. 166/2018** (RRT múltiplo mensal, art. 8º, II) e **Res. 184/2019** (altera 91 e 93; vigência 120 dias após 31/12/2019). [confirmado] Fontes:
+RRT = Registro de Responsabilidade Técnica (the architect's equivalent of the ART); CAU = Conselho de Arquitetura e Urbanismo (the architects' council).
+
+### 2.1 Legal basis
+- **Law No. 12.378, of 12/31/2010**: regulates the practice of Architecture and Urbanism; arts. 45 to 50 cover the RRT. [confirmado]
+- **CAU/BR Resolution No. 91, of 10/09/2014** (DOU 10/21/2014): governs the RRT for projects, works, and other technical services. Amendments: **Res. 166/2018** (monthly multiple RRT, art. 8, II) and **Res. 184/2019** (amends 91 and 93; effective 120 days after 12/31/2019). [confirmado] Sources:
   - https://www.normasbrasil.com.br/norma/resolucao-91-2014_276004.html
   - https://www.normasbrasil.com.br/norma/resolucao-166-2018_366532.html
   - https://www.normasbrasil.com.br/norma/resolucao-184-2019_388331.html
-- **Res. CAU/BR nº 21/2012**: atividades e atribuições do arquiteto e urbanista (tabela de atividades técnicas). [a conferir]
-- Há consultas públicas recentes sobre indicação de responsabilidade técnica em placas e emissão de certidões (CAU/BR 49 e 51). Não alteram o RRT de projeto, mas verificar. https://www.gov.br/participamaisbrasil/consultapublicacaubr51
-- Tabela de valores: reajustada anualmente pelo CAU/BR; valor de 2026 **a conferir**. Ordem de grandeza: algumas dezenas a pouco mais de R$ 100 (RRT simples). [a conferir]
+- **CAU/BR Res. No. 21/2012**: activities and attributions of the architect and urbanist (table of technical activities). [a conferir]
+- There are recent public consultations on indicating technical responsibility on signs and on issuing certificates (CAU/BR 49 and 51). They do not change the design RRT, but check. https://www.gov.br/participamaisbrasil/consultapublicacaubr51
+- Fee table: adjusted annually by CAU/BR; 2026 value **a conferir**. Order of magnitude: a few tens to slightly over R$ 100 (simple RRT). [a conferir]
 
-### 2.2 Tipos de RRT
-- **RRT Simples** (um serviço/obra, uma taxa), **RRT Extemporâneo** (registrado após início/fim da atividade, pode ter multa), **RRT Retificador** (corrige dados), **RRT Múltiplo Mensal** (obras/serviços de rotina), **RRT de Cargo e Função** (vínculo empregatício/público), **RRT de Equipe**: cada arquiteto registra o seu. Há também **RRT Social** (habitação de interesse social, valor reduzido; requisitos a conferir). [secundário/a conferir]
+### 2.2 RRT types
+- **Simple RRT** (one service/work, one fee), **Late RRT** (registered after the activity started/ended, may carry a fine), **Rectifying RRT** (corrects data), **Monthly Multiple RRT** (routine works/services), **Position and Function RRT** (employment/public relationship), **Team RRT**: each architect registers their own. There is also the **Social RRT** (social-interest housing, reduced fee; requirements a conferir). [secundário/a conferir]
 
-### 2.3 Campos do RRT (SICCAU)
-Estrutura geral (a conferir contra o SICCAU vigente):
-- **Profissional**: nome, nº de registro CAU, UF.
-- **Empresa** (se houver): razão social, CNPJ, registro CAU da PJ.
-- **Contratante**: nome/razão social, CPF/CNPJ, tipo de contratante, endereço.
-- **Proprietário** (se diferente).
-- **Contrato**: nº (ou verbal), valor do contrato (R$), datas de início e fim previstas, finalidade/tipo de edificação, forma de contratação.
-- **Local**: endereço da obra, CEP, município/UF, **coordenadas** (a conferir se obrigatório).
-- **Atividades técnicas** (tabela do CAU): grupo > atividade (ex.: "Projeto Arquitetônico", "Projeto de Interiores", "Execução de obra", "Direção de obra", "Projeto Complementar" etc.), **quantidade** e **unidade** (m² para projeto e obra; m, un, etc.).
-- **Atividade tipo "Elaboração de Projeto Arquitetônico" para edificação residencial unifamiliar**: quantidade em **m²** de área construída. [a conferir códigos]
-- **Observações/declarações**: acessibilidade, ART/RRT vinculados, coautoria.
+### 2.3 RRT fields (SICCAU)
+General structure (a conferir against the current SICCAU):
+- **Professional**: name, CAU registration no., UF.
+- **Company** (if any): corporate name, CNPJ, company CAU registration.
+- **Client**: name/corporate name, CPF/CNPJ, client type, address.
+- **Owner** (if different).
+- **Contract**: no. (or verbal), contract value (R$), expected start and end dates, purpose/building type, form of contracting.
+- **Site**: work address, CEP, city/UF, **coordinates** (a conferir whether mandatory).
+- **Technical activities** (CAU table): group > activity (e.g., "Projeto Arquitetônico" (Architectural Design), "Projeto de Interiores" (Interior Design), "Execução de obra" (Construction Execution), "Direção de obra" (Construction Management), "Projeto Complementar" (Complementary Design), etc.), **quantity** and **unit** (m² for design and works; m, un, etc.).
+- **Activity type "Elaboração de Projeto Arquitetônico" (Architectural Design Development) for a single-family residential building**: quantity in **m²** of built area. [a conferir codes]
+- **Remarks/declarations**: accessibility, linked ART/RRT, co-authorship.
 
-### 2.4 Atividades equivalentes para um chalé (arquiteto)
-| Serviço | Atividade RRT típica | Unidade |
+### 2.4 Equivalent activities for a chalet (architect)
+| Service | Typical RRT activity | Unit |
 |---|---|---|
-| Estudo preliminar, anteprojeto, projeto legal, projeto executivo | Projeto Arquitetônico (por etapa ou global) | m² |
-| Compatibilização/coordenação | Coordenação e compatibilização de projetos | m² |
-| Projeto de paisagismo | Projeto paisagístico | m² |
-| Projeto de interiores | Projeto de interiores | m² |
-| Direção/Execução de obra | Direção de obra / Execução de obra | m² |
-| Fiscalização | Fiscalização de obra | m² |
-| Projeto de estrutura/instalações | Quando dentro das atribuições (Lei 12.378, art. 2º e Res. 21/2012) | m² |
+| Preliminary study, preliminary design, legal design, detailed design | Architectural Design (by stage or overall) | m² |
+| Compatibility/coordination | Design coordination and compatibility | m² |
+| Landscaping design | Landscape design | m² |
+| Interior design | Interior design | m² |
+| Construction management/execution | Construction management / Construction execution | m² |
+| Inspection | Construction inspection | m² |
+| Structure/installations design | When within attributions (Law 12.378, art. 2 and Res. 21/2012) | m² |
 
 ---
 
-## 3. Prefeitura: alvará de construção (residência unifamiliar)
+## 3. City Hall: building permit (alvará de construção), single-family home
 
-### 3.1 O que é comum no Brasil
-Documentos típicos do processo (nomes variam): [consolidado de prática; fontes na seção 3.4]
-1. Requerimento assinado pelo proprietário (ou procurador), modelo da prefeitura.
-2. Documento de identidade e CPF do proprietário; procuração se aplicável.
-3. **Matrícula atualizada** do imóvel (certidão do Cartório de Registro de Imóveis; muitas prefeituras exigem validade de 30 a 90 dias; Curitiba cita 90 dias). [confirmado para Curitiba]
-4. **Espelho do IPTU** / comprovante de inscrição municipal / certidão de número.
-5. **Levantamento topográfico/planialtimétrico** com ART/RRT (Curitiba exige para alvará de obra; outras cidades exigem em terrenos com declive ou áreas especiais). [confirmado para Curitiba]
-6. **Consulta prévia/diretrizes/certidão de uso e ocupação do solo** (zoneamento, parâmetros aplicáveis).
-7. **ART ou RRT** de projeto e, quando exigido já na aprovação, de execução (muitas prefeituras exigem a de execução na emissão do alvará).
-8. **Projeto arquitetônico** (projeto legal, ver 3.2), geralmente em PDF assinado digitalmente ou em arquivo DWG + PDF.
-9. **Memorial descritivo** / formulário de dados da obra (áreas, materiais).
-10. Comprovantes de taxa de aprovação/alvará.
-11. Quando aplicável: aprovação em órgãos externos (Corpo de Bombeiros para edificações maiores ou mistas, vigilância sanitária para fossa, órgão ambiental para APP/APA/margens, patrimônio histórico, DER/ANAC/Comando da Aeronáutica em áreas especiais).
-12. Para **LSF/wood frame**: muitas prefeituras aceitam sem restrição, mas algumas pedem declaração/ART de projeto estrutural e atendimento a NBR 15575 ou DATec/SiNAT (a conferir por município).
+### 3.1 What is common in Brazil
+Typical documents in the process (names vary): [consolidated from practice; sources in section 3.4]
+1. Request form signed by the owner (or attorney-in-fact), on the city hall's template.
+2. Owner's ID and CPF; power of attorney if applicable.
+3. **Updated matrícula** of the property (certificate from the Real Estate Registry Office; many city halls require validity of 30 to 90 days; Curitiba cites 90 days). [confirmed for Curitiba]
+4. **IPTU statement** (property tax) / municipal registration proof / street-number certificate.
+5. **Topographic/planialtimetric survey** with ART/RRT (Curitiba requires it for a construction permit; other cities require it on sloped lots or special areas). [confirmed for Curitiba]
+6. **Prior consultation/guidelines/land use and occupation certificate** (zoning, applicable parameters).
+7. **ART or RRT** for design and, when already required at approval, for execution (many city halls require the execution one when issuing the permit).
+8. **Architectural design** (legal design, see 3.2), generally as a digitally signed PDF or as a DWG + PDF file.
+9. **Memorial descritivo** (descriptive specification) / work data form (areas, materials).
+10. Proof of payment of the approval/permit fee.
+11. When applicable: approval by external agencies (Fire Department for larger or mixed-use buildings, health surveillance for the septic tank, environmental agency for APP/APA/waterfront areas, historic heritage, DER/ANAC/Air Force Command in special areas).
+12. For **LSF/wood frame**: many city halls accept it without restriction, but some ask for a structural design declaration/ART and compliance with NBR 15575 or DATec/SiNAT (a conferir per municipality).
 
-### 3.2 Pranchas típicas do projeto legal/simplificado
-Mínimo prático (varia por município):
-- **Planta de situação** (escala típica 1:500 a 1:2000): localização do lote em relação a ruas e quadra, com norte.
-- **Planta de implantação/locação** (1:100 a 1:200): edificação no lote, **recuos frontal, laterais e fundos cotados**, cotas de nível, acessos, calçada, árvores, indicação de fossa/sumidouro e poço (quando há), norte, área permeável hachurada.
-- **Plantas baixas** de cada pavimento (1:50 ou 1:75, 1:100): ambientes com nome e área, cotas, esquadrias, indicação dos cortes, níveis.
-- **Cortes** (mínimo 2, um transversal e um longitudinal; passando por escada/área molhada, quando houver): pé-direito, alturas, cotas de nível, perfil do terreno.
-- **Fachadas** (todas as que forem visíveis, ao menos frontal e uma lateral): cotas de altura, materiais, cobertura.
-- **Planta de cobertura** (1:100 ou 1:200): caimentos, inclinação em %, beirais, calhas, cumeeira.
-- **Quadro de áreas** (ver 3.3), em geral na própria prancha de implantação.
-- Carimbo conforme seção 4.4.
-- Detalhes pedidos por município: cálculo de área de iluminação/ventilação (ex.: aberturas mínimas em relação à área do ambiente), acessibilidade, caixa d'água, cerca/muro, calçada com rampa de acesso.
+### 3.2 Typical sheets (pranchas) of the legal/simplified design
+Practical minimum (varies by municipality):
+- **Site plan (planta de situação)** (typical scale 1:500 to 1:2000): location of the lot in relation to streets and block, with north.
+- **Layout/staking plan (planta de implantação/locação)** (1:100 to 1:200): building on the lot, **dimensioned front, side, and rear setbacks**, level elevations, accesses, sidewalk, trees, indication of septic tank/soakaway and well (when present), north, hatched permeable area.
+- **Floor plans** of each floor (1:50 or 1:75, 1:100): rooms with name and area, dimensions, frames/openings, section markers, levels.
+- **Sections** (minimum 2, one transverse and one longitudinal; passing through the stairs/wet area, when present): ceiling height, heights, level elevations, terrain profile.
+- **Elevations** (all that are visible, at least front and one side): height dimensions, materials, roof.
+- **Roof plan** (1:100 or 1:200): slopes, inclination in %, eaves, gutters, ridge.
+- **Area schedule** (see 3.3), usually on the layout sheet itself.
+- Title block (carimbo) as in section 4.4.
+- Details requested by the municipality: lighting/ventilation area calculation (e.g., minimum openings relative to room area), accessibility, water tank, fence/wall, sidewalk with access ramp.
 
-### 3.3 Quadro de áreas (valores que o programa deve pedir)
-- Área do terreno (m², da matrícula e do levantamento).
-- Área construída total e por pavimento; área computável e não computável (varandas, beirais e garagens podem ter regras específicas).
-- **Taxa de ocupação (TO)** = projeção da edificação / área do lote. Compara com TO máxima do zoneamento.
-- **Coeficiente de aproveitamento (CA)** = área computável / área do lote. Compara com CA básico/máximo.
-- **Taxa de permeabilidade (TP)** = área permeável / área do lote. Compara com TP mínima.
-- **Recuos mínimos**: frontal, laterais (podem depender da existência de abertura na parede), fundos.
-- **Gabarito** (altura máxima/número de pavimentos), afastamentos de divisa.
-- Número de vagas de garagem (quando exigido).
-- Observação: **mezanino** pode ou não computar como pavimento/área (conceito municipal). O programa deve permitir marcar "computável: sim/não" por ambiente. [a conferir por município]
-- Os valores máximos/mínimos vêm do **plano diretor e da lei de uso e ocupação do solo (zoneamento)** do município. **O programa só pode pedir esses números ao usuário** e comparar; não deve embutir parâmetros municipais.
+### 3.3 Area schedule (values the program must ask for)
+- Lot area (m², from the matrícula and from the survey).
+- Total built area and per floor; computable and non-computable area (porches, eaves, and garages may have specific rules).
+- **Taxa de ocupação (TO)** (site coverage) = building projection / lot area. Compared with the zoning's maximum TO.
+- **Coeficiente de aproveitamento (CA)** (floor-area ratio) = computable area / lot area. Compared with basic/maximum CA.
+- **Taxa de permeabilidade (TP)** (permeability rate) = permeable area / lot area. Compared with minimum TP.
+- **Minimum setbacks**: front, sides (may depend on whether the wall has an opening), rear.
+- **Height limit (gabarito)** (maximum height/number of floors), boundary clearances.
+- Number of parking spaces (when required).
+- Note: a **mezzanine** may or may not count as a floor/area (municipal concept). The program must allow marking "computable: yes/no" per room. [a conferir per municipality]
+- The maximum/minimum values come from the municipality's **master plan and land use and occupation law (zoning)**. **The program can only ask the user for these numbers** and compare; it must not embed municipal parameters.
 
-### 3.4 Exemplos concretos e links
-- **Curitiba (PR)**: Decreto Municipal nº 799/2020 regula a tramitação eletrônica de alvará de construção. Documentos obrigatórios citados: matrícula atualizada (90 dias) e levantamento topográfico com ART/RRT/TRT quitada; requerimento assinado pelos proprietários. https://www.contabeis.com.br/legislacao/5955707/decreto-799-2020/ e guia: https://www.bemparana.com.br/noticia/saiba-como-tirar-um-alvara-de-construcao-reforma-ou-ampliacao-de-imovel [confirmado]. Código de obras: Lei 11.095/2004 [a conferir]. Site: https://www.curitiba.pr.gov.br (seção Urbanismo/Licenciamento) [a conferir página].
-- **Belo Horizonte (MG)**: Portal da Prefeitura (PBH), publicações de roteiros de licenciamento (capítulos de arquitetura e alvará). https://prefeitura.pbh.gov.br/sites/default/files/estrutura-de-governo/obras-e-infraestrutura/pp-sd-cap8-arq-26.04.10.pdf e https://prefeitura.pbh.gov.br/sites/default/files/estrutura-de-governo/obras-e-infraestrutura/pp-sd-cap17-alv-26.04.14.pdf (documentos antigos de 2010/2014, **a conferir se estão vigentes**). Código de Edificações: Lei 9.725/2009; parâmetros: Lei 11.181/2019 (LPUOS) [a conferir].
-- **Florianópolis (SC)**: documentação inclui matrícula, consulta de viabilidade do lote e viabilidade construtiva; ver estudo acadêmico https://repositorio.ifsc.edu.br/bitstreams/553d9524-67eb-44ad-8e91-865f559a4d89/download [secundário]. Plano diretor: LC 482/2014 [a conferir].
-- **São Paulo (SP)**: licenciamento digital, alvarás de aprovação e execução e portal de licenciamento. https://prefeitura.sp.gov.br/web/licenciamento (URL **a conferir**; resultados mostram PDFs de alvarás emitidos em https://prefeitura.sp.gov.br/documents/d/licenciamento/). Código de Obras e Edificações: Lei 16.642/2017; zoneamento: Lei 16.402/2016 [a conferir].
-- **Joinville (SC)**: Instruções Normativas da SAMA tratam de licenciamento. https://www.joinville.sc.gov.br/wp-content/uploads/2026/02/Instrucao-Normativa-SAMA-no-02-2026.pdf [conteúdo a conferir].
-- **Fortaleza (CE)**: "Alvará de Construção Fácil" para residência unifamiliar (índice de aproveitamento conferido no quadro de áreas). https://urbanismoemeioambiente.fortaleza.ce.gov.br/images/urbanismo-e-meio-ambiente/apresentacoes-oficias/fortaleza_online_alvara_de_construcao_facil_residencia_unifamiliar.pdf [confirmado como existente]
-- **Guia nacional de boas práticas** (MDIC/Construa Brasil) para obtenção de alvarás: https://www.gov.br/mdic/pt-br/assuntos/sdic/construa-brasil/produtos/22-09-construa-brasil-guia-orientativo-de-boas-praticas-para-obtencao-de-alvaras-de-construcao.pdf
-- Cidades turísticas de serra (Campos do Jordão, Gramado, Monte Verde): possuem regras de estética, materiais de fachada, inclinação de telhado e áreas de preservação; **não pesquisadas em profundidade**, a conferir caso a caso. Muitas permitem "projeto simplificado" para unifamiliar até certa área (por exemplo até 70 m² ou 75 m² em alguns municípios; **a conferir**).
+### 3.4 Concrete examples and links
+- **Curitiba (PR)**: Municipal Decree No. 799/2020 regulates the electronic processing of the building permit. Mandatory documents cited: updated matrícula (90 days) and topographic survey with paid ART/RRT/TRT; request signed by the owners. https://www.contabeis.com.br/legislacao/5955707/decreto-799-2020/ and guide: https://www.bemparana.com.br/noticia/saiba-como-tirar-um-alvara-de-construcao-reforma-ou-ampliacao-de-imovel [confirmado]. Building code: Law 11.095/2004 [a conferir]. Site: https://www.curitiba.pr.gov.br (Urbanism/Licensing section) [page a conferir].
+- **Belo Horizonte (MG)**: City Hall portal (PBH), published licensing guides (architecture and permit chapters). https://prefeitura.pbh.gov.br/sites/default/files/estrutura-de-governo/obras-e-infraestrutura/pp-sd-cap8-arq-26.04.10.pdf and https://prefeitura.pbh.gov.br/sites/default/files/estrutura-de-governo/obras-e-infraestrutura/pp-sd-cap17-alv-26.04.14.pdf (old 2010/2014 documents, **a conferir whether still in force**). Building Code: Law 9.725/2009; parameters: Law 11.181/2019 (LPUOS) [a conferir].
+- **Florianópolis (SC)**: documentation includes matrícula, lot feasibility consultation, and construction feasibility; see academic study https://repositorio.ifsc.edu.br/bitstreams/553d9524-67eb-44ad-8e91-865f559a4d89/download [secundário]. Master plan: LC 482/2014 [a conferir].
+- **São Paulo (SP)**: digital licensing, approval and execution permits, and licensing portal. https://prefeitura.sp.gov.br/web/licenciamento (URL **a conferir**; results show PDFs of issued permits at https://prefeitura.sp.gov.br/documents/d/licenciamento/). Works and Buildings Code: Law 16.642/2017; zoning: Law 16.402/2016 [a conferir].
+- **Joinville (SC)**: SAMA Normative Instructions cover licensing. https://www.joinville.sc.gov.br/wp-content/uploads/2026/02/Instrucao-Normativa-SAMA-no-02-2026.pdf [content a conferir].
+- **Fortaleza (CE)**: "Alvará de Construção Fácil" (Easy Building Permit) for single-family homes (utilization index checked in the area schedule). https://urbanismoemeioambiente.fortaleza.ce.gov.br/images/urbanismo-e-meio-ambiente/apresentacoes-oficias/fortaleza_online_alvara_de_construcao_facil_residencia_unifamiliar.pdf [confirmed as existing]
+- **National good-practices guide** (MDIC/Construa Brasil) for obtaining permits: https://www.gov.br/mdic/pt-br/assuntos/sdic/construa-brasil/produtos/22-09-construa-brasil-guia-orientativo-de-boas-praticas-para-obtencao-de-alvaras-de-construcao.pdf
+- Mountain tourist towns (Campos do Jordão, Gramado, Monte Verde): have rules on aesthetics, facade materials, roof pitch, and preservation areas; **not researched in depth**, to be checked case by case. Many allow a "simplified project" for single-family homes up to a certain area (for example up to 70 m² or 75 m² in some municipalities; **a conferir**).
 
-### 3.5 O que varia por município
-- Nome do processo (aprovação, alvará de construção, licença de obra) e nº de etapas (aprovação do projeto e depois alvará de execução).
-- Formato de entrega (físico, PDF, DWG, plataforma própria; assinatura digital ICP-Brasil/gov.br).
-- Limites do "projeto simplificado" (área máxima, uso residencial).
-- Regras de recuo, gabarito, permeabilidade, vagas, mezanino, beirais.
-- Exigência de projeto de fossa/sumidouro no processo de aprovação (onde não há rede de esgoto).
-- Escalas e tamanho mínimo de letra; layout de carimbo próprio.
-- Exigência de projetos complementares na aprovação (normalmente só na execução, não na aprovação).
-
----
-
-## 4. Normas de representação e formatação
-
-### 4.1 NBR 6492:2021 — Representação de projetos de arquitetura
-- Edição de 2021 existe (documento de 40 páginas); o texto integral **não foi lido**. [confirmado existência]. Referência: https://arquivos.ufrrj.br/arquivos/2021103028882828758439fd707c0a63a/NBR_6492_2021.pdf (cópia acadêmica; usar com cuidado).
-- Conteúdo geral (conhecimento geral e edição 1994, a conferir na de 2021): requisitos para elaboração de documentos técnicos de projetos arquitetônicos e urbanísticos: **escalas**, **cotas**, **níveis**, **indicação de norte**, **hachuras**, **legendas**, **simbologia**, **planta-chave**, tipos de linha, tamanho de texto, indicação de cortes e elevações.
-- Cada prancha deve conter: carimbo, título do desenho e escala, norte (em plantas), legenda de símbolos, planta-chave quando a planta é fracionada, cotas e níveis, nomes e áreas dos ambientes (planta baixa), indicação de cortes, quadro de esquadrias (quando executivo).
-- **Escalas típicas** (conferir na norma e em NBR 8196): situação 1:500 a 1:1000; implantação 1:100 a 1:200; plantas 1:50 a 1:100; cortes e fachadas 1:50 a 1:100; detalhes 1:1 a 1:25.
-- **Níveis**: cota de piso acabado referenciada a um RN (nível de referência); indicação de nível do terreno natural e do terreno modificado (corte/aterro).
-- **Norte**: indicado nas plantas de situação, implantação, baixa e cobertura (símbolo de norte verdadeiro/magnético, a conferir).
-
-### 4.2 NBR 16636 — Elaboração de projetos de edificações (Partes 1 a 3)
-- Parte 1: diretrizes e terminologia; Parte 2: projeto arquitetônico; Parte 3: projetos de estruturas? **A conferir** o título exato de cada parte (os resultados só mostraram a Parte 2, ed. 2017, aplicável a todos os tipos de edificações). Para a Parte 3 (projetos urbanísticos?) não confirmado.
-- **Etapas de projeto** (NBR 16636-2): levantamento de dados (LV), programa de necessidades (PN), estudo de viabilidade (EV), **estudo preliminar (EP)**, **anteprojeto (AP) ou pré-executivo (PE)**, **projeto legal (PL)**, **projeto básico (PB, opcional)**, **projeto executivo (PE)**, e acompanhamento de obra/pós-ocupação. [consolidado, a conferir siglas exatas]
-- O ChaléCAD deve rotular cada documento exportado com a **etapa** (estudo preliminar, projeto legal, projeto executivo).
-
-### 4.3 Formatos, margens, dobramento, escalas
-- **NBR 10068** (folha de desenho: leiaute e dimensões; edição encontrada 1987): série A, A0 a A4; **margem esquerda 25 mm** em todos os formatos; **margem direita 10 mm em A0 e A1 e 7 mm em A2, A3 e A4**. [secundário] Margens superior/inferior: igual à direita (a conferir).
-- Dimensões (ISO 216): A0 841x1189 mm, A1 594x841, A2 420x594, A3 297x420, A4 210x297. [conhecimento geral]
-- **NBR 13142** (dobramento de cópia): dobrar para A4 com o carimbo visível no canto inferior direito. [a conferir detalhes]
-- **NBR 8196** (emprego de escalas): escalas recomendadas 1:1, 1:2, 1:5, 1:10, 1:20, 1:50, 1:100, 1:200, 1:500, 1:1000 e múltiplos. Pode ter sido cancelada/substituída; **a conferir**.
-- Normas correlatas de desenho: NBR 8402 (caracteres), NBR 8403 (linhas), NBR 10126 (cotagem), NBR 12298 (hachuras), NBR 10067 (vistas), NBR 14100 (símbolos de prevenção e combate a incêndio). [a conferir vigência de cada uma]
-
-### 4.4 Carimbo/selo (campos)
-A NBR 10582 (apresentação da folha para desenho técnico) e a NBR 6492 definem a posição; a lista de campos abaixo é o consenso de prática de prefeituras e conselhos. Posição: **canto inferior direito**, junto à margem direita, largura usual 175 mm (A0/A1) ou 178 mm (a conferir). [a conferir]
-
-**Campos obrigatórios (mínimo para o ChaléCAD):**
-1. Título do projeto / nome da obra (ex.: "Residência unifamiliar – Chalé").
-2. Conteúdo da prancha (ex.: "Planta baixa – Pavimento térreo").
-3. Etapa do projeto (EP, anteprojeto, projeto legal, executivo).
-4. **Proprietário/contratante**: nome e CPF/CNPJ.
-5. **Endereço da obra**: logradouro, número, bairro, cidade, UF, CEP; inscrição municipal/lote/quadra/matrícula (varia).
-6. **Autor do projeto**: nome, título (arquiteto/engenheiro), **nº CAU ou CREA**, e UF.
-7. **Responsável técnico pela execução** (quando houver).
-8. **Nº da ART/RRT** (projeto e execução).
-9. **Escala(s)** (indicar "indicada" se múltiplas).
-10. **Data** (emissão).
-11. **Folha x/y** (numeração da prancha e total).
-12. **Revisão** (letra ou número, data, descrição, autor).
-13. **Desenhista/projetista** e **conferência** (iniciais).
-14. Assinaturas: proprietário e responsável técnico (espaço ou assinatura digital).
-15. Área do terreno e área construída (às vezes no carimbo; quando não está no quadro de áreas).
-16. Logo ou nome do escritório/empresa, CNPJ (opcional).
-17. Nome do arquivo ou código do documento (opcional, útil para gestão).
-
-**Campos adicionais comuns:** número do processo na prefeitura, espaço reservado para carimbo de aprovação da prefeitura (norma local: costuma-se deixar área livre de ~10x7 cm ou específica, **a conferir**), planta-chave, legenda de materiais, nota "Projeto sujeito a aprovação".
+### 3.5 What varies by municipality
+- Name of the process (approval, building permit, work license) and number of stages (design approval and then execution permit).
+- Delivery format (paper, PDF, DWG, own platform; ICP-Brasil/gov.br digital signature).
+- Limits of the "simplified project" (maximum area, residential use).
+- Rules for setbacks, height limit, permeability, parking, mezzanine, eaves.
+- Requirement of a septic tank/soakaway design in the approval process (where there is no sewer network).
+- Scales and minimum letter size; own title block layout.
+- Requirement of complementary designs at approval (normally only at execution, not at approval).
 
 ---
 
-## 5. Memoriais e normas estruturais
+## 4. Representation and formatting standards
 
-### 5.1 Memorial descritivo de arquitetura
-Conteúdo típico (NBR 16636-2 e prática): [a conferir contra a norma]
-- Identificação da obra, do proprietário, do autor e do local (matrícula, inscrição).
-- Descrição do terreno e dados urbanísticos (zona, TO, CA, TP, recuos) e quadro de áreas.
-- Partido arquitetônico e programa de necessidades.
-- Sistema construtivo: fundação (radier), estrutura (LSF ou wood frame), fechamentos externos e internos (placas cimentícias, OSB, gesso acartonado), isolamento termoacústico, impermeabilização.
-- Cobertura: estrutura, telha sanduíche (núcleo EPS/PUR/PIR, espessura, espessura de chapas), inclinação, calhas e rufos.
-- Esquadrias (material, dimensões, vidros), pisos, revestimentos, forros, pintura, louças e metais.
-- Instalações: resumo elétrico, hidrossanitário, tratamento de esgoto, reuso/água de chuva (se aplicável).
-- Acessibilidade (NBR 9050:2020, quando aplicável), segurança contra incêndio (se exigida), desempenho (NBR 15575).
-- Cuidados na execução e especificações de materiais com normas de referência.
+### 4.1 NBR 6492:2021 — Representation of architectural projects
+- The 2021 edition exists (a 40-page document); the full text was **not read**. [existence confirmed]. Reference: https://arquivos.ufrrj.br/arquivos/2021103028882828758439fd707c0a63a/NBR_6492_2021.pdf (academic copy; use with care).
+- General content (general knowledge and the 1994 edition, a conferir in the 2021 one): requirements for preparing technical documents of architectural and urban projects: **scales**, **dimensions**, **levels**, **north indication**, **hatching**, **legends**, **symbology**, **key plan**, line types, text size, indication of sections and elevations.
+- Each sheet must contain: title block, drawing title and scale, north (on plans), symbol legend, key plan when the plan is split, dimensions and levels, room names and areas (floor plan), section markers, window/door schedule (when detailed/executive).
+- **Typical scales** (check in the standard and in NBR 8196): site 1:500 to 1:1000; layout 1:100 to 1:200; plans 1:50 to 1:100; sections and elevations 1:50 to 1:100; details 1:1 to 1:25.
+- **Levels**: finished floor elevation referenced to an RN (reference level); indication of the natural ground level and the modified ground level (cut/fill).
+- **North**: indicated on site, layout, floor, and roof plans (true/magnetic north symbol, a conferir).
 
-### 5.2 Memorial de cálculo/descritivo estrutural para LSF
-Conteúdo mínimo sugerido (NBR 16970-2, NBR 14762, NBR 6120, NBR 6123, NBR 8681): [a conferir seções]
-- Descrição do sistema (painéis estruturais, lajes secas/úmidas, contraventamentos, ligações).
-- Normas adotadas e versões.
-- Materiais: aço (ASTM A653 / NBR 7008? grau, fy, fu, revestimento Z275 ou conforme NBR 15253), parafusos, chapas, placas OSB/cimentícia.
-- Perfis adotados: tipo (U enrijecido Ue, guia U, cartola), dimensões, espessuras.
-- **Ações**: permanentes (peso próprio, por NBR 6120), sobrecargas (NBR 6120), vento (NBR 6123), combinações (NBR 8681) com coeficientes.
-- Modelo de cálculo e verificações: montantes (compressão, flexocompressão), vigas de piso, vergas (flexão, cisalhamento), ligações, estabilidade global, deslocamentos (flechas limites), contraventamento (fitas em X, placas), fixação ao radier (chumbadores).
-- Resultados: taxas de utilização por elemento, flechas, reações de apoio ao radier.
-- Planta de fôrma/estrutura e **lista de peças** (corte e dobra/tabela de perfis).
-- Carregamentos transferidos à fundação.
-- **Declarações do profissional**: classe de agressividade/ambiente, vida útil de projeto, premissas, limitações, ART nº.
+### 4.2 NBR 16636 — Preparation of building projects (Parts 1 to 3)
+- Part 1: guidelines and terminology; Part 2: architectural design; Part 3: structural designs? **A conferir** the exact title of each part (the results only showed Part 2, 2017 ed., applicable to all building types). For Part 3 (urban designs?) not confirmed.
+- **Design stages** (NBR 16636-2): data survey (LV), needs program (PN), feasibility study (EV), **preliminary study (EP)**, **preliminary design (AP) or pre-executive (PE)**, **legal design (PL)**, **basic design (PB, optional)**, **detailed design (PE)**, and construction follow-up/post-occupancy. [consolidated, a conferir exact acronyms]
+- ChaléCAD must label each exported document with the **stage** (preliminary study, legal design, detailed design).
 
-### 5.3 Normas estruturais e o que declarar/exportar
-| Norma | Existência/status | O profissional declara/verifica | Dados para exportar |
+### 4.3 Formats, margins, folding, scales
+- **NBR 10068** (drawing sheet: layout and dimensions; edition found 1987): A series, A0 to A4; **left margin 25 mm** in all formats; **right margin 10 mm in A0 and A1 and 7 mm in A2, A3, and A4**. [secundário] Top/bottom margins: same as right (a conferir).
+- Dimensions (ISO 216): A0 841x1189 mm, A1 594x841, A2 420x594, A3 297x420, A4 210x297. [general knowledge]
+- **NBR 13142** (folding of copies): fold to A4 with the title block visible in the lower right corner. [details a conferir]
+- **NBR 8196** (use of scales): recommended scales 1:1, 1:2, 1:5, 1:10, 1:20, 1:50, 1:100, 1:200, 1:500, 1:1000 and multiples. May have been canceled/replaced; **a conferir**.
+- Related drawing standards: NBR 8402 (characters), NBR 8403 (lines), NBR 10126 (dimensioning), NBR 12298 (hatching), NBR 10067 (views), NBR 14100 (fire prevention and fighting symbols). [validity of each a conferir]
+
+### 4.4 Title block / stamp (fields)
+NBR 10582 (presentation of the technical drawing sheet) and NBR 6492 define the position; the field list below is the practice consensus of city halls and councils. Position: **lower right corner**, along the right margin, usual width 175 mm (A0/A1) or 178 mm (a conferir). [a conferir]
+
+**Mandatory fields (minimum for ChaléCAD):**
+1. Project title / work name (e.g., "Residência unifamiliar – Chalé").
+2. Sheet content (e.g., "Planta baixa – Pavimento térreo").
+3. Project stage (EP, preliminary design, legal design, detailed).
+4. **Owner/client**: name and CPF/CNPJ.
+5. **Work address**: street, number, neighborhood, city, UF, CEP; municipal registration/lot/block/matrícula (varies).
+6. **Project author**: name, title (architect/engineer), **CAU or CREA no.**, and UF.
+7. **Technical person responsible for execution** (when applicable).
+8. **ART/RRT no.** (design and execution).
+9. **Scale(s)** (indicate "indicada" (as indicated) if multiple).
+10. **Date** (issue).
+11. **Sheet x/y** (sheet number and total).
+12. **Revision** (letter or number, date, description, author).
+13. **Drafter/designer** and **checker** (initials).
+14. Signatures: owner and technical person responsible (space or digital signature).
+15. Lot area and built area (sometimes in the title block; when not in the area schedule).
+16. Logo or name of the firm/company, CNPJ (optional).
+17. File name or document code (optional, useful for management).
+
+**Common additional fields:** city hall process number, space reserved for the city hall approval stamp (local rule: a free area of about 10x7 cm or a specific one is usually left, **a conferir**), key plan, materials legend, note "Projeto sujeito a aprovação" (Project subject to approval).
+
+---
+
+## 5. Specifications and structural standards
+
+### 5.1 Architectural memorial descritivo (descriptive specification)
+Typical content (NBR 16636-2 and practice): [a conferir against the standard]
+- Identification of the work, owner, author, and location (matrícula, registration).
+- Description of the lot and urban data (zone, TO, CA, TP, setbacks) and area schedule.
+- Architectural concept and needs program.
+- Construction system: foundation (radier), structure (LSF or wood frame), external and internal closures (cement boards, OSB, drywall), thermoacoustic insulation, waterproofing.
+- Roof: structure, sandwich roof panel (EPS/PUR/PIR core, thickness, sheet thickness), pitch, gutters and flashings.
+- Frames/openings (material, dimensions, glazing), floors, finishes, ceilings, paint, fixtures and fittings.
+- Installations: electrical summary, plumbing/sanitary, sewage treatment, reuse/rainwater (if applicable).
+- Accessibility (NBR 9050:2020, when applicable), fire safety (if required), performance (NBR 15575).
+- Execution care and material specifications with reference standards.
+
+### 5.2 Structural calculation/descriptive memorial for LSF
+Suggested minimum content (NBR 16970-2, NBR 14762, NBR 6120, NBR 6123, NBR 8681): [a conferir sections]
+- System description (structural panels, dry/wet slabs, bracing, connections).
+- Standards adopted and versions.
+- Materials: steel (ASTM A653 / NBR 7008? grade, fy, fu, coating Z275 or per NBR 15253), screws, plates, OSB/cement boards.
+- Profiles adopted: type (lipped channel Ue, track U, hat section), dimensions, thicknesses.
+- **Actions**: permanent (self-weight, per NBR 6120), live loads (NBR 6120), wind (NBR 6123), combinations (NBR 8681) with coefficients.
+- Calculation model and checks: studs (compression, combined bending and compression), floor beams, headers (bending, shear), connections, global stability, displacements (deflection limits), bracing (X straps, boards), anchorage to the radier (anchor bolts).
+- Results: utilization ratios per element, deflections, support reactions on the radier.
+- Framing/structure plan and **parts list** (cut and bend/profile table).
+- Loads transferred to the foundation.
+- **Professional's declarations**: exposure/environment class, design service life, assumptions, limitations, ART no.
+
+### 5.3 Structural standards and what to declare/export
+| Standard | Existence/status | What the professional declares/verifies | Data to export |
 |---|---|---|---|
-| **ABNT NBR 16970 (partes 1, 2 e 3), 2022** | Existe, publicada em 05/2022. Parte 1: Desempenho; Parte 2: Projeto estrutural; Parte 3: Interfaces entre sistemas (paredes/pisos, esquadrias, instalações). Parte 2 baseada em limites de estado e NBR 14762. [confirmado] Sites: https://www.normas.com.br/visualizar/abnt-nbr-nm/13381/abnt-nbr16970-2-light-steel-framing-sistemas-construtivos-estruturados-em-perfis-leves-de-aco-formados-a-frio-com-fechamentos-em-chapas-delgadas-parte-2-projeto-estrutural | Atendimento a requisitos de projeto estrutural, desempenho e interfaces; premissas e verificações | Peças e perfis, cargas, verificações, detalhes de interface (lista a conferir) |
-| **NBR 14762** | Dimensionamento de estruturas de aço de perfis formados a frio (edição 2010, a conferir se há revisão posterior). [confirmado existência] | Verificação de resistência (flambagem local, distorcional, global), ligações | Esforços, taxas de utilização, propriedades efetivas |
-| **NBR 15253** | Perfis de aço formados a frio com revestimento metálico para painéis estruturais reticulados em edificações: requisitos gerais (edição 2014, a conferir). [confirmado existência] | Classe de revestimento, espessuras mínimas, material | Especificação do perfil e do revestimento |
-| **NBR 6120** | Ações para o cálculo de estruturas de edificações (edição 2019). [a conferir ano] | Cargas permanentes e acidentais adotadas (ex.: sobrecarga de piso residencial) | Tabela de cargas |
-| **NBR 6123** | Forças devidas ao vento em edificações (1988, com emenda 2013). [a conferir] | Velocidade básica V0 (isopletas), S1, S2, S3, coeficientes de pressão | V0, categoria de rugosidade, classe, pressões; vem do **município** (V0) |
-| **NBR 8681** | Ações e segurança nas estruturas: critérios de combinação (2003). [a conferir] | Coeficientes de ponderação e combinações | Combinações usadas |
-| **NBR 6122** | Projeto e execução de fundações (edição 2022, a conferir). | Tipo de fundação, tensão admissível, recalques, premissas geotécnicas | Tensão admissível, nível d'água, tipo de solo, referência à sondagem |
-| **NBR 6118** | Projeto de estruturas de concreto (edição 2023, a conferir). | Cobrimento, classe de agressividade, fck, armaduras do radier | fck, aço, cobrimento, detalhamento de armaduras |
-| **NBR 6484 / NBR 8036** | 6484: sondagem SPT (2020, a conferir); 8036: programação de sondagens de simples reconhecimento de solos para fundações de edifícios (1983, a conferir). | Número e posição de furos, NSPT, nível d'água | Relatório de sondagem anexado ou referenciado; nº de furos; profundidade |
-| **NBR 15575 (partes 1 a 6)** | Desempenho de edificações habitacionais (edição 2021, a conferir). | Declaração de atendimento por parte, vida útil de projeto (VUP), desempenho estrutural, térmico, acústico, estanqueidade, segurança contra incêndio | Memorial/declaração de desempenho, transmitâncias (U), capacidade térmica, resultados |
-| **NBR 7190 (2022)** | Reedição em partes. Parte 1: critérios de dimensionamento (06/2022); outras partes: métodos de ensaio (classificação, corpos de prova, peças estruturais, ligações com conectores mecânicos, MLC/CLT). [confirmado] https://www.target.com.br/produtos/normas-tecnicas/46004/nbr7190-1-projeto-de-estruturas-de-madeira-parte-1-criterios-de-dimensionamento | Classe de resistência da madeira, umidade, duração de carga, classe de serviço, ligações | Propriedades de cálculo, esforços, ligações |
+| **ABNT NBR 16970 (parts 1, 2, and 3), 2022** | Exists, published 05/2022. Part 1: Performance; Part 2: Structural design; Part 3: Interfaces between systems (walls/floors, frames, installations). Part 2 based on limit states and NBR 14762. [confirmado] Sites: https://www.normas.com.br/visualizar/abnt-nbr-nm/13381/abnt-nbr16970-2-light-steel-framing-sistemas-construtivos-estruturados-em-perfis-leves-de-aco-formados-a-frio-com-fechamentos-em-chapas-delgadas-parte-2-projeto-estrutural | Compliance with structural design, performance, and interface requirements; assumptions and checks | Parts and profiles, loads, checks, interface details (list a conferir) |
+| **NBR 14762** | Design of cold-formed steel profile structures (2010 edition, check whether a later revision exists). [existence confirmed] | Strength verification (local, distortional, global buckling), connections | Forces, utilization ratios, effective properties |
+| **NBR 15253** | Cold-formed steel profiles with metallic coating for lattice structural panels in buildings: general requirements (2014 edition, a conferir). [existence confirmed] | Coating class, minimum thicknesses, material | Profile and coating specification |
+| **NBR 6120** | Actions for the calculation of building structures (2019 edition). [year a conferir] | Permanent and live loads adopted (e.g., residential floor live load) | Load table |
+| **NBR 6123** | Wind forces on buildings (1988, with 2013 amendment). [a conferir] | Basic speed V0 (isopleths), S1, S2, S3, pressure coefficients | V0, roughness category, class, pressures; comes from the **municipality** (V0) |
+| **NBR 8681** | Actions and safety in structures: combination criteria (2003). [a conferir] | Weighting coefficients and combinations | Combinations used |
+| **NBR 6122** | Design and execution of foundations (2022 edition, a conferir). | Foundation type, allowable stress, settlements, geotechnical assumptions | Allowable stress, water table, soil type, reference to the soil survey |
+| **NBR 6118** | Design of concrete structures (2023 edition, a conferir). | Cover, aggressiveness class, fck, radier reinforcement | fck, steel, cover, reinforcement detailing |
+| **NBR 6484 / NBR 8036** | 6484: SPT soil sounding (2020, a conferir); 8036: programming of simple soil reconnaissance borings for building foundations (1983, a conferir). | Number and position of boreholes, NSPT, water table | Attached or referenced survey report; number of boreholes; depth |
+| **NBR 15575 (parts 1 to 6)** | Performance of residential buildings (2021 edition, a conferir). | Declaration of compliance by part, design service life (VUP), structural, thermal, acoustic performance, watertightness, fire safety | Performance memorial/declaration, transmittances (U), thermal capacity, results |
+| **NBR 7190 (2022)** | Reissued in parts. Part 1: design criteria (06/2022); other parts: test methods (classification, specimens, structural pieces, connections with mechanical fasteners, glulam/CLT). [confirmado] https://www.target.com.br/produtos/normas-tecnicas/46004/nbr7190-1-projeto-de-estruturas-de-madeira-parte-1-criterios-de-dimensionamento | Timber strength class, moisture, load duration, service class, connections | Design properties, forces, connections |
 
-Observações:
-- **Wood frame (light wood framing)** não tem norma ABNT própria identificada nesta pesquisa; usa-se NBR 7190:2022 + diretrizes do SiNAT/PBQP-H (Diretriz SiNAT para sistemas de madeira com fechamentos em chapas delgadas) e DATec. Número da diretriz: **a conferir**. A pesquisa encontrou documento do PBQP-H relacionado a steel frame (FAD 070): https://pbqp-h.mdr.gov.br/wp-content/uploads/2024/08/FAD_070_SteelFrame-final_rev2-limpa.pdf
-- Limites de flecha, coeficientes e demais constantes: tudo de `packages/catalog` com referência de norma e edição.
-- Temperatura/umidade e durabilidade do LSF (galvanização mínima) em regiões litorâneas: exigir declaração.
+Notes:
+- **Wood frame (light wood framing)** has no ABNT standard of its own identified in this research; NBR 7190:2022 is used along with SiNAT/PBQP-H guidelines (SiNAT Guideline for timber systems with thin-sheet closures) and DATec. Guideline number: **a conferir**. The research found a PBQP-H document related to steel frame (FAD 070): https://pbqp-h.mdr.gov.br/wp-content/uploads/2024/08/FAD_070_SteelFrame-final_rev2-limpa.pdf
+- Deflection limits, coefficients, and other constants: all from `packages/catalog` with standard and edition reference.
+- Temperature/humidity and durability of LSF (minimum galvanizing) in coastal regions: require a declaration.
 
 ---
 
-## 6. Elétrico
+## 6. Electrical
 
-### 6.1 Normas e conteúdo do projeto
-- **NBR 5410** (instalações elétricas de baixa tensão): edição 2004 (versão corrigida 2008). Há revisão em andamento; **a conferir** se nova edição já foi publicada. https://www.target.com.br/produtos/normas-tecnicas/28721/nbr5410-instalacoes-eletricas-de-baixa-tensao
-- Conteúdo do projeto executivo (NBR 5410, item sobre documentação, e prática):
-  - **Planta de pontos e circuitos**: tomadas (TUG/TUE), iluminação, interruptores, eletrodutos, quadros, caixas, aterramento (por pavimento).
-  - **Diagrama unifilar** do quadro de distribuição (QD), com disjuntores, DR (dispositivo diferencial residual), DPS (proteção contra surtos), seções de condutores, ligação ao medidor.
-  - **Quadro de cargas**: circuito, descrição, tensão, potência (VA/W), corrente, fases, condutor (mm²), proteção, método de instalação, DR.
-  - **Quadro de distribuição**: detalhes de montagem, barramentos, identificação.
-  - **Memorial descritivo e de cálculo**: critérios (seção mínima, queda de tensão, capacidade de corrente, agrupamento), previsão de cargas (NBR 5410 item 9.5.2: pontos mínimos de tomadas por ambiente, iluminação mínima), cálculo de demanda, aterramento (esquema TN-S, TT), proteção.
-  - **Lista de materiais**.
-  - Detalhes: padrão de entrada, caixa de medição, aterramento, ponto de entrega.
-- Pontos mínimos (a conferir na norma): iluminação mínima 100 VA para ambiente até 6 m² (e +60 VA a cada 4 m² adicionais); tomadas de uso geral (mínimo por ambiente conforme perímetro: cozinha 1 a cada 3,5 m de perímetro; banheiro mínimo 1 junto ao lavatório; demais 1 a cada 5 m). Valores resumidos de conhecimento geral; **conferir antes de implementar**.
-- Aterramento e **DR obrigatório** em áreas molhadas e tomadas externas (NBR 5410). [a conferir itens]
+### 6.1 Standards and project content
+- **NBR 5410** (low-voltage electrical installations): 2004 edition (corrected version 2008). A revision is under way; **a conferir** whether a new edition has been published. https://www.target.com.br/produtos/normas-tecnicas/28721/nbr5410-instalacoes-eletricas-de-baixa-tensao
+- Detailed design content (NBR 5410, documentation item, and practice):
+  - **Points and circuits plan**: outlets (TUG/TUE, general-purpose/specific-purpose), lighting, switches, conduits, boards, boxes, grounding (per floor).
+  - **Single-line diagram** of the distribution board (QD), with breakers, RCD (DR, residual-current device), SPD (DPS, surge protection), conductor cross-sections, connection to the meter.
+  - **Load schedule**: circuit, description, voltage, power (VA/W), current, phases, conductor (mm²), protection, installation method, RCD.
+  - **Distribution board**: assembly details, busbars, identification.
+  - **Descriptive and calculation memorial**: criteria (minimum cross-section, voltage drop, current capacity, grouping), load forecast (NBR 5410 item 9.5.2: minimum outlet points per room, minimum lighting), demand calculation, grounding (TN-S, TT scheme), protection.
+  - **Materials list**.
+  - Details: service entrance standard, metering box, grounding, delivery point.
+- Minimum points (a conferir in the standard): minimum lighting 100 VA for a room up to 6 m² (and +60 VA for each additional 4 m²); general-purpose outlets (minimum per room by perimeter: kitchen 1 per 3.5 m of perimeter; bathroom minimum 1 next to the sink; others 1 per 5 m). Values summarized from general knowledge; **check before implementing**.
+- Grounding and **mandatory RCD (DR)** in wet areas and outdoor outlets (NBR 5410). [items a conferir]
 
 ### 6.2 NBR 5444
-- Símbolos gráficos para instalações elétricas prediais: consta **cancelada** (listagem do catálogo indica data 11/2014) e sem substituição direta; os símbolos ainda são amplamente usados. Fonte: https://www.normas.com.br/visualizar/abnt-nbr-nm/7854/abnt-nbr5444-simbolos-graficos-para-instalacoes-eletricas-prediais [secundário]
-- Prática hoje: manter **legenda no próprio projeto** (obrigatória em qualquer caso), baseada na simbologia tradicional e eventualmente nas normas IEC 60617 (símbolos gráficos para diagramas) e nas normas de desenho (NBR 5259, 5280: símbolos literais, a conferir vigência). [a conferir]
-- **No ChaléCAD**: exportar sempre legenda; não declarar "conforme NBR 5444".
+- Graphic symbols for building electrical installations: listed as **canceled** (the catalog listing indicates a date of 11/2014) and with no direct replacement; the symbols are still widely used. Source: https://www.normas.com.br/visualizar/abnt-nbr-nm/7854/abnt-nbr5444-simbolos-graficos-para-instalacoes-eletricas-prediais [secundário]
+- Current practice: keep a **legend in the project itself** (mandatory in any case), based on the traditional symbology and possibly on IEC 60617 (graphic symbols for diagrams) and drawing standards (NBR 5259, 5280: letter symbols, validity a conferir). [a conferir]
+- **In ChaléCAD**: always export a legend; do not declare "conforme NBR 5444".
 
-### 6.3 Concessionárias: padrão de entrada, carga, demanda
-- Regra geral (Resolução ANEEL 1.000/2021, **a conferir**): unidades consumidoras com carga instalada até 75 kW são atendidas em **tensão secundária (Grupo B)**. Acima, exigem tensão primária e projeto elétrico específico.
-- **Cemig**: norma **ND-5.1** (fornecimento em tensão secundária, rede aérea; edição jul/2022). Contém o cálculo de carga instalada e demanda e os tipos de padrão de entrada. https://www.cemig.com.br/wp-content/uploads/2025/10/nd5_1_000001p.pdf [confirmado existência]. **ND-5.3** (acima de 75 kW, tensão primária) https://www.cemig.com.br/wp-content/uploads/2023/09/nd5_3_000001p.pdf. Em **ND-5.5** há lista de casos "sem projeto" para consumidores com demanda até 327 kVA; **não se aplica diretamente a ND-5.1/residência** (leitura a conferir). https://www.cemig.com.br/wp-content/uploads/2023/08/nd-5.5-concurso-02-23.pdf [secundário]. Limiar de projeto exigido para residência em ND-5.1: **a conferir** (consultar tabelas das seções de carga/demanda e tipos de padrão).
-- **Copel (PR)**: NTC **901100** (fornecimento em tensão secundária de distribuição; **a conferir**) e NTC **900100** (critérios de apresentação de projetos de entradas de serviço; a conferir). Limiar de projeto elétrico: **a conferir**.
-- **Enel (SP, CE, RJ, GO)**: normas técnicas próprias para entrada e medição (ex.: instruções técnicas por distribuidora); nenhum resultado específico encontrado. **A conferir** em https://www.enel.com.br (seção Normas técnicas).
-- **CPFL**: normas GED (ex.: GED-13 para fornecimento em tensão secundária; **a conferir** o número). https://www.cpfl.com.br [a conferir].
-- **Padrão de entrada típico** por carga (faixas ilustrativas, a conferir por distribuidora): monofásico (2 fios) para cargas pequenas; bifásico (3 fios); trifásico (4 fios) para cargas maiores, com disjuntor geral de 40 a 150 A ou mais. A classificação depende da **demanda calculada** (kVA) e do número de fases; cada distribuidora tem tabela própria.
-- Com **chuveiro elétrico, aquecedor, ar-condicionado e energia solar**, um chalé de 120 m² costuma ser **trifásico**. **Geração distribuída fotovoltaica** exige projeto/ART específica e segue norma da concessionária (por exemplo, Cemig: https://canalsolar.com.br/cemig-divulga-novos-criterios-para-analise-de-conexoes-de-gd/). [fora do escopo inicial]
-- O que o ChaléCAD deve extrair para o requerimento de ligação: **carga instalada (kW), demanda (kVA), número de fases, tipo de padrão, disjuntor geral, seção do ramal, tipo de aterramento, endereço, ART do projeto/execução** (quando exigida).
-
----
-
-## 7. Hidrossanitário
-
-### 7.1 Conteúdo do projeto
-- **Água fria** (NBR 5626:2020): planta com ramal, reservatório, barrilete, colunas, ramais; **isométrico**; dimensionamento por vazões e pesos; pressões mínimas e máximas; metais e registros; reservatório (volume, extravasor, limpeza, tampa); alimentação por concessionária/poço. [a conferir o ano 2020: nenhuma busca confirmou, de conhecimento geral]
-- **Água quente** (NBR 7198 e NBR 5626, a conferir): aquecedor solar/elétrico/gás, isolamento, retorno.
-- **Esgoto sanitário e ventilação** (NBR 8160:1999): planta, isométrico, ralos, caixas sifonadas, caixa de gordura, caixa de inspeção, **desconectores**, tubos de ventilação, declividades mínimas, diâmetros por UHC (unidade Hunter de contribuição). [a conferir edição]
-- **Águas pluviais** (NBR 10844:1989): planta de cobertura, calhas, condutores verticais e horizontais; dimensionamento por intensidade de chuva (período de retorno e duração; **dado local: a conferir**) e área de contribuição. [a conferir]
-- Captação/aproveitamento de água de chuva: NBR 15527 (a conferir).
-- **Detalhes da caixa d'água**: volume (consumo diário x dias), altura/posição, tubulações, ladrão, extravasor, tampa e tela, base/suporte (inclusive peso sobre o LSF).
-- **Memorial de cálculo**: consumo, vazões, diâmetros, perdas de carga, UHC, declividades, volume do reservatório, bomba (se houver), pluvial.
-- Lista de materiais e quantitativos.
-
-### 7.2 NBR 17076:2024 (tratamento local de esgoto) — substitui NBR 7229 e NBR 13969
-- **Confirmação**: NBR 17076:2024 substituiu NBR 7229:1993 e NBR 13969:1997. [secundário: TCC do IFSC] https://repositorio.ifsc.edu.br/items/fb4b10c8-675d-4f4b-a0a3-b727aba16f49 ; UDESC (também aponta a substituição/cancelamento da 7229): https://udesc.br/arquivos/udesc/id_cpmenu/19312/ANLISE_1_17273813706282_19312.pdf
-- **O que muda** (secundário, conferir no texto da norma):
-  - **Afastamentos** mais restritivos e **uso alternado obrigatório** das unidades de disposição final (duas unidades alternadas).
-  - **Não trata tanque séptico de câmaras múltiplas** (a antiga NBR 7229 tratava); define apenas um tipo de **filtro anaeróbio de fluxo ascendente**.
-  - Um artigo defende dimensionar tanque com critérios de NBR 8160 em vez dos valores prefixados da 17076 (opinião, não regra).
-- **Fórmula antiga (NBR 7229:1993, legado, apenas para comparação)**: V = 1000 + N(C·T + K·Lf), com N nº de contribuintes, C contribuição de despejo (L/pessoa·dia), T tempo de detenção, K taxa de acumulação de lodo, Lf contribuição de lodo fresco. Fórmula e tabelas da NBR 17076: **a conferir** (não confirmadas nesta pesquisa; **não** usar a fórmula antiga como "conforme NBR 17076").
-- **Distâncias mínimas**:
-  - Antiga NBR 7229: 1,50 m de edificações, limites de terreno, sumidouros, valas e ramal de água. [secundário] 
-  - NBR 17076 (reportagem): **15 m entre poço e fossa**, ampliável por laudo de risco. https://olhardigital.com.br/curiosidades/?p=30210 [secundário/jornalismo; **a conferir no texto**]. Distâncias da nova norma até divisa/edificações: **a conferir**.
-- **Teste de percolação/infiltração**: em cova; parâmetros (profundidade, saturação, tempo de infiltração por 1 cm) e relação com taxa de aplicação/área de infiltração: **a conferir** na NBR 17076. [A NBR 7229 trazia tabela taxa x tempo de percolação]
-- **Disposição final**: sumidouro, vala de infiltração, vala de filtração, valas de infiltração/irrigação; requer nível freático a profundidade mínima (a conferir, normalmente 1,5 a 2 m do fundo) e solo com capacidade de infiltração adequada.
-- **O que a vigilância sanitária/prefeitura pede** (varia): projeto e memorial de fossa/filtro/sumidouro, laudo de percolação, localização na implantação (com distâncias de poço, divisas, edificações, cursos d'água), ART/RRT, declaração de ausência de rede pública (certidão da concessionária de saneamento), e eventualmente licença do órgão ambiental. [a conferir por município]
-- Referências complementares: CAESB (guia de fossa-sumidouro) https://www.caesb.df.gov.br//images/arquivos_pdf/Fossa-sumidouro.pdf.
+### 6.3 Utilities (concessionárias): service entrance standard, load, demand
+- General rule (ANEEL Resolution 1.000/2021, **a conferir**): consumer units with installed load up to 75 kW are served at **secondary voltage (Group B)**. Above that, they require primary voltage and a specific electrical design.
+- **Cemig**: standard **ND-5.1** (supply at secondary voltage, overhead network; Jul/2022 edition). Contains the installed load and demand calculation and the service entrance types. https://www.cemig.com.br/wp-content/uploads/2025/10/nd5_1_000001p.pdf [existence confirmed]. **ND-5.3** (above 75 kW, primary voltage) https://www.cemig.com.br/wp-content/uploads/2023/09/nd5_3_000001p.pdf. **ND-5.5** has a list of "no project" cases for consumers with demand up to 327 kVA; **does not apply directly to ND-5.1/residential** (reading a conferir). https://www.cemig.com.br/wp-content/uploads/2023/08/nd-5.5-concurso-02-23.pdf [secundário]. Project-required threshold for a home under ND-5.1: **a conferir** (consult the tables in the load/demand and entrance-type sections).
+- **Copel (PR)**: NTC **901100** (supply at secondary distribution voltage; **a conferir**) and NTC **900100** (criteria for submitting service entrance projects; a conferir). Electrical project threshold: **a conferir**.
+- **Enel (SP, CE, RJ, GO)**: own technical standards for service entrance and metering (e.g., technical instructions per distributor); no specific result found. **A conferir** at https://www.enel.com.br (Technical standards section).
+- **CPFL**: GED standards (e.g., GED-13 for supply at secondary voltage; **number a conferir**). https://www.cpfl.com.br [a conferir].
+- **Typical service entrance** by load (illustrative brackets, a conferir per distributor): single-phase (2 wires) for small loads; two-phase (3 wires); three-phase (4 wires) for larger loads, with a main breaker of 40 to 150 A or more. Classification depends on the **calculated demand** (kVA) and the number of phases; each distributor has its own table.
+- With an **electric shower, heater, air conditioning, and solar power**, a 120 m² chalet is usually **three-phase**. **Photovoltaic distributed generation** requires a specific project/ART and follows the utility's standard (for example, Cemig: https://canalsolar.com.br/cemig-divulga-novos-criterios-para-analise-de-conexoes-de-gd/). [out of initial scope]
+- What ChaléCAD must extract for the connection request: **installed load (kW), demand (kVA), number of phases, entrance type, main breaker, service drop cross-section, grounding type, address, design/execution ART** (when required).
 
 ---
 
-## 8. Checklist de validação normativa para o ChaléCAD
+## 7. Plumbing and sanitary
 
-### 8.1 Tabela de verificações (auto = verificável automaticamente)
+### 7.1 Project content
+- **Cold water** (NBR 5626:2020): plan with service line, tank, header, risers, branches; **isometric**; sizing by flows and weights; minimum and maximum pressures; fixtures and valves; tank (volume, overflow, cleaning, lid); supply from utility/well. [a conferir the year 2020: no search confirmed it, from general knowledge]
+- **Hot water** (NBR 7198 and NBR 5626, a conferir): solar/electric/gas heater, insulation, return line.
+- **Sanitary sewage and venting** (NBR 8160:1999): plan, isometric, floor drains, siphoned boxes, grease trap, inspection box, **traps (desconectores)**, vent pipes, minimum slopes, diameters by UHC (Hunter contribution unit). [edition a conferir]
+- **Stormwater** (NBR 10844:1989): roof plan, gutters, vertical and horizontal leaders; sizing by rainfall intensity (return period and duration; **local data: a conferir**) and contribution area. [a conferir]
+- Rainwater harvesting/use: NBR 15527 (a conferir).
+- **Water tank details**: volume (daily consumption x days), height/position, piping, overflow, vent, lid and screen, base/support (including weight on the LSF).
+- **Calculation memorial**: consumption, flows, diameters, head losses, UHC, slopes, tank volume, pump (if any), stormwater.
+- Materials list and quantity takeoff.
 
-| # | Item | Norma/seção | Critério verificável (auto?) | Dado de entrada a pedir |
+### 7.2 NBR 17076:2024 (on-site sewage treatment) — replaces NBR 7229 and NBR 13969
+- **Confirmation**: NBR 17076:2024 replaced NBR 7229:1993 and NBR 13969:1997. [secundário: IFSC thesis] https://repositorio.ifsc.edu.br/items/fb4b10c8-675d-4f4b-a0a3-b727aba16f49 ; UDESC (also points to the replacement/cancellation of 7229): https://udesc.br/arquivos/udesc/id_cpmenu/19312/ANLISE_1_17273813706282_19312.pdf
+- **What changes** (secondary, check in the standard's text):
+  - More restrictive **setback distances** and **mandatory alternating use** of the final disposal units (two alternating units).
+  - **Does not cover multi-chamber septic tanks** (the old NBR 7229 did); defines only one type of **upflow anaerobic filter**.
+  - One article advocates sizing the tank with NBR 8160 criteria instead of the preset values of 17076 (opinion, not a rule).
+- **Old formula (NBR 7229:1993, legacy, for comparison only)**: V = 1000 + N(C·T + K·Lf), with N = number of contributors, C = wastewater contribution (L/person·day), T = detention time, K = sludge accumulation rate, Lf = fresh sludge contribution. NBR 17076 formula and tables: **a conferir** (not confirmed in this research; **do not** use the old formula as "conforme NBR 17076").
+- **Minimum distances**:
+  - Old NBR 7229: 1.50 m from buildings, lot boundaries, soakaways, trenches, and water service line. [secundário]
+  - NBR 17076 (news report): **15 m between well and septic tank**, extendable by a risk report. https://olhardigital.com.br/curiosidades/?p=30210 [secondary/journalism; **a conferir in the text**]. Distances of the new standard to boundary/buildings: **a conferir**.
+- **Percolation/infiltration test**: in a pit; parameters (depth, saturation, infiltration time per 1 cm) and relation to application rate/infiltration area: **a conferir** in NBR 17076. [NBR 7229 had a rate x percolation time table]
+- **Final disposal**: soakaway, infiltration trench, filtration trench, infiltration/irrigation trenches; requires the water table at a minimum depth (a conferir, normally 1.5 to 2 m from the bottom) and soil with adequate infiltration capacity.
+- **What health surveillance/city hall asks for** (varies): septic tank/filter/soakaway design and memorial, percolation report, location on the layout (with distances to well, boundaries, buildings, watercourses), ART/RRT, declaration of absence of a public network (certificate from the sanitation utility), and possibly a license from the environmental agency. [a conferir per municipality]
+- Complementary references: CAESB (septic tank-soakaway guide) https://www.caesb.df.gov.br//images/arquivos_pdf/Fossa-sumidouro.pdf.
+
+---
+
+## 8. Normative validation checklist for ChaléCAD
+
+### 8.1 Verification table (auto = automatically verifiable)
+
+| # | Item | Standard/section | Verifiable criterion (auto?) | Input data to request |
 |---|---|---|---|---|
-| 1 | Taxa de ocupação | Plano diretor/zoneamento municipal | Projeção da edificação / área do lote ≤ TO máx (sim) | Área do lote, TO máx |
-| 2 | Coeficiente de aproveitamento | Zoneamento municipal | Área computável / lote ≤ CA (sim) | CA, regra de computabilidade (mezanino, varanda, beiral) |
-| 3 | Taxa de permeabilidade | Zoneamento municipal | Área permeável / lote ≥ TP mín (sim) | TP mín; materiais permeáveis |
-| 4 | Recuos frontal/lateral/fundo | Zoneamento/código de obras | Distâncias mín da edificação às divisas (sim, geometria) | Dimensões do lote (polígono), recuos mín, regra de abertura |
-| 5 | Gabarito/altura máxima | Zoneamento | Altura da edificação ≤ máx (sim) | Altura máx, nº de pavimentos |
-| 6 | Pé-direito mínimo | Código de obras municipal | Pé-direito ≥ mín por tipo de ambiente (sim) | Valores municipais (ex.: 2,40 m ambientes de permanência; a conferir) |
-| 7 | Iluminação e ventilação naturais | Código de obras; NBR 15575 | Área de abertura / área do piso ≥ fração (sim) | Frações mín (ex.: 1/6 ou 1/8; a conferir) |
-| 8 | Áreas mínimas de ambientes | Código de obras | Área ≥ mín (sim) | Valores municipais |
-| 9 | Acessibilidade (quando aplicável) | NBR 9050:2020 | Largura mínima de portas (0,80 m), circulação, rampas ≤ 8,33% (sim/parcial) | Se há exigência; público/privado |
-| 10 | Coerência dos quadros de áreas | NBR 6492 | Soma das áreas = total (sim) | Nenhum |
-| 11 | Escala e formato das pranchas | NBR 10068, 6492 | Prancha contida no formato com margens (sim) | Formato preferido |
-| 12 | Campos do carimbo preenchidos | NBR 10582, 6492 | Todos os campos obrigatórios não vazios (sim) | Dados da seção 4.4 |
-| 13 | Cargas permanentes e sobrecargas | NBR 6120 | Valores usados presentes no catálogo versionado (sim) | Uso da edificação |
-| 14 | Vento | NBR 6123 | V0, S1, S2, S3 definidos (sim, cálculo de pressão) | V0 (município/isopleta), topografia, rugosidade, dimensões |
-| 15 | Combinações de ações | NBR 8681 | Combinações ELU e ELS geradas (sim) | Nenhum |
-| 16 | Verificação de perfis LSF (montantes, vigas, vergas) | NBR 14762; NBR 16970-2 | Taxa de utilização ≤ 1,0 (sim, pré-dimensionamento) | Aço (fy), espessura, perfis |
-| 17 | Flechas | NBR 14762/16970-2; limites no catálogo | Flecha ≤ L/limite (sim; limites a conferir) | Limite adotado |
-| 18 | Revestimento do aço | NBR 15253 | Classe do revestimento ≥ mín (sim; valores a conferir) | Agressividade/localização (litoral) |
-| 19 | Interfaces (parede-piso, esquadrias, instalações) | NBR 16970-3 | Presença de detalhes (parcial; checklist) | Opções de detalhe |
-| 20 | Desempenho térmico/acústico | NBR 15575 | U, capacidade térmica, valores no catálogo (parcial) | Zona bioclimática (NBR 15220, a conferir), fechamentos |
-| 21 | Segurança estrutural da fundação | NBR 6122, 6118 | Tensão no solo ≤ σ_adm (sim); recalque (parcial) | **Sondagem/tensão admissível do solo**, NA, tipo de solo |
-| 22 | Radier: espessura mínima/armação | NBR 6118 | Verificação preliminar (parcial) | fck, aço, cobrimento, classe de agressividade |
-| 23 | Sondagem presente e adequada | NBR 6484, 8036 | Nº de furos ≥ mín conforme área (parcial); relatório anexado (sim/não) | Laudo de sondagem |
-| 24 | Elétrico: previsão mínima de pontos | NBR 5410 (9.5.2; a conferir) | Pontos de iluminação e tomadas por ambiente ≥ mín (sim) | Plantas dos pontos |
-| 25 | Elétrico: seção/proteção/queda de tensão | NBR 5410 | Ib ≤ In ≤ Iz; ΔV ≤ limite (sim) | Comprimentos, método de instalação |
-| 26 | Elétrico: DR, DPS, aterramento | NBR 5410 | Presença nos circuitos exigidos (sim) | Esquema de aterramento (TN/TT) |
-| 27 | Carga instalada, demanda e padrão de entrada | Norma da concessionária | Demanda calculada, tipo de padrão (parcial) | **Concessionária**, tensão, nº de fases |
-| 28 | Água fria: diâmetros, pressões, reservatório | NBR 5626:2020 | Pressões dentro de faixas (sim) | Fonte de água, pressão da rede, nº de moradores |
-| 29 | Esgoto: declividades, desconectores, ventilação | NBR 8160 | Declividade mín, diâmetros por UHC (sim) | Aparelhos, rede pública ou fossa |
-| 30 | Pluvial: calhas e condutores | NBR 10844 | Vazão ≤ capacidade (sim) | Intensidade de chuva local (município) |
-| 31 | Fossa/filtro/sumidouro: dimensionamento | NBR 17076:2024 | Volume útil ≥ mín (sim, após confirmar fórmula) | Nº de contribuintes, tipo de ocupação, **taxa de percolação/teste** |
-| 32 | Distâncias de poço, divisa, edificação | NBR 17076:2024 | Distâncias ≥ mín (sim, valores a conferir) | Posição de poço/fossa/sumidouro, divisas |
-| 33 | Nível do lençol freático | NBR 17076:2024 | Distância fundo do sumidouro-NA ≥ mín (sim) | Profundidade do NA |
-| 34 | ART/RRT informado | Lei 6.496 / Lei 12.378 | Nº preenchido (sim) | Nº ART/RRT por disciplina |
-| 35 | Aviso de não substituição de projeto com ART | Interno (`DISCLAIMER`) | Presente em todo documento (sim) | Nenhum |
+| 1 | Site coverage (TO) | Municipal master plan/zoning | Building projection / lot area ≤ max TO (yes) | Lot area, max TO |
+| 2 | Floor-area ratio (CA) | Municipal zoning | Computable area / lot ≤ CA (yes) | CA, computability rule (mezzanine, porch, eave) |
+| 3 | Permeability rate (TP) | Municipal zoning | Permeable area / lot ≥ min TP (yes) | Min TP; permeable materials |
+| 4 | Front/side/rear setbacks | Zoning/building code | Min distances from building to boundaries (yes, geometry) | Lot dimensions (polygon), min setbacks, opening rule |
+| 5 | Height limit/maximum height | Zoning | Building height ≤ max (yes) | Max height, number of floors |
+| 6 | Minimum ceiling height | Municipal building code | Ceiling height ≥ min per room type (yes) | Municipal values (e.g., 2.40 m for habitable rooms; a conferir) |
+| 7 | Natural lighting and ventilation | Building code; NBR 15575 | Opening area / floor area ≥ fraction (yes) | Min fractions (e.g., 1/6 or 1/8; a conferir) |
+| 8 | Minimum room areas | Building code | Area ≥ min (yes) | Municipal values |
+| 9 | Accessibility (when applicable) | NBR 9050:2020 | Minimum door width (0.80 m), circulation, ramps ≤ 8.33% (yes/partial) | Whether required; public/private |
+| 10 | Consistency of area schedules | NBR 6492 | Sum of areas = total (yes) | None |
+| 11 | Sheet scale and format | NBR 10068, 6492 | Sheet fits within the format with margins (yes) | Preferred format |
+| 12 | Title block fields filled in | NBR 10582, 6492 | All mandatory fields non-empty (yes) | Data from section 4.4 |
+| 13 | Permanent and live loads | NBR 6120 | Values used are present in the versioned catalog (yes) | Building use |
+| 14 | Wind | NBR 6123 | V0, S1, S2, S3 defined (yes, pressure calculation) | V0 (municipality/isopleth), topography, roughness, dimensions |
+| 15 | Action combinations | NBR 8681 | ULS and SLS combinations generated (yes) | None |
+| 16 | LSF profile checks (studs, beams, headers) | NBR 14762; NBR 16970-2 | Utilization ratio ≤ 1.0 (yes, preliminary sizing) | Steel (fy), thickness, profiles |
+| 17 | Deflections | NBR 14762/16970-2; limits in catalog | Deflection ≤ L/limit (yes; limits a conferir) | Adopted limit |
+| 18 | Steel coating | NBR 15253 | Coating class ≥ min (yes; values a conferir) | Aggressiveness/location (coast) |
+| 19 | Interfaces (wall-floor, frames, installations) | NBR 16970-3 | Presence of details (partial; checklist) | Detail options |
+| 20 | Thermal/acoustic performance | NBR 15575 | U, thermal capacity, values in the catalog (partial) | Bioclimatic zone (NBR 15220, a conferir), closures |
+| 21 | Foundation structural safety | NBR 6122, 6118 | Soil stress ≤ σ_adm (yes); settlement (partial) | **Soil survey/allowable soil stress**, water table, soil type |
+| 22 | Radier: minimum thickness/reinforcement | NBR 6118 | Preliminary check (partial) | fck, steel, cover, aggressiveness class |
+| 23 | Soil survey present and adequate | NBR 6484, 8036 | Number of boreholes ≥ min per area (partial); report attached (yes/no) | Soil survey report |
+| 24 | Electrical: minimum points | NBR 5410 (9.5.2; a conferir) | Lighting points and outlets per room ≥ min (yes) | Point plans |
+| 25 | Electrical: cross-section/protection/voltage drop | NBR 5410 | Ib ≤ In ≤ Iz; ΔV ≤ limit (yes) | Lengths, installation method |
+| 26 | Electrical: RCD, SPD, grounding | NBR 5410 | Present on required circuits (yes) | Grounding scheme (TN/TT) |
+| 27 | Installed load, demand, and service entrance | Utility standard | Calculated demand, entrance type (partial) | **Utility (concessionária)**, voltage, number of phases |
+| 28 | Cold water: diameters, pressures, tank | NBR 5626:2020 | Pressures within ranges (yes) | Water source, network pressure, number of residents |
+| 29 | Sewage: slopes, traps, venting | NBR 8160 | Min slope, diameters by UHC (yes) | Fixtures, public network or septic tank |
+| 30 | Stormwater: gutters and leaders | NBR 10844 | Flow ≤ capacity (yes) | Local rainfall intensity (municipality) |
+| 31 | Septic tank/filter/soakaway: sizing | NBR 17076:2024 | Useful volume ≥ min (yes, after confirming formula) | Number of contributors, occupancy type, **percolation rate/test** |
+| 32 | Distances to well, boundary, building | NBR 17076:2024 | Distances ≥ min (yes, values a conferir) | Position of well/septic tank/soakaway, boundaries |
+| 33 | Water table level | NBR 17076:2024 | Distance soakaway bottom to water table ≥ min (yes) | Water table depth |
+| 34 | ART/RRT provided | Law 6.496 / Law 12.378 | Number filled in (yes) | ART/RRT no. per discipline |
+| 35 | Notice that it does not replace a project with ART | Internal (`DISCLAIMER`) | Present in every document (yes) | None |
 
-### 8.2 Dados de entrada a coletar do usuário (agrupados)
-- **Lote**: polígono/dimensões, área, orientação (norte), topografia/níveis, matrícula, inscrição, endereço, coordenadas, cidade/UF.
-- **Parâmetros urbanísticos municipais**: zona, TO máx, CA, TP mín, recuos (frontal, lateral, fundos e regra de abertura), gabarito, pé-direito mínimo, vagas, regra de mezanino/beiral, fonte (lei, artigo, data).
-- **Solo e fundação**: sondagem (tipo, nº de furos, NSPT, profundidade, NA), tensão admissível, classe de agressividade, taxa de percolação.
-- **Ambiente**: V0 e categoria de rugosidade, intensidade de chuva local, zona bioclimática.
-- **Elétrico**: concessionária, tensão e fases, tipo de ligação (monofásico, bifásico, trifásico), cargas especiais (chuveiro, ar-condicionado, fogão elétrico, carregador de veículo, fotovoltaico).
-- **Hidrossanitário**: rede pública de água/esgoto ou poço/fossa, pressão disponível, nº de moradores, reservatório.
-- **Responsáveis**: proprietário, autores (arquitetura, estrutura, elétrico, hidro), registro CAU/CREA, nº ART/RRT, empresa executora.
+### 8.2 Input data to collect from the user (grouped)
+- **Lot**: polygon/dimensions, area, orientation (north), topography/levels, matrícula, registration, address, coordinates, city/UF.
+- **Municipal urban parameters**: zone, max TO, CA, min TP, setbacks (front, side, rear, and opening rule), height limit, minimum ceiling height, parking, mezzanine/eave rule, source (law, article, date).
+- **Soil and foundation**: soil survey (type, number of boreholes, NSPT, depth, water table), allowable stress, aggressiveness class, percolation rate.
+- **Environment**: V0 and roughness category, local rainfall intensity, bioclimatic zone.
+- **Electrical**: utility, voltage and phases, connection type (single-phase, two-phase, three-phase), special loads (shower, air conditioning, electric stove, vehicle charger, photovoltaic).
+- **Plumbing/sanitary**: public water/sewer network or well/septic tank, available pressure, number of residents, tank.
+- **Responsible parties**: owner, authors (architecture, structure, electrical, plumbing), CAU/CREA registration, ART/RRT no., contractor.
 
-### 8.3 Documentos que o ChaléCAD deve exportar
+### 8.3 Documents ChaléCAD must export
 
-**Pranchas (PDF vetorial e DXF/DWG quando viável; formato A1/A2/A3 conforme escolha; carimbo completo; norte, escala gráfica e legenda):**
-1. Capa/índice de pranchas, com lista de revisões.
-2. Planta de situação.
-3. Planta de implantação/locação com recuos, níveis, fossa/sumidouro/poço e área permeável.
-4. Quadro de áreas e quadro de parâmetros urbanísticos (valores de projeto x limites do município).
-5. Plantas baixas (térreo, mezanino/pavimento superior) com áreas, cotas e níveis.
-6. Cortes (mínimo 2) com pé-direito e níveis.
-7. Fachadas (todas).
-8. Planta de cobertura (caimentos, calhas, telha sanduíche).
-9. Quadro de esquadrias.
-10. Planta de fundação (radier) com cotas e armação (e detalhes).
-11. Planta de estrutura LSF por painel (elevações de paredes, vigas de piso, tesouras/terças, contraventamentos, ligações) com lista de perfis.
-12. Planta elétrica (pontos e circuitos), diagrama unifilar, quadro de cargas, detalhe do padrão de entrada.
-13. Plantas hidrossanitárias: água fria/quente, esgoto, ventilação, pluvial, isométricos, detalhe da caixa d'água.
-14. Detalhe de fossa, filtro e sumidouro (ou vala), com distâncias.
-15. Legenda de símbolos (inclusive elétrica, sem citar NBR 5444 como vigente).
+**Sheets (vector PDF and DXF/DWG when feasible; A1/A2/A3 format by choice; full title block; north, graphic scale, and legend):**
+1. Cover/sheet index, with revision list.
+2. Site plan.
+3. Layout/staking plan with setbacks, levels, septic tank/soakaway/well, and permeable area.
+4. Area schedule and urban parameters schedule (project values x municipal limits).
+5. Floor plans (ground floor, mezzanine/upper floor) with areas, dimensions, and levels.
+6. Sections (minimum 2) with ceiling height and levels.
+7. Elevations (all).
+8. Roof plan (slopes, gutters, sandwich roof panel).
+9. Window/door schedule.
+10. Foundation plan (radier) with dimensions and reinforcement (and details).
+11. LSF structure plan per panel (wall elevations, floor beams, trusses/purlins, bracing, connections) with profile list.
+12. Electrical plan (points and circuits), single-line diagram, load schedule, service entrance detail.
+13. Plumbing/sanitary plans: cold/hot water, sewage, venting, stormwater, isometrics, water tank detail.
+14. Septic tank, filter, and soakaway (or trench) detail, with distances.
+15. Symbol legend (including electrical, without citing NBR 5444 as in force).
 
-**Memoriais e relatórios (PDF, com `DISCLAIMER`):**
-16. Memorial descritivo de arquitetura.
-17. Memorial descritivo e de cálculo estrutural (LSF/wood frame e radier), com premissas, normas (edição), cargas, combinações, resultados e declaração de limitações.
-18. Memorial elétrico (carga instalada, demanda, padrão de entrada, cálculo de circuitos) e lista de materiais.
-19. Memorial hidrossanitário e de dimensionamento da fossa/sumidouro.
-20. Declaração/memorial de desempenho (NBR 15575) com os dados disponíveis (a completar pelo responsável).
-21. Quantitativos, lista de peças (corte), peso e orçamento (relatórios já derivados do motor).
-22. Relatório de **checklist normativo** (itens do 8.1 com aprovado/reprovado/pendente e a entrada usada).
+**Memorials and reports (PDF, with `DISCLAIMER`):**
+16. Architectural memorial descritivo (descriptive specification).
+17. Structural descriptive and calculation memorial (LSF/wood frame and radier), with assumptions, standards (edition), loads, combinations, results, and statement of limitations.
+18. Electrical memorial (installed load, demand, service entrance, circuit calculation) and materials list.
+19. Plumbing/sanitary memorial and septic tank/soakaway sizing.
+20. Performance statement/memorial (NBR 15575) with the available data (to be completed by the responsible party).
+21. Quantity takeoff, parts list (cut), weight, and budget (reports already derived by the engine).
+22. **Normative checklist** report (items in 8.1 with approved/failed/pending and the input used).
 
-**Fichas de preenchimento (não substituem o sistema oficial; servem para copiar os dados):**
-23. **Ficha de ART (Crea)**: dados do profissional, contratante, proprietário, endereço e coordenadas, valor do contrato, datas, finalidade, atividades técnicas com **quantidade e unidade** (m² de projeto, m² de área construída, kVA da carga instalada, m² do radier, etc.), observações e documentos vinculados. O ChaléCAD gera os valores sugeridos; **a emissão é feita no sistema do Crea**.
-24. **Ficha de RRT (CAU)**: idem, com atividades da tabela do CAU.
-25. **Ficha do requerimento de alvará** (campos comuns): dados do proprietário, matrícula, inscrição, áreas, TO/CA/TP, nº de pavimentos, responsáveis, ARTs/RRTs.
-26. **Ficha para ligação na concessionária**: carga instalada, demanda, número de fases, tipo de padrão, disjuntor geral.
-27. **Ficha para vigilância sanitária/prefeitura (fossa)**: nº de contribuintes, volume do tanque, área de infiltração, resultado do teste de percolação, distâncias.
-28. **Termo de entrada de dados**: lista dos dados informados pelo usuário e sua fonte (sondagem, lei municipal etc.), com data.
+**Fill-in forms (they do not replace the official system; they serve to copy the data):**
+23. **ART form (Crea)**: data of the professional, client, owner, address and coordinates, contract value, dates, purpose, technical activities with **quantity and unit** (m² of design, m² of built area, kVA of installed load, m² of radier, etc.), remarks, and linked documents. ChaléCAD generates the suggested values; **issuance is done in the Crea's system**.
+24. **RRT form (CAU)**: same, with activities from the CAU table.
+25. **Building permit request form** (common fields): owner data, matrícula, registration, areas, TO/CA/TP, number of floors, responsible parties, ARTs/RRTs.
+26. **Utility connection form**: installed load, demand, number of phases, entrance type, main breaker.
+27. **Form for health surveillance/city hall (septic tank)**: number of contributors, tank volume, infiltration area, percolation test result, distances.
+28. **Data entry record**: list of the data entered by the user and its source (soil survey, municipal law, etc.), with date.
 
-### 8.4 Recomendações de arquitetura para o código
-- Cada regra deve declarar `fonte` (norma, edição, seção, data da conferência), `status` (confirmado/a conferir) e `severidade`.
-- Valores a conferir não devem produzir "aprovado"; devem sair como "pendente de conferência profissional".
-- Parâmetros urbanísticos entram sempre como dados do usuário, nunca em `catalog`.
-- Todos os relatórios mostram `DISCLAIMER`: não substitui projeto estrutural com ART/RRT.
+### 8.4 Architecture recommendations for the code
+- Each rule must declare `fonte` (standard, edition, section, verification date), `status` (confirmed/a conferir), and `severidade` (severity).
+- Values marked a conferir must not produce "approved"; they must come out as "pendente de conferência profissional" (pending professional verification).
+- Urban parameters always enter as user data, never in `catalog`.
+- All reports show `DISCLAIMER`: does not replace a structural project with ART/RRT.
 
 ---
 
-## 9. Lacunas e próximos passos (a conferir)
-1. Texto oficial do Anexo I da Res. Confea 1.137/2023 e da atualização de dez/2025 (campos exatos e códigos de atividade; modelos A, B, D).
-2. Número da resolução que atualizou a 1.137 e data de vigência.
-3. Valor RRT 2026 e lista oficial de atividades no SICCAU.
-4. Texto da NBR 17076:2024: fórmulas de volume, taxas de infiltração, distâncias, alternância, teste de percolação.
-5. Texto da NBR 6492:2021, NBR 10582 e NBR 8196 (vigência), NBR 16636 (títulos das partes 1 a 3).
-6. Limiar de obrigatoriedade de projeto elétrico e tabela de padrões de entrada em Cemig (ND-5.1), Copel (NTC), Enel e CPFL.
-7. Diretriz SiNAT/DATec para wood frame e para LSF (números e vigência).
-8. Checklist atual de prefeituras (SP, Curitiba, BH, Florianópolis) e exigência de fossa.
-9. Verificar se há nova edição da NBR 5410 e NBR 6123 (revisão em andamento, a conferir).
+## 9. Gaps and next steps (a conferir)
+1. Official text of Annex I of Confea Res. 1.137/2023 and of the Dec/2025 update (exact fields and activity codes; models A, B, D).
+2. Number of the resolution that updated 1.137 and its effective date.
+3. 2026 RRT fee and official list of activities in SICCAU.
+4. Text of NBR 17076:2024: volume formulas, infiltration rates, distances, alternation, percolation test.
+5. Text of NBR 6492:2021, NBR 10582, and NBR 8196 (validity), NBR 16636 (titles of parts 1 to 3).
+6. Threshold for mandatory electrical project and service entrance table at Cemig (ND-5.1), Copel (NTC), Enel, and CPFL.
+7. SiNAT/DATec guideline for wood frame and for LSF (numbers and validity).
+8. Current checklist of city halls (SP, Curitiba, BH, Florianópolis) and septic tank requirement.
+9. Check whether there is a new edition of NBR 5410 and NBR 6123 (revision under way, a conferir).
 
-## Fontes principais
-- Confea, taxas: https://www.confea.org.br/profissional/taxas
-- Confea, atualização da 1.137: https://www.confea.org.br/confea-atualiza-regras-de-art-e-acervo-tecnico-e-moderniza-o-sistema
-- Confea, GT de reformulação: https://www.confea.org.br/node/230892
-- Resolução 1.137/2023 (notícia): https://www.coad.com.br/home/noticias-detalhe/118517/confea-fixa-procedimentos-sobre-art-anotacao-de-responsabilidade-tecnica
-- Crea-MT, tabela 2026: https://www.crea-mt.org.br/portal/wp-content/uploads/2026/01/TABELA-DE-SERVICOS-E-ART-2026.pdf
-- Crea-SC, valores 2026: https://portal.crea-sc.org.br/anuidades-servicos-multas-e-arts-tem-valores-definidos-para-2026/
+## Main sources
+- Confea, fees: https://www.confea.org.br/profissional/taxas
+- Confea, 1.137 update: https://www.confea.org.br/confea-atualiza-regras-de-art-e-acervo-tecnico-e-moderniza-o-sistema
+- Confea, reformulation working group: https://www.confea.org.br/node/230892
+- Resolution 1.137/2023 (news): https://www.coad.com.br/home/noticias-detalhe/118517/confea-fixa-procedimentos-sobre-art-anotacao-de-responsabilidade-tecnica
+- Crea-MT, 2026 table: https://www.crea-mt.org.br/portal/wp-content/uploads/2026/01/TABELA-DE-SERVICOS-E-ART-2026.pdf
+- Crea-SC, 2026 values: https://portal.crea-sc.org.br/anuidades-servicos-multas-e-arts-tem-valores-definidos-para-2026/
 - CAU/BR Res. 91/2014: https://www.normasbrasil.com.br/norma/resolucao-91-2014_276004.html
-- CAU/BR Res. 166/2018 e 184/2019: https://www.normasbrasil.com.br/norma/resolucao-166-2018_366532.html, https://www.normasbrasil.com.br/norma/resolucao-184-2019_388331.html
+- CAU/BR Res. 166/2018 and 184/2019: https://www.normasbrasil.com.br/norma/resolucao-166-2018_366532.html, https://www.normasbrasil.com.br/norma/resolucao-184-2019_388331.html
 - NBR 16970-1/2/3: https://www.normas.com.br/visualizar/abnt-nbr-nm/13380/abnt-nbr16970-1-light-steel-framing-sistemas-construtivos-estruturados-em-perfis-leves-de-aco-formados-a-frio-com-fechamentos-em-chapas-delgadas-parte-1-desempenho
 - NBR 15253: https://www.normas.com.br/visualizar/abnt-nbr-nm/24619/abnt-nbr15253-perfis-de-aco-formados-a-frio-com-revestimento-metalico-para-paineis-estruturais-reticulados-em-edificacoes-requisitos-gerais
 - NBR 7190-1:2022: https://www.target.com.br/produtos/normas-tecnicas/46004/nbr7190-1-projeto-de-estruturas-de-madeira-parte-1-criterios-de-dimensionamento
-- NBR 5444 (catálogo): https://www.normas.com.br/visualizar/abnt-nbr-nm/7854/abnt-nbr5444-simbolos-graficos-para-instalacoes-eletricas-prediais
+- NBR 5444 (catalog): https://www.normas.com.br/visualizar/abnt-nbr-nm/7854/abnt-nbr5444-simbolos-graficos-para-instalacoes-eletricas-prediais
 - NBR 17076:2024 (IFSC): https://repositorio.ifsc.edu.br/items/fb4b10c8-675d-4f4b-a0a3-b727aba16f49
 - NBR 17076:2024 (UDESC): https://udesc.br/arquivos/udesc/id_cpmenu/19312/ANLISE_1_17273813706282_19312.pdf
-- NBR 10068 (cópia acadêmica): https://docente.ifsc.edu.br/gianpaulo.medeiros/MaterialDidatico/Desenho%20Mecatr%c3%b4nica%20/aula%202/NBR%2010068-Folha%20de%20desenho%20-%20Leiaute%20e%20dimensoes.pdf
+- NBR 10068 (academic copy): https://docente.ifsc.edu.br/gianpaulo.medeiros/MaterialDidatico/Desenho%20Mecatr%c3%b4nica%20/aula%202/NBR%2010068-Folha%20de%20desenho%20-%20Leiaute%20e%20dimensoes.pdf
 - Cemig ND-5.1: https://www.cemig.com.br/wp-content/uploads/2025/10/nd5_1_000001p.pdf
-- Curitiba, Decreto 799/2020: https://www.contabeis.com.br/legislacao/5955707/decreto-799-2020/
-- MDIC, guia de alvarás: https://www.gov.br/mdic/pt-br/assuntos/sdic/construa-brasil/produtos/22-09-construa-brasil-guia-orientativo-de-boas-praticas-para-obtencao-de-alvaras-de-construcao.pdf
+- Curitiba, Decree 799/2020: https://www.contabeis.com.br/legislacao/5955707/decreto-799-2020/
+- MDIC, permit guide: https://www.gov.br/mdic/pt-br/assuntos/sdic/construa-brasil/produtos/22-09-construa-brasil-guia-orientativo-de-boas-praticas-para-obtencao-de-alvaras-de-construcao.pdf
