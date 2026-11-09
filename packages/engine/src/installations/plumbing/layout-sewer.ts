@@ -20,7 +20,7 @@ interface RoomPlan {
   G: P2 | null;
   hasToilet: boolean;
 }
-type Local = { specs: { prefix: string; path: V3[]; level: string }[]; maxZ: number; zC: number | null };
+type Local = { specs: { prefix: string; path: V3[]; level: string }[]; maxZ: number; zC: number | null; zG: number | null };
 
 const isToilet = (f: string) => f.startsWith('toilet');
 const isSink = (f: string) => f === 'kitchen_sink';
@@ -126,6 +126,7 @@ export function genSewer(
     const specs: { prefix: string; path: V3[]; level: string }[] = [];
     let maxZ = zA;
     let zCOut: number | null = null;
+    let zGOut: number | null = null;
     const seg = (prefix: string, from: P2, to: P2, zTo: number, s: number) => {
       const path2 = manh2(from, to);
       const zFrom = zTo + s * len2(path2);
@@ -140,12 +141,13 @@ export function genSewer(
     }
     if (p.G) {
       const zG = dist2(p.G, p.A) > 1e-6 ? seg('cg', p.G, p.A, zA, s2) : zA;
+      zGOut = zG;
       for (const s of p.sinks) if (dist2(xyOf(s), p.G) > 1e-6) seg('ramal-pia', xyOf(s), p.G, zG, s2);
     }
     p.toilets.slice(1).forEach((t) => {
       if (dist2(xyOf(t), p.A) > 1e-6) seg('ramal-bacia', xyOf(t), p.A, zA, s1);
     });
-    return { specs, maxZ, zC: zCOut } satisfies Local;
+    return { specs, maxZ, zC: zCOut, zG: zGOut } satisfies Local;
   };
 
   let rise = 0;
@@ -178,6 +180,10 @@ export function genSewer(
       const loc = local(p, zA);
       if (p.C && loc.zC !== null && len2(manh2(p.C, p.A)) > (k.ventMaxDistance['50'] ?? 1.2) + 1e-6) {
         vent.push(toPipe(ctx, mk('ventilacao'), 'vent', p.level, [[p.C[0], p.C[1], loc.zC], [p.C[0], p.C[1], Math.max(topAt(p.C), loc.zC + 0.5)]]));
+      }
+      // caixa de gordura (saída DN 75) longe do ventilador do ambiente: idem (cozinha na frente, banheiro nos fundos)
+      if (p.G && loc.zG !== null && len2(manh2(p.G, p.A)) > (k.ventMaxDistance['75'] ?? 1.8) + 1e-6) {
+        vent.push(toPipe(ctx, mk('ventilacao'), 'vent', p.level, [[p.G[0], p.G[1], loc.zG], [p.G[0], p.G[1], Math.max(topAt(p.G), loc.zG + 0.5)]]));
       }
     }
   });
