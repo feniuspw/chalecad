@@ -49,3 +49,25 @@ Decisions made by the orchestrator with the autonomy granted by the user on 2026
       - Vector PDF with `jspdf` and an own SVG reader (no DOM); texts go through `clean` (WinAnsi).
     - **"Aprovação" (Approval) screen** (Shift+A): data, check with professional's review, form for SITAC/SICCAU, descriptive specifications and PDF forms (utility (concessionária), septic tank, alvará (building permit)), and .zip package.
     - **Lot on the floor plan:** key L.
+35. **Deck, graded terrain and lighting (F18):**
+    - **Deck** (`DeckExtra`, `ExtraModel.deck`):
+      - The deck attaches to the outer wall face taken from `model.footprint`, never the wall axis, so it runs corner to corner. `facadeIndex` picks the face on L plans and A-frame annexes.
+      - Deck height is `level`, measured from the house's finished floor. The default is 3 cm below the door sill (`extras.deck.stepBelowFloor`). The old `elevation` field is ignored.
+      - The structure is real: boards, joists, beams, a ledger on the house, and piers down to the finished ground (`SiteSurface.groundZ`) with pad or bored footings and bracing. Support type is chosen by height and slope.
+      - The guardrail appears automatically when the drop exceeds 1 m. It is 1.10 m high (NBR 14718), the default for every guardrail.
+      - Stairs are added automatically in front of the door, sized by the Blondel formula (NBR 9050).
+      - Checks per NBR 7190, 14718, 9050 and 6122 feed the "Aprovação" (Approval) screen.
+      - The deck roof never crosses the main roof, and it uses the main roof's material.
+    - **Terrain** (`SlopedSite.pads`, `edges`, `retaining`; `TerrainReport.pads` and `walls`):
+      - The user draws building pads, each at its own level, with the "Aplainar área" (Flatten area) tool, key G.
+      - With `edges: 'auto'`, an edge becomes a retaining wall where the cut exceeds 1.5 m, the fill exceeds 1 m (`terrainRules.retaining*`), or the slope would leave the lot or run into another pad or the house. Otherwise it stays a slope.
+      - Wall type is chosen by height: block up to 2 m, reinforced concrete up to 4 m, gabion above that.
+      - Walls are priced with the same function as the manual retaining-wall extra. They show up in 3D, section and site plan, and as a `manual` item for NBR 11682.
+      - `SiteSurface` is the single source of ground height for the deck, the presentation view and the drawings.
+    - **Lighting:**
+      - Ceiling points are stored at the real local ceiling height (`ceilingZAt`): the roof plane, or the underside of the mezzanine slab.
+      - A new light connects to the room's switch, or creates one at the door.
+      - The editor grid is the engine's `suggestRoomLighting`.
+      - Lux is shown live while placing, and Shift+L opens the Light tool.
+      - The lux table follows NBR ISO/CIE 8995-1. Kitchen general lighting is 300 lux target and 200 minimum; the 500 lux worktop level is left to task lighting.
+      - At most 20 luminaires per room, because a switch controls at most 20 points (schema).
