@@ -20,6 +20,7 @@ import { PlanFurniture } from './PlanFurniture';
 import type { WallLike } from './tools/furnitureDrag';
 import { PlumbPlanLayer } from './tools/plumb/PlumbPlanLayer';
 import { usePlumb } from '@/lib/plumb/store';
+import { LotPlanLayer } from './tools/lot/LotPlanLayer';
 
 const POCHE = '#3f3b37';
 const PLUMB_KINDS = new Set<string>(['water_cold', 'water_hot', 'sewer', 'drain', 'tank']);
@@ -134,6 +135,7 @@ export function PlanOverlay({ model, level, elevation }: { model: BuildingModel;
         <PlanFurniture models={furnitureModels} furniture={furniture} walls={levelWalls} level={level} selectedId={selectedFurniture} alerts={alerts} interactive={select} />
       ) : null}
       {installations ? <PlanInstallations points={installations} level={level} elevation={elevation} /> : null}
+      <LotPlanLayer elevation={elevation} footprint={model.footprint as [number, number][]} />
       <PlumbPlanLayer level={level} z={z} />
       {elecLayer && hasElec ? <ElecPlanLayer model={model} level={level} elevation={elevation} /> : null}
       {walls.map((w) => (
