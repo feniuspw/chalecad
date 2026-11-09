@@ -2,6 +2,7 @@ import type { Catalog } from '@chalecad/catalog';
 import { framers } from '../framing';
 import { pointInPolygon, type Vec2 } from '../geometry';
 import type { Project } from '../schema/project';
+import { deckWarnings } from './deck';
 import { furnitureWarnings } from './furniture';
 import { normWarnings } from './norms';
 import type {
@@ -284,6 +285,7 @@ export function computeWarnings(ctx: WarningContext): EngineWarning[] {
   }
   out.push(...normWarnings({ project, model, catalog, structure: ctx.structure }));
   out.push(...furnitureWarnings({ project, model, catalog }));
+  out.push(...deckWarnings(model));
   out.push(...(ctx.terrainWarnings ?? []));
   out.push(...(ctx.installationWarnings ?? []));
   out.push(...(ctx.performanceWarnings ?? []));

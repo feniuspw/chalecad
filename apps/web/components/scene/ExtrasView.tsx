@@ -1,8 +1,19 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Edges } from '@react-three/drei';
 import * as THREE from 'three';
+import { getCatalog } from '@chalecad/catalog';
 import type { ExtraModel } from '@chalecad/engine';
+import {
+  deckBoardLayout,
+  deckFasciaLayout,
+  deckMemberBoxes,
+  deckPillarLayout,
+  deckRailLayout,
+  deckStairLayout,
+  rodBox,
+  type DeckBox,
+} from '@/lib/project/extras';
 import { getTexture } from '@/lib/three/textures';
 import { ROOF_COLORS } from '@/lib/project/rooms';
 import { useEditor } from '@/lib/store/editor';
@@ -144,6 +155,130 @@ function SegmentMesh({ seg, tex, lit, selected, hover, plain, tower }: { seg: Se
 
 const POST_COLORS = { concrete: '#a8a29e', wood: '#7a5a3a', steel: '#57534e' };
 
+
+// ---------------------------------------------------------------------------
+// Deck: tábuas, estrutura, pilares, escadas e guarda-corpo (instanciados por tipo)
+// ---------------------------------------------------------------------------
+
+const BOARD_TONES = ['#a77c50', '#9c7248', '#b0855a', '#a17549'];
+const DECK_COLORS = { fascia: '#8a643e', timber: '#b9996b', ledger: '#a3835a', wood: '#7a5a3a', steel: '#57534e', concrete: '#a8a29e', footing: '#9a948a', stair: '#8f6b43', rail: '#3f3f46' } as const;
+
+const _euler = new THREE.Euler();
+const _quat = new THREE.Quaternion();
+const _mat = new THREE.Matrix4();
+const _pos = new THREE.Vector3();
+const _scale = new THREE.Vector3();
+const _color = new THREE.Color();
+
+/** Várias caixas orientadas num único `InstancedMesh` (uma chamada de desenho por tipo de peça). */
+function BoxInstances({ boxes, color, tones, roughness = 0.8, metalness = 0, opacity = 1, emissive, emissiveIntensity, edges = false }: { boxes: DeckBox[]; color?: string; tones?: string[]; roughness?: number; metalness?: number; opacity?: number; emissive: string; emissiveIntensity: number; edges?: boolean }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    boxes.forEach((b, i) => {
+      _euler.set(0, b.pitch, b.yaw, 'ZYX');
+      _quat.setFromEuler(_euler);
+      _pos.set(b.center[0], b.center[1], b.center[2]);
+      _scale.set(b.size[0], b.size[1], b.size[2]);
+      _mat.compose(_pos, _quat, _scale);
+      m.setMatrixAt(i, _mat);
+      if (tones) m.setColorAt(i, _color.set(tones[i % tones.length]!));
+    });
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    m.computeBoundingSphere();
+  }, [boxes, tones]);
+  if (boxes.length === 0) return null;
+  return (
+    <instancedMesh key={boxes.length} ref={ref} args={[undefined, undefined, boxes.length]} castShadow={opacity === 1} receiveShadow frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color={tones ? '#ffffff' : color} roughness={roughness} metalness={metalness} transparent={opacity < 1} opacity={opacity} depthWrite={opacity === 1} emissive={emissive} emissiveIntensity={emissiveIntensity} />
+      {edges ? <Edges threshold={25} color={COLORS.edge} transparent opacity={0.25} raycast={() => null} /> : null}
+    </instancedMesh>
+  );
+}
+
+const MATERIAL_LOOK = { wood: { color: DECK_COLORS.wood, roughness: 0.85, metalness: 0 }, steel: { color: DECK_COLORS.steel, roughness: 0.5, metalness: 0.6 }, concrete: { color: DECK_COLORS.concrete, roughness: 0.95, metalness: 0 } } as const;
+
+function DeckParts({ extra, see, emissive, ei }: { extra: ExtraModel; see: boolean; emissive: string; ei: number }) {
+  const d = extra.deck;
+  const X = useMemo(() => getCatalog().constants.extras.deck, []);
+  const layout = useMemo(() => {
+    if (!d) return null;
+    const fasciaDepth = X.board.thickness + X.joist.depth;
+    return {
+      boards: deckBoardLayout(extra, X.board),
+      fascia: deckFasciaLayout(extra, fasciaDepth),
+      joists: deckMemberBoxes(d.joists),
+      beams: deckMemberBoxes(d.beams),
+      ledger: d.ledger ? deckMemberBoxes([d.ledger]) : [],
+      pillars: deckPillarLayout(extra),
+      rails: d.guardrail ? deckRailLayout(extra.segments) : { boxes: [] },
+      stairs: d.stairs.map(deckStairLayout),
+    };
+  }, [extra, d, X]);
+  const boardOpacity = see ? 0.3 : 1;
+  const boardBoxes = layout?.boards ?? [];
+  if (!d || !layout) return null;
+  const byMaterial = (m: 'wood' | 'steel' | 'concrete') => layout.pillars.pillars.filter((p) => p.material === m).map((p) => p.box);
+  return (
+    <>
+      <BoxInstances boxes={boardBoxes} tones={BOARD_TONES} opacity={boardOpacity} emissive={emissive} emissiveIntensity={ei} />
+      <BoxInstances boxes={layout.fascia} color={DECK_COLORS.fascia} opacity={boardOpacity} emissive={emissive} emissiveIntensity={ei} />
+      <BoxInstances boxes={layout.joists} color={DECK_COLORS.timber} emissive={emissive} emissiveIntensity={ei} />
+      <BoxInstances boxes={layout.beams} color={DECK_COLORS.timber} roughness={0.85} emissive={emissive} emissiveIntensity={ei} />
+      <BoxInstances boxes={layout.ledger} color={DECK_COLORS.ledger} emissive={emissive} emissiveIntensity={ei} />
+      {(['wood', 'steel', 'concrete'] as const).map((m) => (
+        <BoxInstances key={m} boxes={byMaterial(m)} {...MATERIAL_LOOK[m]} emissive={emissive} emissiveIntensity={ei} />
+      ))}
+      <BoxInstances boxes={layout.pillars.pads} color={DECK_COLORS.footing} roughness={0.95} emissive={emissive} emissiveIntensity={ei} />
+      <BoxInstances boxes={layout.pillars.braces} color={DECK_COLORS.steel} roughness={0.5} metalness={0.5} emissive={emissive} emissiveIntensity={ei} />
+      {layout.pillars.bored.map((b, i) => (
+        <mesh key={`b${i}`} position={b.center} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[b.radius, b.radius, b.height, 16]} />
+          <meshStandardMaterial color={DECK_COLORS.footing} roughness={0.95} emissive={emissive} emissiveIntensity={ei} />
+        </mesh>
+      ))}
+      <BoxInstances boxes={layout.rails.boxes} color={DECK_COLORS.rail} roughness={0.5} metalness={0.5} emissive={emissive} emissiveIntensity={ei} />
+      {layout.stairs.map((s, i) => (
+        <group key={`s${i}`}>
+          <BoxInstances boxes={s.treads} tones={BOARD_TONES} emissive={emissive} emissiveIntensity={ei} />
+          <BoxInstances boxes={s.stringers} color={DECK_COLORS.stair} emissive={emissive} emissiveIntensity={ei} />
+          <BoxInstances boxes={s.rails} color={DECK_COLORS.rail} roughness={0.5} metalness={0.5} emissive={emissive} emissiveIntensity={ei} />
+        </group>
+      ))}
+    </>
+  );
+}
+
+/** Cobertura do deck: mesmo material e cor da telha do chalé (face de baixo clara), com viga de borda na beirada baixa. */
+function DeckRoof({ extra, roofColor, roofPbr, plain, emissive, ei }: { extra: ExtraModel; roofColor: string; roofPbr: ReturnType<typeof usePbrProps>; plain: boolean; emissive: string; ei: number }) {
+  const roof = extra.roof;
+  const built = useMemo(() => (roof ? makeRoofGeometry(roof, []) : null), [roof]);
+  useEffect(() => () => built?.geometry.dispose(), [built]);
+  const edge = useMemo(() => {
+    if (!roof) return [];
+    const low = [...roof.vertices].sort((a, b) => a[2] - b[2]).slice(0, 2);
+    const [a, b] = low;
+    if (!a || !b) return [];
+    return [rodBox([a[0], a[1], a[2] - 0.08], [b[0], b[1], b[2] - 0.08], 0.05, 0.16)];
+  }, [roof]);
+  if (!built) return null;
+  const faces = [{ color: '#e9dfc8', pbr: false }, { color: roofColor, pbr: true }, { color: roofColor, pbr: false }];
+  return (
+    <>
+      <mesh geometry={built.geometry} position={built.position} quaternion={built.quaternion} castShadow receiveShadow>
+        {faces.map((f, i) => (
+          <meshStandardMaterial key={`${i}${f.pbr && roofPbr ? 'm' : ''}`} attach={`material-${i}`} color={f.color} {...(f.pbr && roofPbr ? roofPbr : { roughness: 0.95 })} emissive={emissive} emissiveIntensity={ei} />
+        ))}
+        {plain ? null : <Edges threshold={25} color="#78716c" transparent opacity={0.4} raycast={() => null} />}
+      </mesh>
+      <BoxInstances boxes={edge} color={DECK_COLORS.fascia} emissive={emissive} emissiveIntensity={ei} />
+    </>
+  );
+}
+
 interface ExtraProps {
   extra: ExtraModel;
   tex: Tex;
@@ -172,8 +307,6 @@ function Extra({ extra, tex, lit, selected, hoverable, plain, tower, onSelect }:
     return g;
   }, [extra.polygon]);
   useEffect(() => () => deckGeo?.dispose(), [deckGeo]);
-  const roof = useMemo(() => (extra.roof ? makeRoofGeometry(extra.roof, []) : null), [extra.roof]);
-  useEffect(() => () => roof?.geometry.dispose(), [roof]);
   const towerRoofs = useMemo(() => (extra.roofs ?? []).map((r) => makeRoofGeometry(r, [])), [extra.roofs]);
   useEffect(() => () => towerRoofs.forEach((r) => r.geometry.dispose()), [towerRoofs]);
 
@@ -193,7 +326,7 @@ function Extra({ extra, tex, lit, selected, hoverable, plain, tower, onSelect }:
   // as postes da torre medem a altura desde o piso de apoio (térreo ou mezanino); o topo é o das paredes
   const towerTop = extra.kind === 'water_tower' && seg0 ? seg0.baseZ + seg0.height : null;
   const showTank = !!extra.tank && !!tower && (tower.see || selected);
-  const postColor = extra.kind === 'water_tower' ? POST_COLORS.steel : extra.kind === 'deck' ? POST_COLORS.wood : extra.kind === 'fence' ? POST_COLORS.concrete : POST_COLORS.steel;
+  const postColor = extra.kind === 'water_tower' ? POST_COLORS.steel : extra.kind === 'deck' ? POST_COLORS.steel : extra.kind === 'fence' ? POST_COLORS.concrete : POST_COLORS.steel;
   const emissive = lit || selected ? COLORS.accent : hover ? COLORS.hover : '#000000';
   const ei = lit || selected ? 0.1 : hover ? 0.1 : 0;
 
@@ -214,9 +347,9 @@ function Extra({ extra, tex, lit, selected, hoverable, plain, tower, onSelect }:
 
   return (
     <group {...handlers}>
-      {extra.segments.map((s, i) => (
+      {extra.segments.map((s, i) => (extra.deck && s.material === 'rail' ? null : (
         <SegmentMesh key={i} seg={s} tex={tex} lit={lit} selected={selected} hover={hover} plain={plain} tower={extra.kind === 'water_tower' ? tower : undefined} />
-      ))}
+      )))}
       {extra.kind === 'water_tower' && !tower?.plan ? towerRoofs.map((r, i) => (
         <mesh key={`tr${i}`} geometry={r.geometry} position={r.position} quaternion={r.quaternion} castShadow receiveShadow>
           <meshStandardMaterial color={tower?.roofColor ?? COLORS.roof} roughness={0.95} emissive={emissive} emissiveIntensity={ei} />
@@ -235,18 +368,14 @@ function Extra({ extra, tex, lit, selected, hoverable, plain, tower, onSelect }:
           <meshStandardMaterial color={postColor} roughness={0.8} emissive={emissive} emissiveIntensity={ei} />
         </mesh>
       ))}
-      {deckGeo && extra.topZ !== undefined ? (
+      {extra.deck ? <DeckParts extra={extra} see={!!tower?.see} emissive={emissive} ei={ei} /> : null}
+      {!extra.deck && deckGeo && extra.topZ !== undefined ? (
         <mesh geometry={deckGeo} position={[0, 0, extra.topZ - 0.1]} castShadow receiveShadow>
           <meshStandardMaterial {...(deckPbr ?? { map: woodTex, roughness: 0.8 })} color="#ffffff" emissive={emissive} emissiveIntensity={ei} />
           {selected ? <Edges color={COLORS.accent} lineWidth={2.5} raycast={() => null} /> : plain ? null : <Edges threshold={25} color={COLORS.edge} transparent opacity={0.35} raycast={() => null} />}
         </mesh>
       ) : null}
-      {roof ? (
-        <mesh geometry={roof.geometry} position={roof.position} quaternion={roof.quaternion} castShadow receiveShadow>
-          <meshStandardMaterial color={COLORS.roof} {...(roofPbr ?? { roughness: 0.95 })} emissive={emissive} emissiveIntensity={ei} />
-          {plain ? null : <Edges threshold={25} color="#78716c" transparent opacity={0.4} raycast={() => null} />}
-        </mesh>
-      ) : null}
+      {extra.roof ? <DeckRoof extra={extra} roofColor={tower?.roofColor ?? COLORS.roof} roofPbr={roofPbr} plain={plain} emissive={emissive} ei={ei} /> : null}
     </group>
   );
 }

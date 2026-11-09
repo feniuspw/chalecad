@@ -8,6 +8,7 @@
  */
 import { terrainProfile as engineTerrainProfile, type BuildingModel, type HostWall, type ResolvedOpening, type RoofPlane, type Site, type TerrainReport, type Vec2 } from '@chalecad/engine';
 import { fmt } from '../project/format';
+import { deckPillarLayout, deckStairLayout, type DeckBox } from '../project/extras';
 import { bounds, crossings, finalZ, naturalZ } from './geom';
 import { PAPER, SCREEN, fmtLevel, hatchPattern, levelMark, pDimV, type PaperStyle } from './paper';
 import { GUIDE, INK, MUTED, esc, group, line, n2, poly, rect, svgDocument, tag, text, type SvgDoc } from './svg';
@@ -238,11 +239,47 @@ export function sectionSvg(model: BuildingModel, axis: SectionAxis, at?: number,
     }
   }
 
+  // Deck (F18-D): piso, pilares e escada do deck cortados pelo plano ou além dele; a água da cobertura entra no telhado.
+  const deckCuts: Cut[] = [];
+  const deckBeyond: { h0: number; h1: number; z0: number; z1: number; depth: number }[] = [];
+  const deckRoofs: RoofPlane[] = [];
+  const addDeckBox = (b: DeckBox) => {
+    const r = b.yaw;
+    const [hx, hy] = [b.size[0] / 2, b.size[1] / 2];
+    const pts = ([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]] as Vec2[]).map(([x, y]): Vec2 => [b.center[0] + x * Math.cos(r) - y * Math.sin(r), b.center[1] + x * Math.sin(r) + y * Math.cos(r)]);
+    const z0 = b.center[2] - b.size[2] / 2;
+    const z1 = b.center[2] + b.size[2] / 2;
+    const ds = pts.map((p) => D(p[0], p[1]) - atD);
+    if (Math.min(...ds) < -EPS && Math.max(...ds) > EPS) {
+      const xs = crossings(pts, planeAxis, cutAt);
+      if (xs.length >= 2) deckCuts.push({ h0: xs[0]!, h1: xs[xs.length - 1]!, z0, z1 });
+    } else if (Math.min(...ds) >= -EPS) {
+      const hs = pts.map((p) => H(p[0], p[1]));
+      deckBeyond.push({ h0: Math.min(...hs), h1: Math.max(...hs), z0, z1, depth: Math.min(...ds) });
+    }
+  };
+  for (const em of model.extras ?? []) {
+    if (em.kind !== 'deck') continue;
+    if (em.roof) deckRoofs.push(em.roof);
+    const d = em.deck;
+    if (!d || !em.polygon) continue;
+    const zFloor0 = d.topZ - d.boardThickness - (d.joists[0]?.depth ?? 0.15);
+    const xs = crossings(em.polygon, planeAxis, cutAt);
+    for (let i = 0; i + 1 < xs.length; i += 2) deckCuts.push({ h0: xs[i]!, h1: xs[i + 1]!, z0: zFloor0, z1: d.topZ });
+    const dsPoly = em.polygon.map((p) => D(p[0], p[1]) - atD);
+    if (Math.max(...dsPoly) > EPS && Math.min(...dsPoly) >= -EPS) {
+      const hs = em.polygon.map((p) => H(p[0], p[1]));
+      deckBeyond.push({ h0: Math.min(...hs), h1: Math.max(...hs), z0: zFloor0, z1: d.topZ, depth: Math.min(...dsPoly) });
+    }
+    for (const pl of deckPillarLayout(em).pillars) addDeckBox(pl.box);
+    for (const stair of d.stairs) for (const t of deckStairLayout(stair).treads) addDeckBox(t);
+  }
+
   // Telhado: interseção de cada água com o plano.
   interface Seg { p: Vec2; q: Vec2 }
   const roofSegs: Seg[] = [];
   const roofPts = (r: RoofPlane) => r.vertices;
-  for (const r of model.roofPlanes) {
+  for (const r of [...model.roofPlanes, ...deckRoofs]) {
     const vs = roofPts(r);
     const hits: Vec2[] = [];
     for (let i = 0; i < vs.length; i++) {
@@ -265,6 +302,7 @@ export function sectionSvg(model: BuildingModel, axis: SectionAxis, at?: number,
   const allH: number[] = [
     ...cuts.flatMap((c) => [c.h0, c.h1]),
     ...slabCuts.flatMap((c) => [c.h0, c.h1]),
+    ...deckCuts.flatMap((c) => [c.h0, c.h1]),
     ...beyond.flatMap((b) => b.pts.map((p) => p[0])),
     ...roofSegs.flatMap((s) => [s.p[0], s.q[0]]),
   ];
@@ -325,12 +363,15 @@ export function sectionSvg(model: BuildingModel, axis: SectionAxis, at?: number,
   slabBeyond.sort((a, b) => b.depth - a.depth);
   for (const s of slabBeyond) L.push(rect(X(s.h0), Z(s.z1), (s.h1 - s.h0) * u, (s.z1 - s.z0) * u, { fill: '#fff', stroke: INK, 'stroke-width': st.view, 'data-role': 'slab-beyond' }));
   stairBeyond.sort((a, b) => b.depth - a.depth);
+  deckBeyond.sort((a, b) => b.depth - a.depth);
+  for (const s of deckBeyond) L.push(rect(X(s.h0), Z(s.z1), (s.h1 - s.h0) * u, (s.z1 - s.z0) * u, { fill: '#fff', stroke: INK, 'stroke-width': st.thin, 'data-role': 'deck-beyond' }));
   for (const s of stairBeyond) L.push(rect(X(s.h0), Z(s.z1), (s.h1 - s.h0) * u, (s.z1 - s.z0) * u, { fill: '#fff', stroke: INK, 'stroke-width': st.thin, 'data-role': 'stair-beyond' }));
 
   // Elementos cortados (hachura, traço de corte).
   const cutRect = (c: Cut, role: string) => rect(X(c.h0), Z(c.z1), Math.max(0, (c.h1 - c.h0) * u), Math.max(0, (c.z1 - c.z0) * u), { fill: `url(#${hatchId})`, stroke: INK, 'stroke-width': st.cut, 'stroke-linejoin': 'miter', 'data-role': role });
   for (const c of slabCuts) L.push(cutRect(c, 'slab-cut'));
   for (const c of stairCuts) L.push(cutRect(c, 'stair-cut'));
+  for (const c of deckCuts) L.push(cutRect(c, 'deck-cut'));
   for (const c of cuts) L.push(cutRect(c, 'wall-cut'));
   for (const g of glass) L.push(line(X(g.h), Z(g.z1), X(g.h), Z(g.z0), { 'stroke-width': st.view, 'data-role': 'opening-cut' }));
 

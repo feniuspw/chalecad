@@ -69,21 +69,37 @@ describe('cerca', () => {
 });
 
 describe('deck', () => {
-  const deck = { id: 'd1', kind: 'deck', side: 'front', depth: 2, elevation: 0.3, guardrail: true };
-  test('frontal 6,5 x 2: 13 m²; guarda-corpo 2 + 2 + 6,5', () => {
+  const deck = { id: 'd1', kind: 'deck', side: 'front', depth: 2, guardrail: true };
+  test('frontal: quina a quina pela face externa, na cota do degrau; estrutura real no lugar do m²', () => {
     const { quantities: q, model } = withExtras(deck);
-    expect(line(q, 'deck_wood')!.netQty).toBeCloseTo(13, 9);
-    expect(line(q, 'deck_frame')!.netQty).toBeCloseTo(13, 9);
-    expect(line(q, 'guardrail')!.netQty).toBeCloseTo(10.5, 9);
     const em = model.extras[0]!;
+    const h = (model.footprint[1]![0] - model.footprint[0]![0] - 6.5) / 2; // meia espessura da parede
     expect(em.topZ).toBe(-0.03);
-    expect(em.polygon!.every((p) => p[1] <= 0 && p[1] >= -2)).toBe(true);
+    const xs = em.polygon!.map((p) => p[0]);
+    expect(Math.min(...xs)).toBeCloseTo(-h, 9);
+    expect(Math.max(...xs)).toBeCloseTo(6.5 + h, 9);
+    // começa na face do radier (o piso não pode ocupar o radier) e vai até 2 m da face externa
+    const ys = em.polygon!.map((p) => p[1]);
+    expect(Math.min(...ys)).toBeCloseTo(-h - 2, 9);
+    expect(Math.max(...ys)).toBeCloseTo(-h - 0.15, 9);
+    expect(line(q, 'deck_wood')!.netQty).toBeCloseTo((6.5 + 2 * h) * (2 - 0.15), 9);
+    expect(line(q, 'deck_frame')).toBeUndefined();
+    expect(line(q, 'deck_timber')!.netQty).toBeGreaterThan(0);
+    const rails = em.segments.filter((s) => s.material === 'rail');
+    expect(rails).toHaveLength(3);
+    expect(line(q, 'guardrail')!.netQty).toBeCloseTo(
+      rails.reduce((s, r) => s + Math.hypot(r.to[0] - r.from[0], r.to[1] - r.from[1]), 0),
+      9,
+    );
     expect(em.roof).toBeUndefined();
   });
 
   test('sem guarda-corpo, com comprimento e offset', () => {
-    const { quantities: q } = withExtras({ ...deck, side: 'right', length: 3, offset: 1, guardrail: false });
-    expect(line(q, 'deck_wood')!.netQty).toBeCloseTo(6, 9);
+    const { quantities: q, model } = withExtras({ ...deck, side: 'right', length: 3, offset: 1, guardrail: false });
+    const em = model.extras[0]!;
+    const ys = em.polygon!.map((p) => p[1]);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(3, 9);
+    expect(line(q, 'deck_wood')!.netQty).toBeCloseTo(3 * (2 - 0.15), 9);
     expect(line(q, 'guardrail')).toBeUndefined();
   });
 
@@ -93,11 +109,10 @@ describe('deck', () => {
     // Inclinação entre o mínimo da telha (3°) e 10°, ajustada para manter 2,1 m livres sob a borda baixa.
     expect(roof.slopeDeg).toBeGreaterThanOrEqual(3);
     expect(roof.slopeDeg).toBeLessThanOrEqual(10);
-    const area = 6.5 * (roof.vLength);
-    expect(roof.area).toBeCloseTo(area, 9);
+    expect(roof.area).toBeCloseTo(roof.uLength * roof.vLength, 9);
     expect(Math.max(...roof.vertices.map((v) => v[2]))).toBeLessThan(2.8);
     const l = q.lines.find((x) => x.stage === 'extras' && x.itemId === 'sandwich_eps30')!;
-    expect(l.netQty).toBeCloseTo(area, 9);
+    expect(l.netQty).toBeCloseTo(roof.area, 9);
     expect(pieces.filter((p) => p.hostId === 'd1' && p.role === 'purlin').length).toBeGreaterThanOrEqual(2);
     expect(model.extras[0]!.posts.length).toBeGreaterThanOrEqual(2);
   });

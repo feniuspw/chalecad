@@ -17,7 +17,7 @@ exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > fixture
 exports[`F4-E9: snapshot de resultados (nada muda ao mover constantes) > hash do resultado completo (fixture, A-frame, extras + terreno) 1`] = `
 {
   "aframe": "a6df4bffed1d0f02",
-  "everything": "68d28ff35cea6efb",
+  "everything": "942e2bb65545e13c",
   "gable": "b947b45dd6026a89",
 }
 `;

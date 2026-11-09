@@ -4,17 +4,25 @@ import type { BuildingModel } from '../schema/results';
 import type { Item } from '../quantities/items';
 import { paginateSheets } from '../quantities/paginate';
 import { retainingItems } from '../terrain/retaining';
+import { deckItems } from './deckQuantities';
 import { waterTowerItems } from './water_tower_quantities';
-import {
-  deckGeometry,
-  fencePosts,
-  pathLength,
-  pathSegments,
-  segLen,
-} from './geometry';
+import { fencePosts, pathLength, pathSegments, segLen } from './geometry';
 
-export { buildExtraModels, deckGeometry, fencePosts, facade } from './geometry';
-export { attachDeckFrames } from './deckFrame';
+export { buildExtraModels } from './build';
+export {
+  axisFootprint,
+  cleanFootprint,
+  deckFaceCount,
+  deckFaceLength,
+  deckFaces,
+  deckGeometry,
+  deckTopZ,
+  facade,
+  fencePosts,
+} from './geometry';
+export type { DeckFace, DeckGeometry } from './geometry';
+export { attachDeckFrames, buildDeckModel, deckDoorCenters } from './deckFrame';
+export { mainRoofZ } from './deckRoof';
 export { towerProfileLines } from './water_tower_quantities';
 export { waterTowerModel, towerTankFullKg, tankDimensions, towerLiters, towerContour } from './water_tower';
 export type { ExtraBuildContext, WaterTowerE } from './water_tower';
@@ -84,18 +92,9 @@ export function computeExtras(project: Project, model: BuildingModel, catalog: C
       if (e.baseWallHeight > 0) masonry(e.id, length, e.baseWallHeight, false, 'strip');
     } else if (e.kind === 'deck') {
       const em = model.extras.find((x) => x.id === e.id);
-      const g = deckGeometry(project, e);
-      const area = g.length * e.depth;
-      add(e.id, 'deck_wood', area);
-      add(e.id, 'deck_frame', area);
-      if (e.guardrail) {
-        const rails = em
-          ? em.segments.filter((s) => s.material === 'rail').reduce((s, x) => s + segLen(x.from, x.to), 0)
-          : g.rails.reduce((s, [a, b]) => s + segLen(a, b), 0);
-        add(e.id, 'guardrail', rails);
-      }
+      if (em) deckItems(e.id, em, catalog, add);
       const roof = em?.roof;
-      if (e.covered && roof) {
+      if (e.covered && roof && em) {
         const clad = getMaterial(catalog, project.roof.cladding);
         const tiles = Math.ceil(roof.uLength / c.roof.sandwichUsefulWidth - 1e-9);
         add(e.id, clad.id, roof.area, {
