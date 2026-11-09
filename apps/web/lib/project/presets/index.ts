@@ -1,5 +1,6 @@
 /**
  * Modelos prontos do "Novo projeto": projetos completos (cômodos, acabamentos, móveis), validados por `Project.parse`.
+ * A estrutura vem de cada modelo; os móveis vão depois do ajuste às normas, pela busca do assistente (`autoFurnishProject`).
  * Área e custo são constantes só para exibição nos cartões; o teste os confere com o motor (custo: tolerância de 15%).
  */
 import type { Project, TypologyKind } from '@chalecad/engine';
@@ -7,6 +8,7 @@ import { getCatalog } from '@chalecad/catalog';
 import type { IdGen } from '../ids';
 import { planNormFixes } from '../normfix';
 import { ensureDaylight } from '../wizard/daylight';
+import { autoFurnishProject } from './builder';
 import { aframeCompact } from './aframe-compact';
 import { aframeWings } from './aframe-wings';
 import { gableLoft } from './gable-loft';
@@ -40,10 +42,19 @@ function conformPreset(p: Project, ids: IdGen): Project {
   return planNormFixes(out, catalog, ids).project;
 }
 
-/** IDs sequenciais por chamada: o mesmo modelo gera sempre o mesmo projeto. */
-function withIds(make: (ids: IdGen) => Project): Project {
-  const ids = seq();
-  return conformPreset(make(ids), ids);
+/**
+ * IDs sequenciais por chamada: o mesmo modelo gera sempre o mesmo projeto. Como a busca de móveis custa algumas
+ * centenas de milissegundos, o primeiro resultado fica guardado e cada chamada devolve uma cópia nova.
+ */
+function withIds(make: (ids: IdGen) => Project): () => Project {
+  let cached: Project | undefined;
+  return () => {
+    if (!cached) {
+      const ids = seq();
+      cached = autoFurnishProject(conformPreset(make(ids), ids), ids);
+    }
+    return structuredClone(cached);
+  };
 }
 
 const seq = (): IdGen => {
@@ -60,7 +71,7 @@ export const PRESETS: readonly Preset[] = [
     area: 60.3,
     bedrooms: 1,
     estimatedCost: 180000,
-    build: () => withIds(aframeCompact),
+    build: withIds(aframeCompact),
   },
   {
     id: 'aframe-wings',
@@ -70,7 +81,7 @@ export const PRESETS: readonly Preset[] = [
     area: 86.7,
     bedrooms: 2,
     estimatedCost: 262000,
-    build: () => withIds(aframeWings),
+    build: withIds(aframeWings),
   },
   {
     id: 'gable-loft',
@@ -80,7 +91,7 @@ export const PRESETS: readonly Preset[] = [
     area: 74.1,
     bedrooms: 1,
     estimatedCost: 192000,
-    build: () => withIds(gableLoft),
+    build: withIds(gableLoft),
   },
   {
     id: 'gambrel-cabin',
@@ -90,7 +101,7 @@ export const PRESETS: readonly Preset[] = [
     area: 57.6,
     bedrooms: 1,
     estimatedCost: 164000,
-    build: () => withIds(gambrelCabin),
+    build: withIds(gambrelCabin),
   },
   {
     id: 'l-house',
@@ -100,7 +111,7 @@ export const PRESETS: readonly Preset[] = [
     area: 71.3,
     bedrooms: 2,
     estimatedCost: 223000,
-    build: () => withIds(lHouse),
+    build: withIds(lHouse),
   },
 ];
 

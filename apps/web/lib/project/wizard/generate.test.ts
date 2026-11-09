@@ -28,7 +28,7 @@ function* combos(): Generator<WizardAnswers> {
 const label = (a: WizardAnswers) => `${a.style} ${a.bedrooms}q ${a.bathrooms}b mezz=${a.mezzanine} cima=${a.bathUp} lat=${a.wings} coz=${a.kitchen}`;
 
 describe('gerador: matriz de combinações', () => {
-  it('projeto válido, cômodos fechados, móveis sem colisão, escada com altura livre, sem alertas de atenção nem verificação reprovada', { timeout: 900_000 }, () => {
+  it('projeto válido, cômodos fechados, móveis sem colisão, escada com altura livre, sem alertas de atenção nem verificação reprovada, planta com sentido de arquiteto (layoutProblems vazio)', { timeout: 900_000 }, () => {
     const failures: string[] = [];
     let total = 0;
     for (const a of combos()) {
@@ -40,7 +40,7 @@ describe('gerador: matriz de combinações', () => {
     expect(failures).toEqual([]);
   });
 
-  it('opções de terreno, finalidade, estrutura, extras e lavanderia também geram projetos válidos', { timeout: 300_000 }, () => {
+  it('opções de terreno, finalidade, estrutura, extras e lavanderia também geram projetos válidos', { timeout: 900_000 }, () => {
     const failures: string[] = [];
     for (const purpose of ['weekend', 'live', 'rent'] as const)
       for (const terrain of ['flat', 'gentle', 'steep', 'custom'] as const)

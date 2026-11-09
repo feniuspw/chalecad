@@ -1,13 +1,15 @@
 /**
  * Gerador do assistente: transforma as respostas num projeto completo (planta, cômodos, móveis, acabamentos).
  * Puro e determinístico: IDs sequenciais, sem relógio nem acaso. Reaproveita o `Builder` dos modelos prontos
- * e as funções de edição do editor; os móveis vão com `furnishRoom` e depois passam pelo próprio motor
+ * e as funções de edição do editor; os móveis vão por busca (`furnishSearch`, com as métricas de `layoutQuality` como oráculo) e depois passam pelo próprio motor
  * (alertas de colisão, parede, porta, escada e pé-direito), que tira o que não cabe.
  */
-import { buildModel, computeAll, Project, roofBelowAt, type Opening, type BuildingModel, type Furniture, type RoomUse, type Vec2 } from '@chalecad/engine';
+import { buildModel, computeAll, Project, roofBelowAt, type Opening, type BuildingModel, type RoomUse, type Vec2 } from '@chalecad/engine';
 import { getCatalog, type Catalog } from '@chalecad/catalog';
 import { Builder } from '../presets/builder';
-import { addFurniture, furnishRoom, furnitureFootprint, polysOverlap, rotationFacing, specOf, WALL_GAP } from '../furniture';
+import { specOf, WALL_GAP } from '../furniture';
+import { bathProblems, ctxFromModel, type LCtx } from '../layoutQuality';
+import { drop, furnishRooms, put, putChecked, wallSpots } from './furnishSearch';
 import { addExtra, patchExtra } from '../extras';
 import { stairRun } from '../edit';
 import { patchRoom } from '../rooms';
@@ -52,7 +54,14 @@ const STAIR_HALF = 0.4;
 /** Acima desta profundidade (m) o mezanino das caixas passa a cobrir só a coluna da escada. */
 const NARROW_MD = 4.8;
 /** Distância da fachada da frente ao pé da escada (cabe a chegada de 0,8 m em parte). */
-const STAIR_FOOT = 0.9;
+const STAIR_FOOT = 1.0;
+/** Altura do lado alto e inclinação do anexo do A-frame (o menor encontro com a água do corpo que o pé-direito médio de 2,5 m aceita). */
+const ANNEX_H = 2.65;
+const ANNEX_PITCH = 3;
+/** Vão entre o fogão e a geladeira na bancada (m). */
+const RUN_GAP = 0.35;
+/** Folga entre a parede do bloco íntimo e o começo da bancada quando a porta do corredor abre ali (m). */
+const RUN_START = 0.9;
 
 interface RoomReq {
   use: RoomUse;
@@ -86,13 +95,21 @@ class Gen {
   /** Móveis que o desenho já decidiu (núcleo molhado, sala, cama do mezanino); entram antes dos automáticos. */
   plan: {
     /** Fila de bancada na face leste (dir 1) ou oeste (-1) da parede `wall` (x = eixo); a fila termina na parede `endWall` (y = eixo). */
-    kitchenRun?: { wall: string; x: number; endWall: string; yLine: number; dir: 1 | -1 };
-    /** Sofá livre em `sofaX`, virado para o rack encostado na parede `wall` (x = eixo), centrados em `y`. */
-    living?: { wall: string; x: number; y: number; sofaX: number };
+    kitchenRun?: { wall: string; x: number; endWall: string; yLine: number; dir: 1 | -1; /** Onde a parede termina (menor y): a fila não passa dele. */ yMin: number; /** Folga no começo da fila (m), para a porta do corredor abrir. */ startGap: number };
     /** Cama de casal com a cabeceira na parede `wall` (y = eixo), no x dado. */
     beds: { level: string; name: string; wall: string; yLine: number; x: number }[];
     avoid: { level: string; rect: Rect }[];
   } = { beds: [], avoid: [] };
+
+  /** Contexto de geometria para a busca de móveis (fixado ao mobiliar). */
+  ctx!: LCtx;
+  slabs: BuildingModel['slabs'] = [];
+  get p() {
+    return this.b.p;
+  }
+  get avoid() {
+    return this.plan.avoid;
+  }
 
   /** Espessura (m) de uma parede do projeto, pelo modelo do motor. */
   thickness(id: string): number {
@@ -333,153 +350,33 @@ function pruneFurniture(g: Gen): number {
 }
 
 const rad = (d: number) => (d * Math.PI) / 180;
-const rectPoly = (r: Rect): Vec2[] => [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];
-const KITCHEN_MODELS = new Set(['counter_sink', 'stove', 'fridge', 'counter']);
 
-/**
- * Regras de arquiteto que o motor não cobra: bancada com pé-direito pleno (2,3 m) na frente, sofá fora da água baixa
- * (1,4 m sobre o móvel todo), nada na área de chegada da escada do mezanino.
- */
-function placementOk(g: Gen, level: string, item: string, pos: Vec2, rot: number): boolean {
-  const spec = specOf(g.catalog, item);
-  if (!spec) return true;
-  const fp = furnitureFootprint(spec, pos, rot);
-  if (g.plan.avoid.some((a) => a.level === level && polysOverlap(fp, rectPoly(a.rect)))) return false;
-  if (level !== 'L0') return true;
-  const n: Vec2 = [Math.sin(rad(rot)), -Math.cos(rad(rot))];
-  if (KITCHEN_MODELS.has(spec.model)) {
-    const k = spec.size.d / 2 + 0.6;
-    return g.roofAt([pos[0] + n[0] * k, pos[1] + n[1] * k]) >= 2.3;
-  }
-  if (spec.model === 'sofa') return fp.every((q) => g.roofAt(q) >= 1.4);
-  return true;
-}
-
-/** Tenta pôr um móvel numa posição; fica só se o motor não reclamar dele. */
-function tryAdd(g: Gen, level: string, item: string, pos: Vec2, rot = 0): boolean {
-  if (!placementOk(g, level, item, pos, rot)) return false;
-  const id = addFurniture(g.b.p, level, item, pos, rot, g.ids);
-  if (badFurnitureIds(g.b.p, g.catalog).has(id)) {
-    g.b.p.furniture = g.b.p.furniture.filter((f) => f.id !== id);
-    return false;
-  }
-  return true;
-}
-
-const has = (p: Project, rooms: BuildingModel['rooms'], roomId: string, model: string, catalog: Catalog) => {
-  const r = rooms.find((x) => x.id === roomId);
-  if (!r?.polygon) return false;
-  return p.furniture.some((f) => specOf(catalog, f.item)?.model === model && f.level === r.level && inPoly(f.position as Vec2, r.polygon as Vec2[]));
-};
-
-function inPoly(pt: Vec2, poly: Vec2[]): boolean {
-  let c = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i]!;
-    const [xj, yj] = poly[j]!;
-    if (yi > pt[1] !== yj > pt[1] && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) c = !c;
-  }
-  return c;
-}
-
-/** Candidatos junto das arestas do cômodo (fundo do móvel encostado), do mais comprido para o mais curto. */
-function edgeSpots(g: Gen, item: string, level: string, poly: Vec2[], thickness = 0.12): { pos: Vec2; rot: number }[] {
-  const spec = specOf(g.catalog, item);
-  if (!spec) return [];
-  const cx = poly.reduce((s, v) => s + v[0], 0) / poly.length;
-  const cy = poly.reduce((s, v) => s + v[1], 0) / poly.length;
-  const others = g.b.p.furniture
-    .filter((f) => f.level === level)
-    .flatMap((f) => {
-      const sp = specOf(g.catalog, f.item);
-      return sp?.collides ? [furnitureFootprint(sp, f.position as Vec2, f.rotation)] : [];
-    });
-  const out: { pos: Vec2; rot: number; score: number }[] = [];
-  poly.forEach((a, i) => {
-    const c = poly[(i + 1) % poly.length]!;
-    const len = Math.hypot(c[0] - a[0], c[1] - a[1]);
-    if (len < spec.size.w + 0.1) return;
-    const d: Vec2 = [(c[0] - a[0]) / len, (c[1] - a[1]) / len];
-    let n: Vec2 = [-d[1], d[0]];
-    const mid: Vec2 = [(a[0] + c[0]) / 2 + n[0] * 0.05, (a[1] + c[1]) / 2 + n[1] * 0.05];
-    if (!inPoly(mid, poly)) n = [-n[0], -n[1]];
-    const off = thickness / 2 + spec.size.d / 2 + WALL_GAP;
-    for (let u = spec.size.w / 2 + 0.1; u <= len - spec.size.w / 2 - 0.1 + 1e-6; u += 0.3) {
-      const pos: Vec2 = [round(a[0] + d[0] * u + n[0] * off, 3), round(a[1] + d[1] * u + n[1] * off, 3)];
-      const rot = rotationFacing(n);
-      const fp = furnitureFootprint(spec, pos, rot);
-      if (!fp.every((q) => inPoly(q, poly) || true)) continue;
-      if (spec.collides && others.some((o) => polysOverlap(fp, o))) continue;
-      out.push({ pos, rot, score: Math.hypot(pos[0] - cx, pos[1] - cy) });
-    }
-  });
-  return out.sort((x, y) => x.score - y.score).slice(0, 14);
-}
-
-/** Último recurso: pontos soltos dentro do cômodo (do centro para fora), nas quatro direções. */
-function gridSpots(g: Gen, item: string, level: string, poly: Vec2[]): { pos: Vec2; rot: number }[] {
-  const spec = specOf(g.catalog, item);
-  if (!spec) return [];
-  const xs = poly.map((p) => p[0]);
-  const ys = poly.map((p) => p[1]);
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-  const others = g.b.p.furniture
-    .filter((f) => f.level === level)
-    .flatMap((f) => {
-      const sp = specOf(g.catalog, f.item);
-      return sp?.collides ? [furnitureFootprint(sp, f.position as Vec2, f.rotation)] : [];
-    });
-  const out: { pos: Vec2; rot: number; score: number }[] = [];
-  for (let x = Math.min(...xs); x <= Math.max(...xs); x += 0.2)
-    for (let y = Math.min(...ys); y <= Math.max(...ys); y += 0.2)
-      for (const rot of [0, 90]) {
-        const pos: Vec2 = [round(x, 2), round(y, 2)];
-        const fp = furnitureFootprint(spec, pos, rot);
-        if (!fp.every((q) => inPoly(q, poly))) continue;
-        if (others.some((o) => polysOverlap(fp, o))) continue;
-        out.push({ pos, rot, score: Math.hypot(x - cx, y - cy) });
-      }
-  return out.sort((a, b) => a.score - b.score).slice(0, 25);
-}
-
-/** Bancada na parede hidráulica: [tanque e máquina], pia, fogão e geladeira em fila, a partir do banheiro. */
+/** Bancada na parede hidráulica, a partir do banheiro: pia, fogão, vão de 0,35 m, geladeira e, no fim, tanque e máquina. */
 function placeKitchenRun(g: Gen) {
   const run = g.plan.kitchenRun;
   if (!run) return;
-  const order = [...(g.laundryNiche ? ['furn_tank', 'furn_washer'] : []), 'furn_kitchen_sink', 'furn_stove', 'furn_fridge'];
+  const core = ['furn_kitchen_sink', 'furn_stove', 'gap', 'furn_fridge'];
+  const niche = g.laundryNiche ? ['furn_tank', 'furn_washer'] : [];
+  const len = (list: string[]) => list.reduce((s, it) => s + (it === 'gap' ? RUN_GAP : (specOf(g.catalog, it)?.size.w ?? 0) + 0.02), 0);
   const t = g.thickness(run.wall);
-  let y = round(run.yLine - g.thickness(run.endWall) / 2 - 0.01, 3);
-  let niche = 0;
+  const y0 = round(run.yLine - g.thickness(run.endWall) / 2 - 0.01 - run.startGap, 3);
+  // a lavanderia entra na fila só se a parede alcança; senão procura outro lugar depois
+  const order = len([...core, ...niche]) <= y0 - run.yMin + 0.02 ? [...core, ...niche] : core;
+  let y = y0;
+  let washer = 0;
   for (const item of order) {
+    if (item === 'gap') {
+      y -= RUN_GAP;
+      continue;
+    }
     const spec = specOf(g.catalog, item);
     if (!spec) continue;
     const pos: Vec2 = [round(run.x + run.dir * (t / 2 + spec.size.d / 2 + WALL_GAP), 3), round(y - spec.size.w / 2, 3)];
-    if (!tryAdd(g, 'L0', item, pos, run.dir === 1 ? 90 : -90)) continue;
+    if (!put(g, item, 'L0', pos, run.dir === 1 ? 90 : -90, 0)) continue;
     y -= spec.size.w + 0.02;
-    if (item === 'furn_washer') niche++;
+    if (item === 'furn_washer') washer++;
   }
-  if (niche > 0) g.note('A lavanderia ficou como área de serviço no fim da bancada da cozinha, na mesma parede hidráulica.');
-}
-
-function placeLiving(g: Gen) {
-  const l = g.plan.living;
-  if (!l) return;
-  const rack = specOf(g.catalog, 'furn_tv_rack');
-  if (!rack) return;
-  const rx = round(l.x - g.thickness(l.wall) / 2 - rack.size.d / 2 - WALL_GAP, 3);
-  tryAdd(g, 'L0', 'furn_tv_rack', [rx, l.y], -90);
-  if (!tryAdd(g, 'L0', 'furn_sofa_3', [l.sofaX, l.y], 90)) tryAdd(g, 'L0', 'furn_sofa_2', [l.sofaX, l.y], 90);
-}
-
-/** Cama de casal do quarto do mezanino: a do desenho; se não der, a que o motor aceitar. */
-function ensureDoubleBed(g: Gen, room: BuildingModel['rooms'][number]) {
-  const poly = room.polygon as Vec2[];
-  const planned = g.plan.beds.find((b) => b.level === room.level && b.name === room.name);
-  const bed = specOf(g.catalog, 'furn_bed_double');
-  if (planned && bed && tryAdd(g, room.level, 'furn_bed_double', [planned.x, round(planned.yLine - g.thickness(planned.wall) / 2 - bed.size.d / 2 - WALL_GAP, 3)], 0)) return;
-  for (const c of edgeSpots(g, 'furn_bed_double', room.level, poly)) if (tryAdd(g, room.level, 'furn_bed_double', c.pos, c.rot)) return;
-  for (const c of gridSpots(g, 'furn_bed_double', room.level, poly)) if (tryAdd(g, room.level, 'furn_bed_double', c.pos, c.rot)) return;
+  if (washer > 0) g.note('A lavanderia ficou como área de serviço no fim da bancada da cozinha, na mesma parede hidráulica.');
 }
 
 /** Lavanderia como nicho quando o desenho não a pôs na bancada: ao lado da pia, senão no banheiro, senão na cozinha. */
@@ -495,10 +392,10 @@ function placeLaundryNiche(g: Gen) {
       const spec = specOf(catalog, item);
       if (!spec || g.b.p.furniture.some((f) => f.item === item)) continue;
       let done = false;
-      for (const extra of [0, 0.5, 1.0])
+      for (const extra of [0, 0.4, 0.8, 1.2])
         for (const sign of [1, -1]) {
           const k = sign * (sinkSpec.size.w / 2 + spec.size.w / 2 + 0.01 + extra);
-          if (!done) done = tryAdd(g, sink.level, item, [round(sink.position[0] + t[0] * k, 3), round(sink.position[1] + t[1] * k, 3)], sink.rotation);
+          if (!done) done = !!put(g, item, sink.level, [round(sink.position[0] + t[0] * k, 3), round(sink.position[1] + t[1] * k, 3)], sink.rotation);
         }
       if (item === 'furn_washer') washer = done;
     }
@@ -507,16 +404,23 @@ function placeLaundryNiche(g: Gen) {
       return;
     }
   }
-  const model = buildModel(Project.parse(clone(g.b.p)), catalog);
-  const tryRooms = (match: (r: BuildingModel['rooms'][number]) => boolean) => {
-    for (const room of model.rooms) {
-      if (!room.polygon || room.level !== 'L0' || !match(room)) continue;
-      for (const c of edgeSpots(g, 'furn_washer', room.level, room.polygon as Vec2[])) if (tryAdd(g, room.level, 'furn_washer', c.pos, c.rot)) return true;
+  const spec = specOf(catalog, 'furn_washer');
+  const tryRooms = (use: RoomUse) => {
+    for (const room of g.ctx.rooms) {
+      if (room.level !== 'L0' || room.use !== use || !spec) continue;
+      const near: Vec2 | null = sink ? [sink.position[0], sink.position[1]] : null;
+      const spots = wallSpots(g, room, spec, 0.1).sort((a, b) => (near ? Math.hypot(a.pos[0] - near[0], a.pos[1] - near[1]) - Math.hypot(b.pos[0] - near[0], b.pos[1] - near[1]) : 0));
+      for (const s of spots.slice(0, 40)) {
+        const lf = putChecked(g, 'furn_washer', room.level, s.pos, s.rot);
+        if (!lf) continue;
+        if (use === 'bathroom' && bathProblems(g.ctx, room).length > 0) drop(g, lf.id);
+        else return true;
+      }
     }
     return false;
   };
-  if (tryRooms((r) => r.use === 'bathroom')) g.note('A lavanderia ficou dentro do banheiro (máquina de lavar), aproveitando a mesma prumada de água.');
-  else if (tryRooms((r) => r.use === 'kitchen')) g.note('A lavanderia ficou como área de serviço na cozinha, perto da pia.');
+  if (tryRooms('bathroom')) g.note('A lavanderia ficou dentro do banheiro (máquina de lavar), aproveitando a mesma prumada de água.');
+  else if (tryRooms('kitchen')) g.note('A lavanderia ficou como área de serviço na cozinha, perto da pia.');
   else g.note('Não coube a máquina de lavar dentro de casa: deixe um ponto de água e esgoto previsto para ela ou escolha a lavanderia externa.');
 }
 
@@ -525,43 +429,13 @@ function furnishAll(g: Gen, opts: { integratedRoomId?: string }) {
   const model = buildModel(Project.parse(JSON.parse(JSON.stringify(b.p))), catalog);
   g.planesCache = model.roofPlanes;
   g.wallModel = model.walls;
-  // o que o desenho já decidiu: bancada no núcleo molhado e sala
+  g.slabs = model.slabs;
+  g.ctx = ctxFromModel(Project.parse(JSON.parse(JSON.stringify(b.p))), model, catalog);
+  // o que o desenho já decidiu: bancada no núcleo molhado
   placeKitchenRun(g);
-  placeLiving(g);
-  for (const room of model.rooms) {
-    if (!room.polygon) continue;
-    // quarto do mezanino: cama de casal sempre
-    if (room.use === 'bedroom' && room.level !== 'L0') ensureDoubleBed(g, room);
-    // as paredes externas (nível 0) também fecham os cômodos do mezanino: sem elas o móvel encostaria com a espessura errada
-    const ctx = { walls: model.walls.filter((w) => w.level === room.level || w.id.startsWith('ext-')), openings: model.openings };
-    // sala e cozinha integradas: primeiro a cozinha, depois a sala
-    const uses: RoomUse[] = room.id === opts.integratedRoomId ? ['kitchen', 'living'] : [room.use];
-    for (const use of uses) {
-      const out = furnishRoom(b.p, catalog, { ...room, use }, ctx, g.ids);
-      b.p.furniture.push(...(out as Furniture[]).filter((f) => placementOk(g, f.level, f.item, f.position as Vec2, f.rotation)));
-    }
-  }
-  pruneFurniture(g);
-  // o que o `furnishRoom` não achou (ou o motor tirou): tenta de novo em outros pontos
-  const after = buildModel(Project.parse(JSON.parse(JSON.stringify(b.p))), catalog);
-  for (const room of after.rooms) {
-    if (!room.polygon) continue;
-    const poly = room.polygon as Vec2[];
-    const want: [string, string][] = [];
-    const isInt = room.id === opts.integratedRoomId;
-    if (room.use === 'bedroom') want.push(['bed', 'furn_bed_double'], ['wardrobe', 'furn_wardrobe_small']);
-    if (room.use === 'kitchen' || isInt) want.push(['fridge', 'furn_fridge'], ['stove', 'furn_stove'], ['sink', 'furn_kitchen_sink']);
-    if (room.use === 'living' || isInt) want.push(['sofa', 'furn_sofa_2']);
-    if (room.use === 'bathroom') want.push(['shower', 'furn_shower'], ['toilet', 'furn_toilet'], ['basin', 'furn_bath_sink']);
-    for (const [, item] of want) {
-      const spec = specOf(catalog, item);
-      if (!spec || has(b.p, after.rooms, room.id, spec.model, catalog)) continue;
-      let done = false;
-      for (const c of edgeSpots(g, item, room.level, poly)) if ((done = tryAdd(g, room.level, item, c.pos, c.rot))) break;
-      if (!done) for (const c of gridSpots(g, item, room.level, poly)) if (tryAdd(g, room.level, item, c.pos, c.rot)) break;
-    }
-  }
+  furnishRooms(g, { integrated: (r) => r.id === opts.integratedRoomId, bedWall: (r) => g.plan.beds.find((x) => x.level === r.level && x.name === r.name)?.wall });
   placeLaundryNiche(g);
+  pruneFurniture(g);
 }
 
 // ---------------------------------------------------------------------------
@@ -710,7 +584,7 @@ function genBox(g: Gen, a: WizardAnswers, p: Program): void {
   }
 
   if (hasStair && !p.kitchenSeparate) {
-    g.plan.kitchenRun = { wall: spine, x: spineX, endWall: blockFront || spine, yLine: yp, dir: 1 };
+    g.plan.kitchenRun = { wall: spine, x: spineX, endWall: blockFront || spine, yLine: yp, dir: 1, yMin: yStair, startGap: plan.corridor ? RUN_START : 0 };
     g.note('A escada sobe encostada na parede hidráulica; do outro lado dela fica a bancada da cozinha, junto do bloco dos banheiros.');
   } else if (hasStair) g.note('A escada sobe encostada na parede da cozinha, que é de apoio para a bancada.');
 
@@ -831,7 +705,8 @@ function genAFrame(g: Gen, a: WizardAnswers, p: Program): void {
     const len = Math.max(2, round(sum(col), 2));
     an.length = Math.min(len, D);
     an.offset = round(Math.max(0, (D - an.length) / 2), 2);
-    Object.assign(an, { width: 3, height: 3, pitchDeg: 8 });
+    // anexo baixo e quase plano: o motor fecha o triângulo entre a água dele e a do A-frame, e quanto mais baixo, menos esse trecho entra no corpo
+    Object.assign(an, { width: 3, height: ANNEX_H, pitchDeg: ANNEX_PITCH });
     const extra = (an.length - sum(col)) / col.length;
     let y = an.offset;
     const x0 = side === 'left' ? -an.width : W;
@@ -864,8 +739,9 @@ function genAFrame(g: Gen, a: WizardAnswers, p: Program): void {
     const xe = round(Math.min(xs + 2.0, xmax), 2);
     // na frente do mezanino a parede é meia-parede (balcão de 1,10 m): a escada segue a parede e a sala fica aberta;
     // sob o mezanino ela vai até o piso de cima e fecha cozinha e banheiro
-    b.wall([xs, yS], [xs, y0], { wet: true, height: SPINE_COUNTER });
-    const spine = g.wall([xs, y0], [xs, D], true);
+    // a meia-parede só vai até o banheiro (a bancada se apoia nela); daí até os fundos a parede é do banheiro, de altura plena
+    const spine = b.wall([xs, yS], [xs, yb], { wet: true, height: SPINE_COUNTER });
+    g.wall([xs, yb], [xs, D], true);
     g.wall([xe, yb], [xe, D], true);
     const front = g.wall([xs, yb], [xe, yb], true);
     g.doorOn(front, [xs, yb], [xe - 0.45, yb], 0.7);
@@ -873,9 +749,7 @@ function genAFrame(g: Gen, a: WizardAnswers, p: Program): void {
     if (p.kitchenSeparate) b.room('living', livingSeed, 'Sala');
     else b.room('kitchen', livingSeed, 'Sala e cozinha');
     b.room('bathroom', [round((xs + xe) / 2, 2), round((yb + D) / 2, 2)], p.groundBaths > 1 ? 'Banheiro 1' : 'Banheiro');
-    if (!p.kitchenSeparate) g.plan.kitchenRun = { wall: spine, x: xs, endWall: front, yLine: yb, dir: 1 };
-    // sala sob o mezanino, atrás da escada: sofá virado para a TV na parede do núcleo, longe da água baixa
-    g.plan.living = { wall: spine, x: xs, y: round(y0 + Math.min(1.6, md / 2), 2), sofaX: 1.25 };
+    if (!p.kitchenSeparate) g.plan.kitchenRun = { wall: spine, x: xs, endWall: front, yLine: yb, dir: 1, yMin: yS, startGap: 0 };
     g.note('Cozinha, banheiro e escada ficam todos junto da mesma parede hidráulica (a do núcleo molhado, nos fundos e sob o mezanino), então a prumada de água e esgoto é uma só.');
   } else {
     // banheiro 1 nos fundos, à direita

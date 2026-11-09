@@ -13,7 +13,7 @@ export function aframeCompact(ids: IdGen): Project {
   b.deck({ length: 4, depth: 2.2 });
 
   // Banheiro no canto do fundo, à direita (sob o mezanino); a porta abre para a cozinha.
-  const bathSide = b.wall([3.4, 8], [3.4, 5.6], { wet: true });
+  b.wall([3.4, 8], [3.4, 5.6], { wet: true });
   const bathFront = b.wall([3.4, 5.6], [5.1, 5.6], { wet: true });
   b.wall([5.1, 5.6], [5.1, 8], { wet: true });
   b.door(bathFront, 0.8, 0.7);
@@ -27,29 +27,10 @@ export function aframeCompact(ids: IdGen): Project {
   b.room('kitchen', [1.6, 2], 'Cozinha, jantar e sala', { floor: 'finish_floor_laminate' });
   b.room('bathroom', [4.3, 6.8], 'Banheiro');
 
-  // Cozinha ao longo do fundo, da esquerda para a direita: fogão, pia, geladeira (a mais alta fica sob o mezanino).
-  const back = 'ext-back'; // de x = 6 (u = 0) para x = 0
-  b.put('furn_stove', back, 6 - 0.34, [1, 6]);
-  b.put('furn_kitchen_sink', back, 6 - 1.53, [1, 6]);
-  b.put('furn_fridge', back, 6 - 2.85, [1, 6]);
-  // Jantar entre a cozinha e a escada.
-  b.at('furn_dining_4', [1.5, 4.0], 90);
+  // Mezanino: o quarto fica na faixa com pé-direito (muretas de 1,10 m dos lados, junto ao telhado baixo).
+  b.wall([1.7, 4.8], [1.7, 8], { level: 'L1', height: 1.1 });
+  b.wall([4.3, 4.8], [4.3, 8], { level: 'L1', height: 1.1 });
+  b.room('bedroom', [3, 6.4], 'Quarto do mezanino', { level: 'L1', floor: 'finish_floor_laminate' });
 
-  // Sala à direita da escada, de frente para a fachada de vidro.
-  b.at('furn_sofa_3', [4.7, 4.3], 0);
-  b.at('furn_coffee_table', [4.7, 2.9], 0);
-  b.at('furn_rug', [4.7, 2.8], 0);
-  b.at('furn_armchair', [3.9, 1.9], 0);
-  b.at('furn_plant', [5.4, 0.7], 0);
-
-  // Banheiro: box no canto do fundo, vaso e lavatório na parede da porta (a do lado esquerdo).
-  b.put('furn_shower', back, 6 - 4.6, [4.4, 6.8]);
-  b.put('furn_toilet', bathSide, 0.55, [4.4, 6.8]);
-  b.put('furn_bath_sink', bathSide, 1.6, [4.4, 6.8]);
-
-  // Mezanino: cama de casal no fundo, de cabeceira para o gable.
-  b.put('furn_bed_queen', back, 3, [3, 6], 'L1');
-  b.put('furn_nightstand', back, 3 - 1.35, [3, 6], 'L1');
-  b.put('furn_nightstand', back, 3 + 1.35, [3, 6], 'L1');
   return b.build();
 }

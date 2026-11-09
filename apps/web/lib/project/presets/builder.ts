@@ -3,7 +3,7 @@
  * `setFinish`, `addAnnex`…) sobre o projeto inicial da tipologia. Os móveis são encostados nas paredes pela geometria
  * real do motor (`buildModel`), então nunca atravessam parede nem se sobrepõem.
  */
-import { buildModel, Project, type BuildingModel, type Finishes, type Opening, type RoomUse, type Vec2 } from '@chalecad/engine';
+import { buildModel, Project, roofBelowAt, type BuildingModel, type Finishes, type Opening, type RoomUse, type Vec2 } from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
 import { createProject, type TemplateKind, type TemplateParams } from '../templates';
 import { addFurniture, rotationFacing, specOf, WALL_GAP } from '../furniture';
@@ -13,6 +13,8 @@ import { round } from '../geometry';
 import { setMezzanine, stairRun } from '../edit';
 import { addExtra, patchExtra } from '../extras';
 import type { IdGen } from '../ids';
+import { ctxFromModel } from '../layoutQuality';
+import { furnishRooms } from '../wizard/furnishSearch';
 
 export { addAnnex, setFinish };
 export type { AnnexSide };
@@ -127,4 +129,22 @@ export class Builder {
     // ida e volta por JSON: tira o -0 das rotações e garante que o projeto é puro dado serializável
     return Project.parse(JSON.parse(JSON.stringify(this.p)));
   }
+}
+
+/**
+ * Mobília o projeto pela busca do assistente (as métricas de `layoutQuality` como oráculo): põe cozinha, banheiro,
+ * quarto e sala, com tapete, poltrona e vaso. Roda sobre o projeto já ajustado às normas, então os móveis seguem a
+ * espessura final das paredes. Sala e cozinha dividem o cômodo cujo nome combina com `integrated`.
+ */
+export function autoFurnishProject(p: Project, ids: IdGen, o: { integrated?: RegExp } = {}): Project {
+  const out = structuredClone(p);
+  out.furniture = [];
+  const project = Project.parse(JSON.parse(JSON.stringify(out)));
+  const model = buildModel(project, catalog);
+  const planes = model.roofPlanes;
+  furnishRooms(
+    { catalog, ids, p: out, ctx: ctxFromModel(project, model, catalog), roofAt: (pt) => roofBelowAt(planes, pt) ?? 99, avoid: [], slabs: model.slabs },
+    { integrated: (r) => r.use === 'kitchen' && (o.integrated ?? /sala/i).test(r.name), decor: true },
+  );
+  return Project.parse(JSON.parse(JSON.stringify(out)));
 }
