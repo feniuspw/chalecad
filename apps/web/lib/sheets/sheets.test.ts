@@ -151,7 +151,7 @@ describe('corte', () => {
 
   it('terreno inclinado desenha o natural e o platô', () => {
     const p = createProject('gable_mezzanine');
-    p.site = { type: 'sloped', slopePct: 20, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10 };
+    p.site = { type: 'sloped', slopePct: 20, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10, pads: [], edges: 'auto', retaining: { type: 'auto', drainage: true } };
     const r = computeAll(p, catalog);
     const doc = sectionSvg(r.model, 'B', undefined, { site: p.site, platformZ: r.terrain?.platformZ });
     expect(doc.svg).toContain('data-role="natural-terrain"');

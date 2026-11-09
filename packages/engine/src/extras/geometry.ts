@@ -60,6 +60,9 @@ export function facade(project: Project, side: DeckE['side']): { origin: Vec2; t
   }
 }
 
+/** Topo do piso do deck em coordenadas da casa (piso acabado = 0): `level` ou o degrau padrão abaixo da soleira. */
+export const deckTopZ = (e: DeckE, x: ExtrasConstants): number => e.level ?? -x.deck.stepBelowFloor;
+
 export interface DeckGeometry {
   /** Polígono anti-horário (vazio se o deck não cabe na fachada). */
   polygon: Vec2[];
@@ -124,9 +127,9 @@ function deckRoof(id: string, e: DeckE, g: DeckGeometry, project: Project, x: Ex
   const q0 = Math.min(start.q0, proj - 0.2);
   const run = proj - q0;
   // Inclinação padrão; se a fachada for baixa, suaviza (até o mínimo da telha) para manter o pé-direito livre.
-  const desiredHigh = e.elevation + x.deckCoverClearance + run * Math.tan(x.deckCoverPitchDeg * DEG);
+  const desiredHigh = deckTopZ(e, x) + x.deckCoverClearance + run * Math.tan(x.deckCoverPitchDeg * DEG);
   const zHigh = Math.min(desiredHigh, start.zMax);
-  const fitSlope = Math.atan(Math.max(0, zHigh - (e.elevation + x.deckCoverMinClearance)) / run) / DEG;
+  const fitSlope = Math.atan(Math.max(0, zHigh - (deckTopZ(e, x) + x.deckCoverMinClearance)) / run) / DEG;
   const pitchDeg = Math.max(x.deckCoverMinPitchDeg, Math.min(x.deckCoverPitchDeg, fitSlope));
   const slope = pitchDeg * DEG;
   const cos = Math.cos(slope);
@@ -213,16 +216,16 @@ function retainingModel(e: RetE, x: ExtrasConstants): ExtraModel {
 
 function deckModel(project: Project, e: DeckE, x: ExtrasConstants): ExtraModel {
   const g = deckGeometry(project, e);
-  const m: ExtraModel = { id: e.id, kind: 'deck', segments: [], posts: [], polygon: g.polygon, topZ: e.elevation };
+  const m: ExtraModel = { id: e.id, kind: 'deck', segments: [], posts: [], polygon: g.polygon, topZ: deckTopZ(e, x) };
   if (g.polygon.length === 0) return m;
-  if (e.guardrail) {
+  if (e.guardrail !== false) {
     for (const [from, to] of g.rails) {
       m.segments.push({
         from,
         to,
         height: x.guardrailHeight,
         thickness: x.guardrailThickness,
-        baseZ: e.elevation,
+        baseZ: deckTopZ(e, x),
         material: 'rail',
       });
     }
@@ -231,7 +234,7 @@ function deckModel(project: Project, e: DeckE, x: ExtrasConstants): ExtraModel {
     // `roof` presente = deck coberto (ExtraModel não tem flag `covered`).
     m.roof = deckRoof(e.id, e, g, project, x);
     const lowEdgeZ = Math.min(...m.roof.vertices.map((v) => v[2]));
-    const postHeight = lowEdgeZ + x.deckCoverBeiral * Math.tan(m.roof.slopeDeg * DEG) - e.elevation;
+    const postHeight = lowEdgeZ + x.deckCoverBeiral * Math.tan(m.roof.slopeDeg * DEG) - deckTopZ(e, x);
     const n = Math.max(1, Math.ceil(g.length / x.deckPostSpacing - 1e-9));
     for (let i = 0; i <= n; i++) {
       const a = g.a0 + (g.length * i) / n;

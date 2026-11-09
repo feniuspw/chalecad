@@ -53,7 +53,7 @@ describe('templates de todas as tipologias', () => {
 
   it('terreno inclinado entra no projeto e gera relatório de terreno', () => {
     const p = createProject('shed', {
-      site: { type: 'sloped', slopePct: 15, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10 },
+      site: { type: 'sloped', slopePct: 15, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10, pads: [], edges: 'auto', retaining: { type: 'auto', drainage: true } },
     });
     expect(compute(p).terrain?.cutVolume).toBeGreaterThan(0);
   });
@@ -169,7 +169,7 @@ describe('extras', () => {
   });
 
   it.each(['deck', 'wall', 'fence', 'retaining'] as const)('adiciona %s válido e calculável', (kind) => {
-    const p = produce(createProject('shed', { site: { type: 'sloped', slopePct: 12, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10 } }), (d) => void addExtra(d, kind));
+    const p = produce(createProject('shed', { site: { type: 'sloped', slopePct: 12, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10, pads: [], edges: 'auto', retaining: { type: 'auto', drainage: true } } }), (d) => void addExtra(d, kind));
     valid(p);
     const r = compute(p);
     expect(r.model.extras).toHaveLength(1);
@@ -177,10 +177,10 @@ describe('extras', () => {
   });
 
   it('arrimo fica do lado da subida', () => {
-    const p = createProject('gable_mezzanine', { site: { type: 'sloped', slopePct: 10, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10 } });
+    const p = createProject('gable_mezzanine', { site: { type: 'sloped', slopePct: 10, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10, pads: [], edges: 'auto', retaining: { type: 'auto', drainage: true } } });
     expect(uphillSide(p)).toBe('back');
     expect(retainingPath(p)[0]![1]).toBeCloseTo(p.typology.depth + 1.5);
-    expect(uphillSide(produce(p, (d) => void (d.site = { ...(d.site as never as { type: 'sloped' }), type: 'sloped', slopePct: 10, downhillAzimuthDeg: 90, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10 })))).toBe('left');
+    expect(uphillSide(produce(p, (d) => void (d.site = { ...(d.site as never as { type: 'sloped' }), type: 'sloped', slopePct: 10, downhillAzimuthDeg: 90, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10, pads: [], edges: 'auto', retaining: { type: 'auto', drainage: true } })))).toBe('left');
   });
 
   it('vértices: editar, inserir, remover (mínimo 2) e restaurar o perímetro', () => {

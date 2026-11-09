@@ -663,6 +663,43 @@ export const TechnicalConstants = z.object({
     deckCoverMinPitchDeg: pos,
     deckPostSpacing: pos,
     deckPostSize: pos,
+    /** Fase 18. Estrutura, apoios, escada e guarda-corpo do deck (m, salvo indicação). */
+    deck: z.object({
+      /** Desnível do piso do deck abaixo do piso acabado da casa (escoamento de água na soleira). */
+      stepBelowFloor: nonneg,
+      board: z.object({ thickness: pos, width: pos, gap: nonneg }),
+      /** Barrotes: espaçamento entre eixos, seção e vão máximo entre apoios. */
+      joist: z.object({ spacing: pos, width: pos, depth: pos, maxSpan: pos }),
+      /** Vigas sob os barrotes: seção e vão máximo entre pilares. */
+      beam: z.object({ width: pos, depth: pos, maxSpan: pos }),
+      /** Viga de apoio fixada na parede/radier (ledger): seção. */
+      ledger: z.object({ width: pos, depth: pos }),
+      /** Pilares: seção por material e altura livre máxima do pilar de madeira/aço antes de passar a concreto (auto). */
+      support: z.object({
+        size: z.object({ wood: pos, steel: pos, concrete: pos }),
+        woodMaxHeight: pos,
+        steelMaxHeight: pos,
+      }),
+      /** Pilar mais alto que isto recebe mão-francesa/contraventamento. */
+      braceHeight: pos,
+      /** Fundação dos pilares: sapata isolada (lado, altura, profundidade de assentamento) e broca (diâmetro, profundidade). */
+      footing: z.object({
+        padWidth: pos,
+        padDepth: pos,
+        padEmbed: pos,
+        boredDiameter: pos,
+        boredDepth: pos,
+        /** Inclinação do terreno (%) a partir da qual o `auto` usa broca em vez de sapata. */
+        boredSlopePct: pos,
+      }),
+      /** Guarda-corpo obrigatório quando o desnível do deck passa disto. */
+      guardrailDrop: pos,
+      /** Escada: espelho máximo/mínimo, piso mínimo, fórmula de Blondel (2e + p) e degrau único máximo sem escada. */
+      stair: z.object({ riserMax: pos, riserMin: pos, treadMin: pos, blondelMin: pos, blondelMax: pos, singleStepMax: pos }),
+      /** Sobrecarga de uso do deck (kN/m²) e peso próprio estimado do piso + estrutura (kN/m²). */
+      liveLoadKPa: pos,
+      deadLoadKPa: pos,
+    }),
   }),
   /** Muro de arrimo: parâmetros de quantidade por tipo. */
   retaining: z.object({
@@ -689,6 +726,14 @@ export const TechnicalConstants = z.object({
     fillUnderBuilding: pos,
     /** Cada km de bota-fora acrescenta 1/kmPerExtraTrip de viagem por viagem. */
     kmPerExtraTrip: pos,
+    /** Fase 18. Bordas `auto`: muro de arrimo onde o corte (ou aterro) passa desta altura (m). */
+    retainingCutHeight: pos,
+    retainingFillHeight: pos,
+    /** Trechos de muro mais curtos que isto são estendidos ou descartados (m). */
+    retainingMinLength: pos,
+    /** Tipo `auto`: bloco estrutural até `blockMaxHeight`, concreto armado até `concreteMaxHeight`, gabião acima (m). */
+    retainingBlockMaxHeight: pos,
+    retainingConcreteMaxHeight: pos,
   }),
   /** Fatores do pré-dimensionamento (NBR 14762 / NBR 8681). */
   structureFactors: z.object({

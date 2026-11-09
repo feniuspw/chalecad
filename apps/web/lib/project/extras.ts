@@ -107,7 +107,7 @@ export function addExtra(draft: Project, kind: ExtraKind, ids: IdGen = newId): s
     case 'deck': {
       const side: Side = 'front';
       const len = sideLength(draft, side);
-      draft.extras.push({ id, kind, side, length: round(Math.min(len, 4), 2), offset: round(Math.max(0, (len - Math.min(len, 4)) / 2), 2), depth: 2, elevation: 0.3, covered: false, guardrail: true });
+      draft.extras.push({ id, kind, side, length: round(Math.min(len, 4), 2), offset: round(Math.max(0, (len - Math.min(len, 4)) / 2), 2), depth: 2, facadeIndex: 0, align: 'start', covered: false, guardrail: 'auto', stairs: 'auto', support: 'auto', footing: 'auto', boards: 'parallel' });
       break;
     }
     case 'wall':

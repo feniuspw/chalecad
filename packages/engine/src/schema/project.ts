@@ -67,6 +67,19 @@ export const Meta = z.object({
 
 export const FlatSite = z.object({ type: z.literal('flat') });
 
+/** Fase 18. Área aplainada (pad) em planta, em coordenadas do projeto. */
+export const SitePad = z.object({
+  id: Id,
+  name: z.string().max(60).default(''),
+  /** Polígono simples (anti-horário ou horário), m. */
+  polygon: z.array(Vec2).min(3).max(64),
+  /** Cota do pad em relação ao piso acabado da casa (m). 0 = mesmo nível do platô da casa. */
+  level: z.number().finite().min(-10).max(10).default(0),
+  /** Bordas: como em `SlopedSite.edges`. */
+  edges: z.enum(['auto', 'slope', 'wall']).default('auto'),
+});
+export type SitePad = z.infer<typeof SitePad>;
+
 /** Fase 4. Terreno com inclinação uniforme, platô retangular em volta da edificação. */
 export const SlopedSite = z.object({
   type: z.literal('sloped'),
@@ -85,6 +98,20 @@ export const SlopedSite = z.object({
   fillSlopeHV: len(0.5, 4).default(1.5),
   /** Distância até o bota-fora, para custo de transporte de terra excedente. */
   disposalDistanceKm: len(0, 200).default(10),
+  /**
+   * Fase 18. Áreas aplainadas desenhadas pelo usuário em volta da casa (quintal, deck, garagem), cada uma num nível.
+   * O platô da casa (retângulo com `platformMargin`) continua existindo; um pad pode encostar nele ou sobrepor.
+   */
+  pads: z.array(SitePad).max(12).default([]),
+  /**
+   * Fase 18. Bordas do platô da casa: `auto` = talude, trocado por muro de arrimo onde a altura passa do limite do
+   * catálogo (`terrainRules.retaining*`) ou o talude sairia do lote; `slope` = só talude; `wall` = muro em toda a borda.
+   */
+  edges: z.enum(['auto', 'slope', 'wall']).default('auto'),
+  /** Fase 18. Tipo e drenagem dos muros de arrimo gerados pelo terreno (`auto` escolhe pela altura). */
+  retaining: z
+    .object({ type: z.enum(['auto', 'gabion', 'concrete', 'block']).default('auto'), drainage: z.boolean().default(true) })
+    .default({ type: 'auto', drainage: true }),
 });
 
 export const Site = z.discriminatedUnion('type', [FlatSite, SlopedSite]);
@@ -383,17 +410,49 @@ export const WallExtra = z.object({
   foundation: z.enum(['strip', 'grade_beam']).default('strip'),
 });
 
+/** Fase 18. Escada do deck para o quintal: em qual borda livre e onde (centro, m a partir do início da borda). */
+export const DeckStair = z.object({
+  /** `outer` = borda paralela à fachada; `start`/`end` = bordas laterais (início/fim ao longo da fachada). */
+  edge: z.enum(['outer', 'start', 'end']).default('outer'),
+  at: len(0, 30),
+  width: len(0.8, 3).default(1.2),
+});
+export type DeckStair = z.infer<typeof DeckStair>;
+
 export const DeckExtra = z.object({
   id: Id,
   kind: z.literal('deck'),
   side: z.enum(['front', 'back', 'left', 'right']).default('front'),
-  /** Comprimento ao longo da fachada; omitido = fachada inteira. */
+  /**
+   * Fase 18. Qual das faces externas voltadas para `side` (planta em L, anexos do A-frame): 0 = a mais externa;
+   * as demais seguem por distância decrescente. Índice inexistente cai na 0.
+   */
+  facadeIndex: z.number().int().min(0).max(8).default(0),
+  /** Comprimento ao longo da fachada (face externa); omitido = fachada inteira. */
   length: len(1, 30).optional(),
-  offset: len(0, 30).default(0),
+  /** Fase 18. Referência do `offset`: do início da face, centralizado (offset desloca o centro) ou do fim. */
+  align: z.enum(['start', 'center', 'end']).default('start'),
+  offset: z.number().finite().min(-30).max(30).default(0),
+  /** Profundidade a partir da face externa da parede. */
   depth: len(0.8, 6).default(2),
-  elevation: len(0, 3).default(0.3),
+  /**
+   * Fase 18. Cota do topo do piso do deck em relação ao piso acabado da casa (m). Padrão: degrau de escoamento
+   * abaixo da soleira (`catalog.constants.extras.deck.stepBelowFloor`). Ausente = o padrão do catálogo.
+   */
+  level: z.number().finite().min(-3).max(3).optional(),
+  /** Legado (≤ F17): altura "acima do terreno", que na prática era acima do piso. Ignorado a partir da Fase 18. */
+  elevation: len(0, 3).optional(),
   covered: z.boolean().default(false),
-  guardrail: z.boolean().default(true),
+  /** `auto` = guarda-corpo onde o desnível passa de `deck.guardrailDrop` (Fase 18); true/false força. */
+  guardrail: z.union([z.boolean(), z.literal('auto')]).default('auto'),
+  /** Fase 18. Escadas: `auto` = uma escada onde há porta (ou no centro da borda externa) quando o desnível exige. */
+  stairs: z.union([z.literal('auto'), z.array(DeckStair).max(4)]).default('auto'),
+  /** Fase 18. Pilares (pilotis): `auto` escolhe pela altura (catálogo `deck.support`). */
+  support: z.enum(['auto', 'wood', 'steel', 'concrete']).default('auto'),
+  /** Fase 18. Fundação dos pilares: sapata isolada ou broca (estaca escavada); `auto` pelo catálogo. */
+  footing: z.enum(['auto', 'pad', 'bored']).default('auto'),
+  /** Fase 18. Tábuas paralelas ou perpendiculares à fachada. */
+  boards: z.enum(['parallel', 'perpendicular']).default('parallel'),
 });
 
 export const RetainingExtra = z.object({

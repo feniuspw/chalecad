@@ -12,7 +12,7 @@ import { terrainZOffset } from './terrain';
 
 function sloped(azimuth = 180, pct = 10) {
   const project = createProject('gable_mezzanine', { name: 'Terreno' });
-  project.site = { type: 'sloped', slopePct: pct, downhillAzimuthDeg: azimuth, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10 };
+  project.site = { type: 'sloped', slopePct: pct, downhillAzimuthDeg: azimuth, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10, pads: [], edges: 'auto', retaining: { type: 'auto', drainage: true } };
   const r = computeAll(project, getCatalog());
   return { project, model: r.model, terrain: r.terrain! };
 }

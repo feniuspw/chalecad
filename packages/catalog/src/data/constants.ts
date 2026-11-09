@@ -447,7 +447,7 @@ export const constants: TechnicalConstants = {
     gradeBeam: { width: 0.15, depth: 0.3 }, // m
     postSize: { concrete: 0.12, eucalyptus: 0.12, steel: 0.06 }, // m
     barbedStrands: 5,
-    guardrailHeight: 1, // m
+    guardrailHeight: 1.1, // m (NBR 14718: guarda-corpo com 1,10 m)
     guardrailThickness: 0.05, // m
     deckCoverPitchDeg: 10, // graus
     deckCoverBeiral: 0.3, // m
@@ -456,6 +456,20 @@ export const constants: TechnicalConstants = {
     deckCoverMinPitchDeg: 3, // graus (~5%)
     deckPostSpacing: 3, // m
     deckPostSize: 0.1, // m
+    deck: {
+      stepBelowFloor: 0.03, // m: soleira 3 cm acima do deck
+      board: { thickness: 0.025, width: 0.1, gap: 0.005 }, // m: tábua 25 × 100 mm, junta 5 mm
+      joist: { spacing: 0.45, width: 0.05, depth: 0.15, maxSpan: 2.2 }, // m: barrote 5 × 15 cm (madeira classe D40)
+      beam: { width: 0.075, depth: 0.2, maxSpan: 1.8 }, // m: viga 7,5 × 20 cm
+      ledger: { width: 0.05, depth: 0.15 }, // m
+      support: { size: { wood: 0.1, steel: 0.1, concrete: 0.2 }, woodMaxHeight: 2.5, steelMaxHeight: 3.5 }, // m
+      braceHeight: 1.2, // m
+      footing: { padWidth: 0.5, padDepth: 0.25, padEmbed: 0.6, boredDiameter: 0.25, boredDepth: 1.5, boredSlopePct: 25 },
+      guardrailDrop: 1, // m: acima de 1 m de desnível (prática corrente; conferir código de obras)
+      stair: { riserMax: 0.18, riserMin: 0.15, treadMin: 0.28, blondelMin: 0.63, blondelMax: 0.65, singleStepMax: 0.2 }, // m (NBR 9050)
+      liveLoadKPa: 2, // kN/m² (NBR 6120: terraço/varanda residencial)
+      deadLoadKPa: 0.5, // kN/m²
+    },
   },
   retaining: {
     gabionBase: 0.5, // m
@@ -471,6 +485,11 @@ export const constants: TechnicalConstants = {
     cutWarnHeight: 3, // m
     fillUnderBuilding: 1, // m
     kmPerExtraTrip: 20, // km
+    retainingCutHeight: 1.5, // m: corte acima disso pede muro (talude 1:1 alto e instável sem proteção)
+    retainingFillHeight: 1, // m: aterro sem contenção acima disso exige compactação/talude longo
+    retainingMinLength: 1, // m
+    retainingBlockMaxHeight: 2, // m
+    retainingConcreteMaxHeight: 4, // m
   },
   structureFactors: {
     gammaA1: 1.1,
@@ -539,6 +558,7 @@ export const constants: TechnicalConstants = {
       { id: 'nbr9077', code: 'ABNT NBR 9077', edition: '2001', title: 'Saídas de emergência em edifícios (escadas)', confirmed: false },
       { id: 'nbr7199', code: 'ABNT NBR 7199', edition: '2016', title: 'Vidros na construção civil: projeto, execução e aplicações', confirmed: false },
       { id: 'nbr9050', code: 'ABNT NBR 9050', edition: '2020', title: 'Acessibilidade', confirmed: false },
+      { id: 'nbr11682', code: 'ABNT NBR 11682', edition: '2009', title: 'Estabilidade de encostas (contenções)', confirmed: false },
       { id: 'nbr15220', code: 'ABNT NBR 15220-3', edition: '2005', title: 'Zoneamento bioclimático', confirmed: false },
       { id: 'municipal', code: 'Legislação municipal', edition: '—', title: 'Plano diretor, zoneamento e código de obras do município', confirmed: false },
     ],

@@ -13,6 +13,7 @@ import {
 } from './geometry';
 
 export { buildExtraModels, deckGeometry, fencePosts, facade } from './geometry';
+export { attachDeckFrames } from './deckFrame';
 export { towerProfileLines } from './water_tower_quantities';
 export { waterTowerModel, towerTankFullKg, tankDimensions, towerLiters, towerContour } from './water_tower';
 export type { ExtraBuildContext, WaterTowerE } from './water_tower';

@@ -76,7 +76,7 @@ describe('deck', () => {
     expect(line(q, 'deck_frame')!.netQty).toBeCloseTo(13, 9);
     expect(line(q, 'guardrail')!.netQty).toBeCloseTo(10.5, 9);
     const em = model.extras[0]!;
-    expect(em.topZ).toBe(0.3);
+    expect(em.topZ).toBe(-0.03);
     expect(em.polygon!.every((p) => p[1] <= 0 && p[1] >= -2)).toBe(true);
     expect(em.roof).toBeUndefined();
   });

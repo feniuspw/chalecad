@@ -172,9 +172,9 @@ function DeckFields({
       {!fullFacade ? <SliderField label="Comprimento" value={Math.min(e.length ?? maxLen, maxLen)} min={1} max={Math.max(1.1, maxLen)} step={0.1} unit="m" onChange={slider('Alterar comprimento', 'length')} /> : null}
       <SliderField label="Recuo da lateral" value={Math.min(e.offset, Math.max(0, sideLen - 1))} min={0} max={Math.max(0.1, sideLen - 1)} step={0.1} unit="m" hint="do início da fachada" onChange={slider('Mover deck', 'offset')} />
       <SliderField label="Profundidade" value={e.depth} min={0.8} max={6} step={0.1} unit="m" hint="para fora da parede" onChange={slider('Alterar profundidade', 'depth')} />
-      <SliderField label="Altura do piso" value={e.elevation} min={0} max={3} step={0.05} unit="m" hint="acima do terreno" onChange={slider('Alterar altura do piso', 'elevation')} />
+      <SliderField label="Nível do piso" value={e.level ?? -0.03} min={-1} max={3} step={0.01} unit="m" hint="em relação ao piso da casa" onChange={slider('Alterar nível do piso', 'level')} />
       <SwitchField label="Coberta" description="Telhado de uma água sobre o deck, com pilares" checked={e.covered} onChange={(v) => set(v ? 'Cobrir deck' : 'Descobrir deck', { covered: v })} />
-      <SwitchField label="Guarda-corpo" description="Nas bordas livres do deck" checked={e.guardrail} onChange={(v) => set(v ? 'Incluir guarda-corpo do deck' : 'Remover guarda-corpo do deck', { guardrail: v })} />
+      <SwitchField label="Guarda-corpo" description="Nas bordas livres do deck" checked={e.guardrail !== false} onChange={(v) => set(v ? 'Incluir guarda-corpo do deck' : 'Remover guarda-corpo do deck', { guardrail: v })} />
     </>
   );
 }

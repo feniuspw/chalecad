@@ -104,7 +104,7 @@ describe('computeWarnings', () => {
   test('typology.partial sem peças de cobertura; extras e terreno inclinado', () => {
     const p: Project = {
       ...base,
-      site: { type: 'sloped', slopePct: 20, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10 },
+      site: { type: 'sloped', slopePct: 20, downhillAzimuthDeg: 180, platformMargin: { front: 3, back: 1.5, left: 1.5, right: 1.5 }, platformElevation: 'auto', cutSlopeHV: 1, fillSlopeHV: 1.5, disposalDistanceKm: 10, pads: [], edges: 'slope', retaining: { type: 'auto', drainage: true } },
       extras: [{ id: 'e1', kind: 'retaining', path: [[0, 0], [5, 0]], height: 1, type: 'block', drainage: true }],
     };
     const ws = warn(p, (c) => {

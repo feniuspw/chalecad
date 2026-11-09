@@ -79,3 +79,8 @@ Fluxos paralelos: motor (E) e editor (W).
 - [x] F17-W1 pranchas ABNT com carimbo, arquitetura (situação, implantação, plantas, cortes, fachadas, cobertura) e PDF vetorial
 - [x] F17-W2 conteúdos das pranchas de engenharia (fundação, estrutura, elétrica, hidrossanitária)
 - [x] F17-W3 tela Aprovação (dados legais, lote, verificação com parecer, ficha ART/RRT, memoriais, pacote .zip)
+
+## Fase 18 — deck, terreno com pads e arrimo, iluminação
+- [ ] F18-D deck alinhado à face externa, estrutura (barrotes, vigas, pilotis até o terreno acabado, fundações), escadas e guarda-corpo pela norma
+- [ ] F18-T áreas aplainadas desenhadas no terreno (pads) e muros de arrimo sugeridos nas bordas
+- [ ] F18-L iluminação: altura do teto real, interruptor automático, grade única do motor, lux ao vivo

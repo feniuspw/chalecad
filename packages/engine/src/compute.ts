@@ -8,7 +8,8 @@ import { loadProject } from './load';
 import { buildModel } from './model';
 import { computeQuantities } from './quantities';
 import { computeStructure } from './structure';
-import { computeTerrain } from './terrain';
+import { computeTerrain, flatSurface } from './terrain';
+import { attachDeckFrames } from './extras/deckFrame';
 import type { Project } from './schema/project';
 import { ENGINE_VERSION } from './version';
 import { generatePieces } from './framing';
@@ -51,6 +52,8 @@ export function computeAllWith(
   lap('framing');
   const terrainResult = computeTerrain(project, model, catalog);
   if (terrainResult) lap('terrain'); // só em terreno inclinado (flat mantém as mesmas chaves)
+  // Estrutura e pilares do deck precisam do terreno acabado.
+  attachDeckFrames(project, model, terrainResult?.surface ?? flatSurface(), catalog);
   // Instalações antes dos quantitativos: os itens da etapa `installations` entram na compra.
   const installs = computeInstallations(project, model, catalog);
   if (installs) lap('installations');

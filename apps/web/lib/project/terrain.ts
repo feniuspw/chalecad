@@ -16,6 +16,9 @@ export function makeSlopedSite(over: Partial<Omit<Sloped, 'type'>> = {}): Sloped
     cutSlopeHV: 1,
     fillSlopeHV: 1.5,
     disposalDistanceKm: 10,
+    pads: [],
+    edges: 'auto',
+    retaining: { type: 'auto', drainage: true },
     ...over,
   };
 }

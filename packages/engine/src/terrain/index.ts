@@ -2,6 +2,9 @@ import { getMaterial, type Catalog } from '@chalecad/catalog';
 import type { Item } from '../quantities/items';
 import type { Project } from '../schema/project';
 import type { BuildingModel, EngineWarning, TerrainReport } from '../schema/results';
+import { GROUND_BELOW_FLOOR, type SiteSurface } from './surface';
+
+export { flatSurface, GROUND_BELOW_FLOOR, type SiteSurface } from './surface';
 
 type Sloped = Extract<Project['site'], { type: 'sloped' }>;
 
@@ -29,6 +32,8 @@ export interface TerrainResult {
   /** Linhas de quantidade da etapa `terrain`. */
   items: Item[];
   warnings: EngineWarning[];
+  /** Fase 18. Terreno acabado ponto a ponto (coordenadas da casa). */
+  surface: SiteSurface;
 }
 
 const fmt = (n: number, d = 2) => n.toFixed(d).replace('.', ',');
@@ -236,6 +241,21 @@ export function computeTerrain(project: Project, model: BuildingModel, catalog: 
     machineDays,
     truckLoads,
     mesh: buildMesh(plat, natural, site, zp, hn),
+    pads: [
+      {
+        id: 'house',
+        polygon: [[plat.x0, plat.y0], [plat.x1, plat.y0], [plat.x1, plat.y1], [plat.x0, plat.y1]],
+        z: zp,
+        area: (plat.x1 - plat.x0) * (plat.y1 - plat.y0),
+      },
+    ],
+    walls: [],
+  };
+  const surface: SiteSurface = {
+    platformZ: zp,
+    groundZ: (x, y) => finalZ(natural(x, y), distToPlat(plat, x, y), zp, site) - zp - GROUND_BELOW_FLOOR,
+    naturalZ: (x, y) => natural(x, y) - zp - GROUND_BELOW_FLOOR,
+    slopePct: site.slopePct,
   };
 
   // Linhas de quantidade.
@@ -287,7 +307,7 @@ export function computeTerrain(project: Project, model: BuildingModel, catalog: 
     });
   }
 
-  return { report, items, warnings };
+  return { report, items, warnings, surface };
 }
 
 function buildMesh(

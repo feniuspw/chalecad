@@ -161,6 +161,74 @@ export interface ExtraModel {
   /** Torre da caixa d'água: águas do telhado próprio, plataforma e a caixa (cilindro). */
   roofs?: RoofPlane[];
   tank?: { position: Vec2; baseZ: number; radius: number; height: number; liters: number };
+  /** Fase 18. Deck: estrutura, pilares, escadas e verificações (preenchido depois do terreno, em `compute`). */
+  deck?: DeckFrameModel;
+}
+
+/** Fase 18. Barra horizontal da estrutura do deck (barrote, viga, viga de apoio na parede). Seção em m, `topZ` do topo. */
+export interface DeckMember {
+  from: Vec2;
+  to: Vec2;
+  topZ: number;
+  width: number;
+  depth: number;
+}
+
+export interface DeckSupport {
+  position: Vec2;
+  /** Topo do pilar (fundo da viga) e cota do terreno acabado no pé (coordenadas da casa: piso acabado = 0). */
+  topZ: number;
+  groundZ: number;
+  material: 'wood' | 'steel' | 'concrete';
+  /** Lado da seção quadrada (m). */
+  size: number;
+  footing: { kind: 'pad' | 'bored'; width: number; depth: number };
+  /** Mão-francesa/contraventamento (pilar acima de `deck.braceHeight`). */
+  braced: boolean;
+}
+
+export interface DeckStairModel {
+  /** Centro do topo da escada na borda do deck e direção de descida (unitária, planta). */
+  top: Vec2;
+  dir: Vec2;
+  width: number;
+  risers: number;
+  riserHeight: number;
+  tread: number;
+  topZ: number;
+  bottomZ: number;
+}
+
+export interface DeckCheck {
+  id: string;
+  label: string;
+  value: string;
+  limit: string;
+  status: 'ok' | 'warn' | 'fail';
+  /** id da norma em `catalog.constants.approval.norms`. */
+  norm?: string;
+}
+
+export interface DeckFrameModel {
+  /** Face externa usada (início, direção ao longo, normal para fora, comprimento da face inteira). */
+  facade: { origin: Vec2; t: Vec2; n: Vec2; length: number };
+  /** Topo do piso do deck (coordenadas da casa). */
+  topZ: number;
+  boardThickness: number;
+  /** Direção das tábuas (unitária, planta). */
+  boardDir: Vec2;
+  joists: DeckMember[];
+  beams: DeckMember[];
+  /** Viga de apoio presa na parede/radier (null = deck independente com linha de pilares junto à casa). */
+  ledger: DeckMember | null;
+  supports: DeckSupport[];
+  stairs: DeckStairModel[];
+  /** Maior desnível entre o piso do deck e o terreno sob a borda livre. */
+  maxDrop: number;
+  guardrail: boolean;
+  /** Bordas livres sem guarda-corpo por causa das escadas (aberturas), em planta. */
+  railGaps: [Vec2, Vec2][];
+  checks: DeckCheck[];
 }
 
 export interface BuildingModel {
@@ -422,6 +490,39 @@ export interface TerrainReport {
   truckLoads: number;
   /** Malha do terreno modificado para render: grade regular, z para cima. `cut` = profundidade de corte (+) ou aterro (-) por vértice. */
   mesh: { positions: number[]; indices: number[]; cut: number[] };
+  /** Fase 18. Platô da casa e pads do usuário, com cota (coordenadas do terreno, como `platformZ`) e volumes próprios. */
+  pads: TerrainPadReport[];
+  /** Fase 18. Muros de arrimo gerados nas bordas dos platôs (a superfície já é vertical neles). */
+  walls: TerrainWall[];
+}
+
+export interface TerrainPadReport {
+  /** 'house' = platô da casa; demais = `SitePad.id`. */
+  id: string;
+  polygon: Vec2[];
+  /** Cota do pad em coordenadas do terreno (mesma referência de `platformZ`). */
+  z: number;
+  area: number;
+}
+
+export interface TerrainWall {
+  id: string;
+  /** Pad cuja borda o muro contém ('house' ou `SitePad.id`). */
+  padId: string;
+  /** Caminho em planta e altura de contenção em cada vértice (m, sempre > 0). */
+  path: Vec2[];
+  heights: number[];
+  /** Corte (o terreno fica acima do pad) ou aterro (o pad fica acima do terreno). */
+  side: 'cut' | 'fill';
+  type: 'gabion' | 'concrete' | 'block';
+  /** Cota do topo do muro em cada vértice (coordenadas do terreno). */
+  topZ: number[];
+  length: number;
+  /** Área de face (∫ h ds). */
+  area: number;
+  maxHeight: number;
+  /** Por que há muro: altura acima do limite, talude sairia do lote, encontro com outro pad, ou forçado pelo usuário. */
+  reason: 'height' | 'lot' | 'overlap' | 'forced';
 }
 
 // ---------------------------------------------------------------------------
