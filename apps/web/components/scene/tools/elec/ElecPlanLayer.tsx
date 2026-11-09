@@ -75,9 +75,16 @@ export function ElecPlanLayer({ model, level, elevation }: { model: BuildingMode
   const links = useMemo(() => {
     const out: number[] = [];
     if (!plan) return out;
-    for (const l of plan.links) for (const [a, b] of dashSegments([l.from, l.to], 0.1, 0.07)) segmentQuad(a, b, 0.015, z + 0.001, out);
+    // como nas pranchas: a letra do comando junto de cada luz basta; as linhas só aparecem para o interruptor (ou a luz)
+    // selecionado, senão um interruptor de sala com 12 luzes vira um leque de tracejados
+    const sel = selected?.kind === 'point' ? selected.id : null;
+    if (!sel) return out;
+    for (const l of plan.links) {
+      if (l.switchId !== sel && l.lightId !== sel) continue;
+      for (const [a, b] of dashSegments([l.from, l.to], 0.1, 0.07)) segmentQuad(a, b, 0.015, z + 0.001, out);
+    }
     return out;
-  }, [plan, z]);
+  }, [plan, z, selected]);
 
   const highlight = useMemo(() => {
     const sel: number[] = [];

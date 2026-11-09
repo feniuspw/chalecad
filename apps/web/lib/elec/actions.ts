@@ -4,7 +4,8 @@
  * edição copia o traçado gerado para o projeto com `manual: true`.
  */
 import { toast } from 'sonner';
-import type { CircuitDef, Conduit, ElecPoint, Electrical, ElectricalLayout, Vec2 } from '@chalecad/engine';
+import { routeLayoutConduits, type CircuitDef, type Conduit, type ElecPoint, type Electrical, type ElectricalLayout, type Vec2 } from '@chalecad/engine';
+import { getCatalog } from '@chalecad/catalog';
 import { useEditor } from '@/lib/store/editor';
 import { addConduit, adoptCircuit, appendPoint, ensureManual, patchCircuit, patchPoint, pinCircuit, removeConduits, removePoints, resetToAuto, toggleControl, uncontrolledLightsIn } from './edit';
 import { pointInPoly } from './lightGrid';
@@ -133,7 +134,14 @@ export function autoRoute(): boolean {
     // pontos do traçado efetivo (com o circuito que o motor deu aos pontos soltos)
     const byId = new Map(l.points.map((p) => [p.id, p]));
     const pts = e.points.map((p) => ({ ...p, circuitId: p.circuitId ?? byId.get(p.id)?.circuitId }));
-    e.conduits = routeConduits({ points: pts, panel: { level: l.panel.level, position: l.panel.position }, newId: () => elecId('cd') }).slice(0, 2000);
+    // o roteador do motor (prumadas entre níveis, descidas, caixas de passagem); sem modelo, o simples da interface
+    const st = useEditor.getState();
+    const model = st.results?.model;
+    e.conduits = (
+      model
+        ? routeLayoutConduits(st.project, model, getCatalog(), { ...l, points: pts })
+        : routeConduits({ points: pts, panel: { level: l.panel.level, position: l.panel.position }, newId: () => elecId('cd') })
+    ).slice(0, 2000);
   });
   if (ok) toast.success('Eletrodutos traçados.');
   return ok;

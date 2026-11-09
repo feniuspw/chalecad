@@ -15,7 +15,7 @@ export { buildCircuits } from './circuits';
 export { computePipes } from './pipes';
 export { installationItems } from './quantities';
 export { sizeTank } from './tank';
-export { computeElectrical } from './electrical';
+export { computeElectrical, routeLayoutConduits } from './electrical';
 export type { ElectricalResult } from './electrical';
 export { computePlumbing } from './plumbing';
 export type { PlumbingResult } from './plumbing';

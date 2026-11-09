@@ -1,6 +1,6 @@
 import type { Catalog } from '@chalecad/catalog';
 import type { Item } from '../../quantities/items';
-import type { ElecPoint, Project } from '../../schema/project';
+import type { Conduit, ElecPoint, Project } from '../../schema/project';
 import type { BuildingModel, ElectricalLayout, ElectricalReport, EngineWarning } from '../../schema/results';
 import { placePoints, type PlacedPoints } from '../points';
 import { calculate } from './calc';
@@ -53,6 +53,20 @@ export function manualLayout(ctx: Ctx, placed: PlacedPoints): ElectricalLayout {
     return c ? { ...p, circuitId: c } : p;
   });
   return { points, conduits: e.conduits, circuits: [...e.circuits, ...dist.circuits], panel };
+}
+
+/**
+ * Eletrodutos pelo forro para os pontos de um traçado qualquer (o mesmo roteador do traçado gerado: prumadas entre
+ * níveis, descidas e caixas de passagem). Usado pelo "Rotear automaticamente" depois que o usuário editou os pontos.
+ */
+export function routeLayoutConduits(project: Project, model: BuildingModel, catalog: Catalog, layout: ElectricalLayout): Conduit[] {
+  const ctx = makeCtx(project, model, catalog);
+  const ib = new Map<string, number>();
+  for (const info of pointInfos(ctx, layout.points)) {
+    const c = info.p.circuitId;
+    if (c) ib.set(c, (ib.get(c) ?? 0) + info.ib);
+  }
+  return routeConduits(ctx, layout.points, { level: layout.panel.level, position: layout.panel.position, height: ctx.k.heights.panel }, ib);
 }
 
 /**

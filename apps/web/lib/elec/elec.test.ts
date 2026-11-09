@@ -1,5 +1,5 @@
 import { getCatalog } from '@chalecad/catalog';
-import type { ElecPoint, Project, Results } from '@chalecad/engine';
+import { routeLayoutConduits, type ElecPoint, type Project, type Results } from '@chalecad/engine';
 import { describe, expect, it } from 'vitest';
 import { computeProject } from '../engine/compute';
 import { findPreset } from '../project/templates';
@@ -240,8 +240,8 @@ describe('roteamento automático', () => {
     const p = structuredClone(project);
     ensureManual(p.installations.electrical, elec.layout);
     p.installations.electrical.conduits = [];
-    let n = 0;
-    p.installations.electrical.conduits = routeConduits({ points: elec.layout.points, panel: elec.layout.panel, newId: () => `cd-${++n}` });
+    // o "Rotear automaticamente" usa o roteador do motor (prumadas entre níveis, descidas)
+    p.installations.electrical.conduits = routeLayoutConduits(p, computeProject(p, catalog).model, catalog, elec.layout);
     addConduit(p.installations.electrical, { id: 'extra', level, path: [[0, 0], [1, 0]], run: 'floor' });
     const r = computeProject(p, catalog);
     expect(r.warnings.filter((w) => w.code === 'elec.conduit.unreached')).toEqual([]);
