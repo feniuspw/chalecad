@@ -69,6 +69,17 @@ export const TERMS: GlossaryTerm[] = [
   { id: 'tensao_solo', label: 'Tensão admissível do solo', aliases: ['tensão admissível'], short: 'O peso que o solo aguenta por área sem afundar. Solo mole aguenta pouco e pede fundação maior.' },
   { id: 'trifasica', label: 'Entrada trifásica', aliases: ['trifásica', 'trifásico'], short: 'Ligação da concessionária com três fios de fase, para casas com muita demanda de energia.' },
   { id: 'cca', label: 'Madeira tratada (autoclave)', aliases: ['autoclave'], short: 'Madeira que recebe produto preservante sob pressão, para resistir a cupim e fungo.' },
+  { id: 'rrt', label: 'RRT', aliases: ['RRT'], caseSensitive: true, short: 'Registro de Responsabilidade Técnica: o equivalente da ART para arquitetos e urbanistas, emitido no sistema do CAU.', why: 'Sem ela o projeto de arquitetura não tem responsável legal.' },
+  { id: 'taxa_ocupacao', label: 'Taxa de ocupação (TO)', aliases: ['taxa de ocupação'], short: 'Quanto do lote a casa ocupa, vista de cima, em porcentagem. Casa de 100 m² em lote de 360 m² tem 28%.', why: 'A lei de zoneamento define o máximo.' },
+  { id: 'coef_aproveitamento', label: 'Coeficiente de aproveitamento (CA)', aliases: ['coeficiente de aproveitamento'], short: 'Área construída somando todos os pavimentos, dividida pela área do lote. CA 1,0 em lote de 360 m² permite 360 m² construídos.', why: 'Limita o tamanho total da obra, não só o térreo.' },
+  { id: 'taxa_permeabilidade', label: 'Taxa de permeabilidade (TP)', aliases: ['taxa de permeabilidade'], short: 'Parte do lote que fica sem piso impermeável, deixando a chuva infiltrar no solo.', why: 'A prefeitura exige um mínimo para evitar alagamentos.' },
+  { id: 'recuo', label: 'Recuo', aliases: ['recuo'], short: 'Distância mínima entre a casa e a divisa do lote (frente, lados e fundos).', why: 'Definido pela lei de zoneamento; invadir o recuo impede a aprovação.' },
+  { id: 'matricula', label: 'Matrícula', aliases: ['matrícula'], short: 'Número do registro do imóvel no cartório. Está na certidão do terreno.', why: 'A prefeitura e o conselho pedem para identificar o imóvel.' },
+  { id: 'alvara', label: 'Alvará', aliases: ['alvará'], short: 'Licença da prefeitura para construir. Sai depois que o projeto legal é aprovado.', why: 'Obra sem alvará pode ser embargada e multada.' },
+  { id: 'spt', label: 'SPT', aliases: ['SPT'], caseSensitive: true, short: 'Sondagem de simples reconhecimento do solo: furos que medem a resistência a cada metro.', why: 'Dá a tensão admissível real do solo para a fundação.' },
+  { id: 'projeto_legal', label: 'Projeto legal', aliases: ['projeto legal'], short: 'Conjunto de pranchas e documentos que a prefeitura analisa para liberar o alvará.', why: 'Mostra implantação, plantas, cortes, fachadas e quadro de áreas.' },
+  { id: 'projeto_executivo', label: 'Projeto executivo', aliases: ['projeto executivo'], short: 'Projeto com todos os detalhes para construir: estrutura, instalações e especificações.', why: 'É o que a obra segue; o legal só serve à aprovação.' },
+  { id: 'carimbo', label: 'Carimbo', aliases: ['carimbo'], short: 'Quadro no canto da prancha com obra, proprietário, responsável técnico, escala, data e revisão.', why: 'Toda prancha de aprovação precisa dele.' },
 ];
 
 const strip = (s: string): string =>
