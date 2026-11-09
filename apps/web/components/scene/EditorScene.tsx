@@ -11,6 +11,7 @@ import { plateauRect } from '@/lib/three/terrain';
 import { explodeGap } from '@/lib/three/views';
 import { selectionFromHost } from '@/lib/project/selection';
 import { useEditor } from '@/lib/store/editor';
+import { useElecMode } from '@/lib/elec/mode';
 import type { Selection } from '@/lib/store/types';
 import { BuildingView } from './BuildingView';
 import { CameraRig } from './CameraRig';
@@ -21,6 +22,7 @@ import { FurnitureView } from './FurnitureView';
 import { InstallationsView } from './InstallationsView';
 import { Plumb3D } from './tools/plumb/Plumb3D';
 import { usePlumb } from '@/lib/plumb/store';
+import { ElecLuminaires } from './ElecLuminaires';
 import { RainTankView, SolarPanelsView } from './PerformanceView';
 import { MotorGroup } from './MotorGroup';
 import { PresentationFx } from './PresentationFx';
@@ -107,7 +109,12 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
   const furnitureModels = useFurnitureModels();
   const furnitureAlerts = useFurnitureAlertLevels();
   const toolEnv = useToolEnv(model);
-  const installationsReport = project.installations.enabled ? (results?.installations ?? null) : null;
+  const rawInstallations = project.installations.enabled ? (results?.installations ?? null) : null;
+  const hasElecLayout = !!rawInstallations?.electrical;
+  // as luminárias do projeto elétrico (ElecLuminaires) substituem os discos dos pontos de luz estimados
+  const installationsReport = useMemo(() => (rawInstallations && hasElecLayout ? { ...rawInstallations, points: rawInstallations.points.filter((p) => p.kind !== 'light') } : rawInstallations), [rawInstallations, hasElecLayout]);
+  const lampsOn = usePresentationUi((s) => s.lamps);
+  const showLuminaires = hasElecLayout && !plan && !structural && !exploded;
   const showInstallations = !!installationsReport && !plan && !structural && (presentation ? presentationInstallations && !walking : true);
   const performance = results?.performance ?? null;
   const showPerformance = !plan && (viewMode === 'finished' || presentation);
@@ -159,7 +166,9 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
     return () => setNotice(null);
   }, [overlayPieces, viewMode, results?.structure, pieces, setNotice]);
 
-  const selectingEnabled = tool === 'select' && !presentation && !plumbTool;
+  const elecMode = useElecMode();
+  // com a camada Elétrica editável ou uma ferramenta de hidráulica, os cliques são dela, não de paredes, móveis e cômodos
+  const selectingEnabled = tool === 'select' && !presentation && !plumbTool && !elecMode;
   const selectedOpeningId = selection?.kind === 'opening' ? selection.id : null;
   const selectedPieceId = selection?.kind === 'piece' ? selection.id : null;
 
@@ -278,6 +287,10 @@ export function EditorScene({ model, bounds, apiRef, signature }: EditorScenePro
           <InstallationsView model={model} report={installationsReport} elevations={levelElevations} exploded={exploded} interactive={selectingEnabled} showPlumbingRoutes={!installationsReport.plumbing} />
           {installationsReport.plumbing ? <Plumb3D exploded={exploded} gap={gap} /> : null}
         </MotorGroup>
+      ) : null}
+
+      {showLuminaires ? (
+        <ElecLuminaires model={model} elevations={levelElevations} lit={presentation && lampsOn} />
       ) : null}
 
       {solarReport || rainReport ? (

@@ -13,6 +13,9 @@ import { SceneLabel } from './labels';
 import { MotorGroup } from './MotorGroup';
 import { useFurnitureAlertLevels, useFurnitureModels } from './furnitureData';
 import { PlanInstallations } from './InstallationsView';
+import { useElecMode } from '@/lib/elec/mode';
+import { useElecUi } from '@/lib/elec/ui';
+import { ElecPlanLayer } from './tools/elec/ElecPlanLayer';
 import { PlanFurniture } from './PlanFurniture';
 import type { WallLike } from './tools/furnitureDrag';
 import { PlumbPlanLayer } from './tools/plumb/PlumbPlanLayer';
@@ -20,12 +23,14 @@ import { usePlumb } from '@/lib/plumb/store';
 
 const POCHE = '#3f3b37';
 const PLUMB_KINDS = new Set<string>(['water_cold', 'water_hot', 'sewer', 'drain', 'tank']);
+const ELEC_KINDS = new Set(['outlet', 'outlet_high', 'tue', 'switch', 'light', 'panel']);
 
 /** Cômodo na planta: preenchimento suave por uso e rótulo "Nome · área" no ponto mais interno. */
 function PlanRoom({ room, z }: { room: RoomModel; z: number }) {
   const selected = useEditor((s) => s.selection?.kind === 'room' && s.selection.id === room.id);
   const plumbBusy = usePlumb((s) => s.tool !== null);
-  const selectable = useEditor((s) => s.tool === 'select') && !plumbBusy;
+  const elecEditing = useElecMode();
+  const selectable = useEditor((s) => s.tool === 'select') && !plumbBusy && !elecEditing;
   const select = useEditor((s) => s.select);
   const polygon = room.polygon as [number, number][];
   const geometry = useMemo(() => new THREE.ShapeGeometry(makeShape(polygon, [])), [polygon]);
@@ -104,11 +109,21 @@ export function PlanOverlay({ model, level, elevation }: { model: BuildingModel;
   const alerts = useFurnitureAlertLevels();
   const selectedFurniture = useEditor((s) => (s.selection?.kind === 'furniture' ? s.selection.id : null));
   const plumbTool = usePlumb((s) => s.tool !== null);
-  const select = useEditor((s) => s.tool === 'select') && !plumbTool;
-  const allInstallations = useEditor((s) => (s.project.installations.enabled ? s.results?.installations?.points : undefined));
+  const elecEditing = useElecMode();
+  const layerOn = useElecUi((s) => s.layerOn);
+  const instOn = useEditor((s) => s.project.installations.enabled);
+  const elecLayer = layerOn && instOn;
+  const select = useEditor((s) => s.tool === 'select') && !plumbTool && !elecEditing;
+  const legacyPoints = useEditor((s) => (s.project.installations.enabled ? s.results?.installations?.points : undefined));
+  const hasElec = useEditor((s) => !!s.results?.installations?.electrical);
   const plumbLayer = usePlumb((s) => s.layer);
-  // com a camada Hidráulica ligada, os símbolos simples de água e esgoto saem (a camada desenha os dela)
-  const installations = useMemo(() => (plumbLayer ? allInstallations?.filter((p) => !PLUMB_KINDS.has(p.kind)) : allInstallations), [allInstallations, plumbLayer]);
+  // cada camada ligada desenha a sua parte: os símbolos simples (estimativa) dela saem da planta
+  const installations = useMemo(() => {
+    let pts = legacyPoints;
+    if (pts && plumbLayer) pts = pts.filter((p) => !PLUMB_KINDS.has(p.kind));
+    if (pts && elecLayer && hasElec) pts = pts.filter((p) => !ELEC_KINDS.has(p.kind));
+    return pts;
+  }, [legacyPoints, plumbLayer, elecLayer, hasElec]);
   const levelWalls = useMemo(() => model.walls.filter((w) => w.level === level) as unknown as WallLike[], [model.walls, level]);
   return (
     <MotorGroup>
@@ -120,6 +135,7 @@ export function PlanOverlay({ model, level, elevation }: { model: BuildingModel;
       ) : null}
       {installations ? <PlanInstallations points={installations} level={level} elevation={elevation} /> : null}
       <PlumbPlanLayer level={level} z={z} />
+      {elecLayer && hasElec ? <ElecPlanLayer model={model} level={level} elevation={elevation} /> : null}
       {walls.map((w) => (
         <WallPoche key={w.id} wall={w} openings={model.openings} />
       ))}

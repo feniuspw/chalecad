@@ -4,6 +4,8 @@ import type { BuildingModel, Furniture, HostWall, InstallationPoint, Project, Re
 import { fmt } from '../project/format';
 import { specOf } from '../project/furniture';
 import { furnitureSymbol, placeStrokes } from './furnitureSymbols';
+import { elecLegendSvg, elecPlanSvg } from '../elec/svg';
+import type { ElecPlanModel } from '../elec/symbols';
 import { installationLegend, installationSymbols, type InstallationSymbol } from './installationSymbols';
 import { ROOM_FILL, roomLabel, roomLabelPoint } from './rooms';
 import { ACCENT, GUIDE, INK, MUTED, esc, group, hDim, line, meters, n2, northArrow, poly, rect, scaleBar, svgDocument, tag, text, vDim, type SvgDoc } from './svg';
@@ -27,6 +29,8 @@ export interface PlanOptions {
   installations?: InstallationPoint[];
   /** Camada extra em SVG (ex.: hidráulica), desenhada sobre as paredes; recebe a conversão metros -> unidades do SVG. */
   overlay?: (ctx: { P: (p: Vec2) => [number, number]; S: number; levelId: string }) => string;
+  /** Projeto elétrico desenhado (camada Elétrica): símbolos por circuito, eletrodutos e legenda do nível. */
+  electrical?: ElecPlanModel;
 }
 
 export const UNITS_PER_METER = 60;
@@ -144,10 +148,13 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
   const instPoints = (opts.installations ?? []).filter((p) => p.level === level.id);
   const legendItems = installationLegend(instPoints);
   const legendCols = 3;
-  const MB = 150 + (legendItems.length > 0 ? 24 + Math.ceil(legendItems.length / legendCols) * 16 : 0);
+  const elec = opts.electrical && opts.electrical.level === level.id ? opts.electrical : null;
+  const elecRows = elec ? Math.ceil(elec.legend.length / legendCols) : 0;
+  const instRows = legendItems.length > 0 ? 24 + Math.ceil(legendItems.length / legendCols) * 16 : 0;
+  const MB = 150 + instRows + (elec ? 56 + elecRows * 16 : 0);
   const planW = (maxX - minX) * S;
   const planH = (maxY - minY) * S;
-  const width = Math.max(ML + planW + MR, 330, legendItems.length > 0 ? ML + legendCols * 104 + 10 : 0);
+  const width = Math.max(ML + planW + MR, 330, legendItems.length > 0 ? ML + legendCols * 104 + 10 : 0, elec ? ML + 470 : 0);
   const height = MT + planH + MB;
   const X = (x: number) => ML + (x - minX) * S;
   const Y = (y: number) => MT + (maxY - y) * S;
@@ -225,7 +232,7 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
   if (furn.length > 0) layers.push(furnitureSvg(furn, P));
 
   // Instalações: símbolos elétricos e hidráulicos sobre as paredes (e sob as cotas).
-  const instLayer = instPoints.length > 0 ? installationsSvg(installationSymbols(instPoints), P) : '';
+  const instLayer = (instPoints.length > 0 ? installationsSvg(installationSymbols(instPoints), P) : '') + (elec ? elecPlanSvg(elec, P, S) : '');
 
   // Paredes: contorno (traço) + preenchimento hachurado por cima, para unir os cantos.
   const wallPolys = cut.map((w) => wallPolygon(w).map(P));
@@ -297,7 +304,8 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
     text(ML, 45, `Cota ${level.elevation >= 0 ? '+' : ''}${fmt(level.elevation, 2)} m · cotas em metros, faces externas`, { 'text-anchor': 'start', 'font-size': 8.5, fill: MUTED }) +
     northArrow(width - 40, 38) +
     scaleBar(ML, MT + planH + 108, S) +
-    (legendItems.length > 0 ? installationLegendSvg(legendItems, ML, MT + planH + 144, legendCols) : '');
+    (legendItems.length > 0 ? installationLegendSvg(legendItems, ML, MT + planH + 144, legendCols) : '') +
+    (elec ? elecLegendSvg(elec.legend, ML, MT + planH + 144 + instRows + 12, legendCols) : '');
 
   return {
     svg: svgDocument(width, height, `<title>${esc(`Planta ${level.name}`)}</title>` + layers.join('') + deco, defs),

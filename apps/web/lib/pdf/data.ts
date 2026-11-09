@@ -4,6 +4,7 @@
  */
 import { getAssembly, getCatalog, getPriceBook, getProfile, type Catalog } from '@chalecad/catalog';
 import { DISCLAIMER, buildEngineerPackage, type BudgetLine, type EngineerPackage, type Project, type QuantityLine, type Results, type Stage } from '@chalecad/engine';
+import { CIRCUIT_KIND_LABEL } from '../elec/kinds';
 import { finishName, ROOM_USES } from '../project/rooms';
 import { circuitRows, INSTALLATIONS_NOTICE, pipeTotals, wireTotals } from '../three/installations';
 import { BRACING_LABELS, STAGE_ORDER, SYSTEM_LABELS, SYSTEM_PREMISES, TYPOLOGY_LABELS, stageLabel } from './labels';
@@ -59,7 +60,15 @@ export interface RoomRow {
   walls: string;
 }
 
+export interface ElectricalPdf {
+  /** Quadro de cargas: um circuito por linha (`fail` = reprova). */
+  loads: { n: string; name: string; kind: string; va: string; amp: string; section: string; breaker: string; dr: string; drop: string; length: string; fail: boolean }[];
+  panel: { label: string; value: string }[];
+  lighting: { room: string; lux: string; target: string; status: string }[];
+}
+
 export interface InstallationsPdf {
+  electrical: ElectricalPdf | null;
   circuits: { n: string; kind: string; label: string; points: string; power: string; wire: string; breaker: string }[];
   totals: { label: string; value: string }[];
   cost: { label: string; value: string }[];
@@ -195,7 +204,38 @@ export function buildInstallationsPdf(results: Results): InstallationsPdf | null
   const rep = results.installations;
   if (!rep) return null;
   const stage = results.budget.byStage.find((s) => s.stage === 'installations');
+  const el = rep.electrical;
+  const K = getCatalog().constants.electrical;
+  const rooms = el ? new Map(results.model.rooms.map((r) => [r.id, r.name])) : new Map<string, string>();
+  const electrical: ElectricalPdf | null = el
+    ? {
+        loads: el.circuits.map((c, i) => ({
+          n: String(i + 1),
+          name: clean(c.name),
+          kind: clean(CIRCUIT_KIND_LABEL[c.kind]),
+          va: num(c.powerVA, 0),
+          amp: num(c.ib, 1),
+          section: `${num(c.sectionMm2, 1)} mm²`,
+          breaker: `${c.breakerA} A ${c.curve}`,
+          dr: c.dr ? 'sim' : '—',
+          drop: `${num(c.voltageDropPct, 2)} %`,
+          length: `${num(c.lengthM, 1)} m`,
+          fail: c.totalDropPct > K.voltageDrop.totalMaxPct + 1e-9 || c.voltageDropPct > K.voltageDrop.terminalMaxPct + 1e-9 || c.ib > c.breakerA + 1e-9,
+        })),
+        panel: [
+          { label: 'Quadro', value: `${el.panel.ways} módulos usados, quadro de ${el.panel.size} (${el.panel.reserves} reserva(s))` },
+          { label: 'Disjuntor geral', value: `${el.panel.mainBreakerA} A` },
+          { label: 'DR de 30 mA', value: el.panel.drs.length ? el.panel.drs.map((d) => `${d.ratingA} A`).join(' + ') : 'nenhum' },
+          { label: 'DPS', value: `Uc ${el.panel.dps.ucV} V, ${el.panel.dps.inKa} kA` },
+          { label: 'Demanda', value: `${num(el.demandKw, 1)} kW (instalada ${num(el.installedKw, 1)} kW), ${el.voltage} V` },
+          { label: 'Padrão de entrada', value: `${clean(el.entrance.category)}, ${el.entrance.phases} fase(s), ${el.entrance.breakerA} A, ${num(el.entrance.cableMm2, 0)} mm²` },
+          { label: 'Alimentador', value: `${num(el.feeder.sectionMm2, 0)} mm², queda ${num(el.feeder.voltageDropPct, 2)} %` },
+        ],
+        lighting: el.lighting.map((l) => ({ room: clean(rooms.get(l.roomId) ?? l.roomId), lux: l.status === 'none' ? '—' : `${num(l.avgLux, 0)} lux`, target: `${num(l.targetLux, 0)} lux`, status: l.status === 'ok' ? 'adequado' : l.status === 'low' ? 'pouca luz' : l.status === 'high' ? 'muita luz' : 'sem luz' })),
+      }
+    : null;
   return {
+    electrical,
     circuits: circuitRows(rep).map((r) => ({
       n: String(r.n),
       kind: clean(r.kind),

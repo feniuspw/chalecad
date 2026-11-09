@@ -2,6 +2,8 @@
 import { useEffect } from 'react';
 import type { BuildingModel } from '@chalecad/engine';
 import { useEditor } from '@/lib/store/editor';
+import { useElecMode } from '@/lib/elec/mode';
+import { ElecTools } from './elec/ElecTools';
 import { useToolEnv } from './env';
 import { useHint } from './hooks';
 import { FurnitureKeys, FurnitureTool } from './FurnitureTool';
@@ -27,6 +29,7 @@ export function ToolLayer({ model }: { model: BuildingModel }) {
   const plumbTool = usePlumb((s) => s.tool);
   const view = useEditor((s) => s.cameraView);
   const env = useToolEnv(model);
+  const elecMode = useElecMode();
   const drawable = view === '3d' || view === 'plan';
 
   useEffect(() => {
@@ -36,6 +39,7 @@ export function ToolLayer({ model }: { model: BuildingModel }) {
 
   // Hidráulica: a ferramenta do tubo, ponto ou caixa ocupa o lugar da seleção
   if (plumbTool && tool === 'select') return view === 'plan' ? <PlumbToolLayer env={env} /> : <PlanOnlyHint text="Abra a Planta para desenhar a hidráulica" />;
+  if (tool === 'select' && elecMode) return <ElecTools model={model} />;
   if (tool === 'select')
     return (
       <>

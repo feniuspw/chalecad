@@ -4,6 +4,8 @@ import { Search, X } from 'lucide-react';
 import { ScrollArea } from '@chalecad/ui';
 import { searchSections, type PanelSectionId } from '@/lib/glossary/settingsIndex';
 import { useEditor } from '@/lib/store/editor';
+import { useElecUi } from '@/lib/elec/ui';
+import { ElecInspector } from '../elec/ElecInspector';
 import { ObjectInspector } from './Inspectors';
 import { MezzanineSection, TypologySection } from './TypologySections';
 import { ExtrasSection } from './ExtrasSection';
@@ -69,6 +71,7 @@ function SettingsSearch({ query, setQuery, shown }: { query: string; setQuery: (
 export function PropertiesPanel() {
   const selection = useEditor((s) => s.selection);
   const plumbSel = usePlumb((s) => s.sel);
+  const elecSelected = useElecUi((s) => !!s.selected);
   const project = useEditor((s) => s.project);
   const [query, setQuery] = useState('');
   const searching = query.trim() !== '';
@@ -89,7 +92,9 @@ export function PropertiesPanel() {
 
   return (
     <ScrollArea className="h-full">
-      {selection ? (
+      {elecSelected ? (
+        <ElecInspector />
+      ) : selection ? (
         <ObjectInspector />
       ) : plumbSel ? (
         <PlumbInspector />
