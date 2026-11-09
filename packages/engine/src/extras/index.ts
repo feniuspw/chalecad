@@ -3,6 +3,7 @@ import type { Project } from '../schema/project';
 import type { BuildingModel } from '../schema/results';
 import type { Item } from '../quantities/items';
 import { paginateSheets } from '../quantities/paginate';
+import { retainingItems } from '../terrain/retaining';
 import { waterTowerItems } from './water_tower_quantities';
 import {
   deckGeometry,
@@ -26,7 +27,6 @@ export function computeExtras(project: Project, model: BuildingModel, catalog: C
   const c = catalog.constants;
   const mas = c.masonry;
   const X = c.extras;
-  const RETAINING = c.retaining;
 
   const add = (hostId: string, itemId: string, net: number, extra: Partial<Item> = {}): void => {
     if (!(net > 0)) return;
@@ -114,20 +114,8 @@ export function computeExtras(project: Project, model: BuildingModel, catalog: C
     }
     else if (e.kind === 'retaining') {
       const length = pathLength(e.path, false);
-      const h = e.height;
-      if (e.type === 'gabion') {
-        add(e.id, 'gabion', length * h * (RETAINING.gabionBase + RETAINING.gabionBasePerHeight * h));
-      } else if (e.type === 'concrete') {
-        const vol = length * (h * RETAINING.concreteStem + RETAINING.footing.width * RETAINING.footing.depth);
-        add(e.id, 'concrete_fck25', vol, { kg: vol * c.concreteDensity });
-        add(e.id, 'rebar_ca50', vol * RETAINING.steelKgPerM3);
-      } else {
-        // Bloco estruturado com graute em todos os furos (graute dobrado) e sapata corrida.
-        masonry(e.id, length, h, true, 'strip');
-      }
-      if (e.drainage) {
-        add(e.id, 'geotextile', length * (h + RETAINING.geotextileExtraHeight));
-        add(e.id, 'drain_pipe', length);
+      for (const l of retainingItems(length, length * e.height, e.type, e.drainage, catalog)) {
+        add(e.id, l.itemId, l.net, l.kg === undefined ? {} : { kg: l.kg });
       }
     }
   }

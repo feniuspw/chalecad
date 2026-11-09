@@ -6,7 +6,7 @@
  * Mostra o perfil do terreno (natural e platô), o radier, as paredes cortadas (hachura) e as vistas além, o piso do
  * mezanino, a escada, o telhado (águas com a espessura da telha), aberturas cortadas, cotas verticais e níveis.
  */
-import type { BuildingModel, HostWall, ResolvedOpening, RoofPlane, Site, Vec2 } from '@chalecad/engine';
+import { terrainProfile as engineTerrainProfile, type BuildingModel, type HostWall, type ResolvedOpening, type RoofPlane, type Site, type TerrainReport, type Vec2 } from '@chalecad/engine';
 import { fmt } from '../project/format';
 import { bounds, crossings, finalZ, naturalZ } from './geom';
 import { PAPER, SCREEN, fmtLevel, hatchPattern, levelMark, pDimV, type PaperStyle } from './paper';
@@ -23,6 +23,8 @@ export interface SectionOptions {
   site?: Site;
   /** `terrain.platformZ`: cota do platô em relação ao terreno natural no centro (terreno inclinado). */
   platformZ?: number;
+  /** Relatório do terreno do motor: o perfil final (pads, taludes, muros) vem da malha dele. */
+  terrain?: TerrainReport | null;
   /** Espessura da telha/painel de cobertura (m). */
   roofThickness?: number;
   /** Nomes dos níveis (id → nome). */
@@ -78,9 +80,27 @@ function outlineSpan(w: HostWall, u: number): [number, number] | null {
   return [vs[0]!, vs[vs.length - 1]!];
 }
 
+/** Muro de arrimo cortado pela linha do perfil (cotas relativas ao platô da casa, como o perfil). */
+export interface ProfileWall {
+  wallId: string;
+  /** Coordenada horizontal da figura onde a linha cruza o muro. */
+  h: number;
+  topZ: number;
+  bottomZ: number;
+  height: number;
+  type: 'gabion' | 'concrete' | 'block';
+  /** -1: o pad fica antes de `h` (menor h); 1: depois. O corpo do muro fica do lado oposto. */
+  padSide: -1 | 1;
+}
+
+/** Espessura do corpo do muro no desenho (m); igual à do 3D. */
+export const wallDrawThickness = (type: ProfileWall['type'], height: number) => (type === 'gabion' ? 0.5 + 0.1 * height : 0.2);
+
 /**
- * Perfil do terreno ao longo de uma linha em planta: `final` (platô e taludes; plano em z = 0 no terreno plano) e,
- * em terreno inclinado, o `natural`. `point(h)` dá o ponto (x, y) da linha para a coordenada horizontal h.
+ * Perfil do terreno ao longo de uma linha em planta: `final` (platô, pads, taludes e muros; plano em z = 0 no terreno
+ * plano) e, em terreno inclinado, o `natural`. `point(h)` dá o ponto (x, y) da linha para a coordenada horizontal h.
+ * Com o relatório do motor (`terrain`), o perfil final é o da malha dele (degraus verticais nos muros) e `walls` lista
+ * os muros cortados; sem ele, só o platô retangular com taludes (compatibilidade).
  */
 export function terrainProfile(
   fpb: { x0: number; x1: number; y0: number; y1: number },
@@ -89,7 +109,8 @@ export function terrainProfile(
   point: (h: number) => Vec2,
   hMin: number,
   hMax: number,
-): { natural?: Vec2[]; final: Vec2[] } {
+  terrain?: TerrainReport | null,
+): { natural?: Vec2[]; final: Vec2[]; walls?: ProfileWall[] } {
   if (site?.type !== 'sloped') return { final: [[hMin, 0], [hMax, 0]] };
   const nat = naturalZ(site, (fpb.x0 + fpb.x1) / 2, (fpb.y0 + fpb.y1) / 2);
   const m = site.platformMargin;
@@ -105,7 +126,28 @@ export function terrainProfile(
     natural.push([h, n]);
     final.push([h, finalZ(n, dist, 0, site)]);
   }
-  return { natural, final };
+  const h0 = hMin - 1;
+  const h1 = hMax + 1;
+  const a = point(h0);
+  const b = point(h1);
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (!terrain || !(len > 0)) return { natural, final };
+  // Perfil do motor: s (distância ao longo de a→b) vira a coordenada horizontal h.
+  const prof = engineTerrainProfile(terrain, a, b, len / steps);
+  const toH = (sd: number) => h0 + (sd / len) * (h1 - h0);
+  return {
+    natural,
+    final: prof.points.map(([sd, z]): Vec2 => [toH(sd), z - platformZ]),
+    walls: prof.walls.map((w) => ({
+      wallId: w.wallId,
+      h: toH(w.s),
+      topZ: w.topZ - platformZ,
+      bottomZ: w.bottomZ - platformZ,
+      height: w.height,
+      type: w.type,
+      padSide: w.padSide, // h cresce com s (h1 > h0): mesmo sentido
+    })),
+  };
 }
 
 export function sectionSvg(model: BuildingModel, axis: SectionAxis, at?: number, opts: SectionOptions = {}): SectionDoc {
@@ -237,7 +279,7 @@ export function sectionSvg(model: BuildingModel, axis: SectionAxis, at?: number,
 
   // --- Terreno --------------------------------------------------------------------------------------------------
   const site = opts.site;
-  const terrain = terrainProfile(fpb, site, opts.platformZ ?? 0, (h) => (axis === 'A' ? [h, cutAt] : [cutAt, h]), hMin, hMax);
+  const terrain = terrainProfile(fpb, site, opts.platformZ ?? 0, (h) => (axis === 'A' ? [h, cutAt] : [cutAt, h]), hMin, hMax, opts.terrain);
   const zGround = Math.min(-0.12, ...terrain.final.map((p) => p[1]), ...(terrain.natural ?? []).map((p) => p[1]), ...slabCuts.map((c) => c.z0));
   const hMinG = terrain.natural ? hMin - 1 : hMin;
   const hMaxG = terrain.natural ? hMax + 1 : hMax;
@@ -267,6 +309,12 @@ export function sectionSvg(model: BuildingModel, axis: SectionAxis, at?: number,
     L.push(text(X(last[0]) - T, Z(last[1]) - T * 0.6, 'TERRENO NATURAL', { 'font-size': T * 0.9, 'text-anchor': 'end', fill: MUTED }));
   }
   L.push(tag('polyline', { points: gpts.map(([x, z]) => `${n2(x)},${n2(z)}`).join(' '), fill: 'none', stroke: INK, 'stroke-width': st.cut, 'data-role': terrain.natural ? 'platform' : 'ground-line' }));
+  // Muros de arrimo cortados pela linha: corpo do lado de fora do pad, do pé até o topo.
+  for (const w of terrain.walls ?? []) {
+    const t = wallDrawThickness(w.type, w.height);
+    const x0 = w.padSide === -1 ? w.h : w.h - t;
+    L.push(rect(X(x0), Z(w.topZ), t * u, w.height * u, { fill: `url(#${hatchId})`, stroke: INK, 'stroke-width': st.cut, 'stroke-linejoin': 'miter', 'data-role': 'terrain-wall', 'data-wall': w.wallId }));
+  }
   if (terrain.natural) L.push(text(X(fpb.x0 + 0) , Z(0) + T * 1.4, 'PLATÔ', { 'font-size': T * 0.9, 'text-anchor': 'start', fill: MUTED, 'data-role': 'platform-label' }));
 
   // Vistas além do plano: longe primeiro.

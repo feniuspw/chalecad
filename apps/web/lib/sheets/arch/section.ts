@@ -14,6 +14,7 @@ export const sectionRenderer: ContentRenderer = (ctx, content, scale) => {
     idPrefix: safeId('section', axis),
     site: ctx.project.site,
     platformZ: ctx.results.terrain?.platformZ,
+    terrain: ctx.results.terrain,
     roofThickness: t ? t / 1000 : undefined,
     levelNames,
   });

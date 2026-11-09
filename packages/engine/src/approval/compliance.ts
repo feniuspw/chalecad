@@ -326,6 +326,20 @@ export function computeCompliance(project: Project, results: Results, catalog: C
     detail: 'O programa quantifica o radier; o responsável dimensiona a armadura e o detalhamento.', refs: [], source: 'rule',
   });
 
+  // Terreno: muros de arrimo gerados (F18-T) exigem projeto geotécnico/estrutural.
+  if (results.terrain && results.terrain.walls.length > 0) {
+    const ws = results.terrain.walls;
+    const hMax = Math.max(...ws.map((w) => w.maxHeight));
+    const types = [...new Set(ws.map((w) => ({ gabion: 'gabião', concrete: 'concreto armado', block: 'bloco estrutural' })[w.type]))];
+    push({
+      id: 'terrain.retaining', discipline: 'foundation', norm: normOf(catalog, 'nbr11682'), title: 'Muros de arrimo do terreno',
+      criterion: 'Contenções projetadas e verificadas quanto à estabilidade (empuxo, tombamento, deslizamento, drenagem)', status: 'manual',
+      value: `${ws.length} muro(s), altura máx. ${nf(hMax)} m, ${types.join(' / ')}`,
+      detail: 'O programa sugere o traçado e quantifica; o dimensionamento e a drenagem exigem projeto geotécnico e estrutural (NBR 11682).',
+      refs: ws.map((w) => w.id), source: 'rule',
+    });
+  }
+
   // ---------------------------------------------------------------- Elétrica
   const elec = results.installations?.electrical;
   const n5410 = normOf(catalog, 'nbr5410');

@@ -14,6 +14,7 @@ import { RectTool } from './RectTool';
 import { RoomTool } from './RoomTool';
 import { SelectOverlays } from './SelectOverlays';
 import { StairTool } from './StairTool';
+import { TerrainPadTool } from './terrain/TerrainPadTool';
 import { WallTool } from './WallTool';
 import { PlumbToolLayer } from './plumb/PlumbTools';
 import { usePlumb } from '@/lib/plumb/store';
@@ -34,7 +35,7 @@ export function ToolLayer({ model }: { model: BuildingModel }) {
 
   useEffect(() => {
     // "Cota": as cotas automáticas aparecem na planta.
-    if (tool === 'dimension' && view !== 'plan') useEditor.getState().setCameraView('plan');
+    if ((tool === 'dimension' || tool === 'terrain') && view !== 'plan') useEditor.getState().setCameraView('plan');
   }, [tool, view]);
 
   // Hidráulica: a ferramenta do tubo, ponto ou caixa ocupa o lugar da seleção
@@ -66,6 +67,8 @@ export function ToolLayer({ model }: { model: BuildingModel }) {
       return <RoomTool env={env} />;
     case 'furniture':
       return <FurnitureTool env={env} />;
+    case 'terrain':
+      return <TerrainPadTool env={env} />;
     default:
       return null;
   }

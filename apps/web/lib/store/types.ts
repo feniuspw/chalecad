@@ -17,7 +17,7 @@ export interface SunState {
 /** Câmera: 3D orbital ou ortográficas 2D. `plan` mostra o nível ativo em planta. */
 export type CameraView = '3d' | 'plan' | 'front' | 'back' | 'left' | 'right';
 
-export type Tool = 'select' | 'wall' | 'rect' | 'opening' | 'stair' | 'mezzanine' | 'measure' | 'dimension' | 'room' | 'furniture';
+export type Tool = 'select' | 'wall' | 'rect' | 'opening' | 'stair' | 'mezzanine' | 'measure' | 'dimension' | 'room' | 'furniture' | 'terrain';
 
 export type SelectionKind = 'host' | 'opening' | 'wall' | 'stair' | 'level' | 'extra' | 'piece' | 'roof' | 'slab' | 'room' | 'furniture';
 export interface Selection {

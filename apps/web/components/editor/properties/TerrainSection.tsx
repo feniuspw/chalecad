@@ -1,14 +1,16 @@
 'use client';
 import type { ReactNode } from 'react';
-import { Mountain, Shovel, Truck } from 'lucide-react';
+import { Mountain, PencilRuler, Shovel, Trash2, Truck } from 'lucide-react';
+import { getCatalog } from '@chalecad/catalog';
 import type { Project, Site } from '@chalecad/engine';
-import { Badge } from '@chalecad/ui';
+import { Badge, Button } from '@chalecad/ui';
+import { useTerrainUi } from '@/components/scene/tools/terrain/store';
 import { fmt } from '@/lib/project/format';
 import { pctToDeg } from '@/lib/project/geometry';
-import { makeSlopedSite } from '@/lib/project/terrain';
+import { makeSlopedSite, WALL_REASON_LABEL, WALL_TYPE_LABEL, wallMaterialCosts } from '@/lib/project/terrain';
 import { useEditor } from '@/lib/store/editor';
 import { DownhillPicker } from './DownhillPicker';
-import { Notice, NumberField, Section, Segmented, SliderField } from './fields';
+import { Notice, NumberField, Section, Segmented, SliderField, SwitchField } from './fields';
 import { usePanelUi } from './ui-state';
 
 type Sloped = Extract<Site, { type: 'sloped' }>;
@@ -42,6 +44,151 @@ export function TerrainSummary() {
         Cota do platô {fmt(t.platformZ, 2)} m · talude {fmt(t.slopeArea, 0)} m² · máquina {fmt(t.machineDays, 1)} diária(s)
         {t.importVolume > 0 ? ` · importar ${fmt(t.importVolume, 1)} m³` : ''}
       </p>
+    </div>
+  );
+}
+
+type EdgeMode = 'auto' | 'slope' | 'wall';
+const EDGE_OPTIONS: { value: EdgeMode; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'slope', label: 'Talude' },
+  { value: 'wall', label: 'Muro' },
+];
+
+/** Áreas aplainadas (pads), bordas do platô da casa e ferramenta "Aplainar área". */
+function PadsPanel({ site, patch }: { site: Sloped; patch: (label: string, recipe: (s: Sloped) => void, coalesce?: boolean) => void }) {
+  const tool = useEditor((s) => s.tool);
+  const setTool = useEditor((s) => s.setTool);
+  const results = useEditor((s) => s.results);
+  const mode = useTerrainUi((s) => s.mode);
+  const setMode = useTerrainUi((s) => s.setMode);
+  const selected = useTerrainUi((s) => s.selectedPadId);
+  const selectPad = useTerrainUi((s) => s.selectPad);
+  const active = tool === 'terrain';
+  const areas = new Map((results?.terrain?.pads ?? []).map((p) => [p.id, p.area]));
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-semibold tracking-wide text-stone-700 uppercase">Áreas aplainadas</h4>
+      <p className="-mt-1 text-[11px] text-stone-500">Plataformas niveladas além da casa (garagem, quintal, piscina). Onde o talude não cabe, o programa sugere muro de arrimo.</p>
+      <div className="flex gap-2">
+        <Button size="sm" variant={active ? 'default' : 'outline'} aria-pressed={active} onClick={() => setTool(active ? 'select' : 'terrain')} className="flex-1">
+          <PencilRuler className="size-3.5" /> Aplainar área <span className="ml-1 opacity-60">G</span>
+        </Button>
+      </div>
+      {active ? (
+        <Segmented<'rect' | 'poly'>
+          label="Desenho"
+          value={mode}
+          options={[
+            { value: 'rect', label: 'Retângulo' },
+            { value: 'poly', label: 'Polígono' },
+          ]}
+          onChange={setMode}
+        />
+      ) : null}
+      {site.pads.length === 0 ? <p className="text-[11px] text-stone-500">Nenhuma área ainda. Use “Aplainar área” e desenhe na planta.</p> : null}
+      <ul className="space-y-2">
+        {site.pads.map((pad, i) => (
+          <li key={pad.id} className={`space-y-2 rounded-lg border bg-white p-2 ${pad.id === selected ? 'border-amber-400' : 'border-border'}`}>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => selectPad(pad.id === selected ? null : pad.id)} className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-stone-800">
+                {pad.name || `Área ${i + 1}`}
+              </button>
+              <span className="text-[11px] text-stone-500 tabular-nums">{fmt(areas.get(pad.id) ?? 0, 1)} m²</span>
+              <button
+                type="button"
+                aria-label={`Apagar ${pad.name || 'área'}`}
+                onClick={() => {
+                  if (pad.id === selected) selectPad(null);
+                  patch('Apagar área aplainada', (s) => void (s.pads = s.pads.filter((p) => p.id !== pad.id)));
+                }}
+                className="rounded p-1 text-stone-400 hover:bg-stone-100 hover:text-red-600"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <NumberField
+                label="Nível (m)"
+                value={pad.level}
+                min={-10}
+                max={10}
+                step={0.05}
+                hint="0 = piso da casa"
+                onChange={(v) => patch('Alterar nível da área aplainada', (s) => void (s.pads.find((p) => p.id === pad.id)!.level = v))}
+              />
+              <Segmented<EdgeMode>
+                label="Bordas"
+                value={pad.edges}
+                options={EDGE_OPTIONS}
+                onChange={(v) => patch('Alterar bordas da área aplainada', (s) => void (s.pads.find((p) => p.id === pad.id)!.edges = v))}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+      <Segmented<EdgeMode>
+        label="Bordas do platô da casa"
+        value={site.edges}
+        hint="Auto: muro onde o talude não cabe"
+        options={EDGE_OPTIONS}
+        onChange={(v) => patch('Alterar bordas do platô', (s) => void (s.edges = v))}
+      />
+    </div>
+  );
+}
+
+/** Tipo e drenagem dos muros gerados e resumo dos muros sugeridos (comprimento, altura, tipo e custo). */
+function RetainingPanel({ site, patch }: { site: Sloped; patch: (label: string, recipe: (s: Sloped) => void, coalesce?: boolean) => void }) {
+  const results = useEditor((s) => s.results);
+  const selectedWall = useTerrainUi((s) => s.selectedWallId);
+  const selectWall = useTerrainUi((s) => s.selectWall);
+  const walls = results?.terrain?.walls ?? [];
+  const costs = results ? wallMaterialCosts(results, site.retaining.drainage, getCatalog()) : {};
+  const total = walls.reduce((s, w) => s + w.length, 0);
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-semibold tracking-wide text-stone-700 uppercase">Muros de arrimo</h4>
+      <Segmented<'auto' | 'block' | 'concrete' | 'gabion'>
+        label="Tipo dos muros"
+        value={site.retaining.type}
+        hint={site.retaining.type === 'auto' ? 'pela altura' : undefined}
+        options={[
+          { value: 'auto', label: 'Auto' },
+          { value: 'block', label: 'Bloco' },
+          { value: 'concrete', label: 'Concreto' },
+          { value: 'gabion', label: 'Gabião' },
+        ]}
+        onChange={(v) => patch('Alterar tipo dos muros de arrimo', (s) => void (s.retaining.type = v))}
+      />
+      <SwitchField label="Drenagem atrás dos muros de corte" checked={site.retaining.drainage} onChange={(v) => patch('Alterar drenagem dos muros', (s) => void (s.retaining.drainage = v))} />
+      {walls.length === 0 ? (
+        <p className="text-[11px] text-stone-500">Nenhum muro necessário: os taludes cabem no terreno.</p>
+      ) : (
+        <>
+          <p className="text-[11px] text-stone-500 tabular-nums">
+            {walls.length} muro(s), {fmt(total, 1)} m no total. Muros altos exigem projeto geotécnico (NBR 11682).
+          </p>
+          <ul className="space-y-1">
+            {walls.map((w) => (
+              <li key={w.id}>
+                <button
+                  type="button"
+                  aria-pressed={w.id === selectedWall}
+                  onClick={() => selectWall(w.id === selectedWall ? null : w.id)}
+                  className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-left text-[11px] text-stone-700 hover:bg-stone-50 aria-pressed:border-amber-400"
+                >
+                  <span className="font-semibold">{w.id.replace('terrain-', '')}</span> · {w.side === 'cut' ? 'corte' : 'aterro'} · {fmt(w.length, 1)} m · até {fmt(w.maxHeight)} m · {WALL_TYPE_LABEL[w.type]}
+                  <span className="block text-stone-500">
+                    {WALL_REASON_LABEL[w.reason]}
+                    {costs[w.id] != null ? ` · material ≈ R$ ${fmt(costs[w.id]!, 0)}` : ''}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
@@ -157,6 +304,9 @@ export function TerrainSection({ project }: { project: Project }) {
             </div>
             <p className="text-[11px] text-stone-500">H:V = metros na horizontal para cada metro de altura. Corte 1:1 e aterro 1,5:1 são usuais. Cortes altos pedem muro de arrimo.</p>
           </div>
+
+          <PadsPanel site={site} patch={patch} />
+          <RetainingPanel site={site} patch={patch} />
 
           <SliderField
             label="Distância do bota-fora"
