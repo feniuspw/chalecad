@@ -100,13 +100,20 @@ describe('regra de ouro', () => {
 });
 
 describe('índices urbanísticos', () => {
+  /** Meia espessura da parede externa do exemplo (a face fica além do eixo). */
+  const H = (() => {
+    const w = computeAll(lotProject(), catalog).model;
+    return Math.abs(Math.min(...w.footprint.map((p) => p[1])));
+  })();
+
   test('lote 12 x 30, casa 6,5 x 8,5 em [3, 5], beiral 0,6', () => {
     const u = run(lotProject()).urban!;
     expect(u.lotArea).toBeCloseTo(360, 6);
-    expect(u.setbacks.front).toBeCloseTo(5, 6);
-    expect(u.setbacks.left).toBeCloseTo(3, 6);
-    expect(u.setbacks.right).toBeCloseTo(2.5, 6);
-    expect(u.setbacks.back).toBeCloseTo(16.5, 6);
+    // recuos da face externa: eixo − meia espessura da parede
+    expect(u.setbacks.front).toBeCloseTo(5 - H, 6);
+    expect(u.setbacks.left).toBeCloseTo(3 - H, 6);
+    expect(u.setbacks.right).toBeCloseTo(2.5 - H, 6);
+    expect(u.setbacks.back).toBeCloseTo(16.5 - H, 6);
     // projeção com beirais: (6,5 + 2·0,6) × (8,5 + 2·0,3) (rake padrão 0,3)
     const manual = (6.5 + 1.2) * (8.5 + 0.6);
     expect(u.footprintArea).toBeCloseTo(manual, 3);
@@ -125,15 +132,18 @@ describe('índices urbanísticos', () => {
   test('rotação de 90°', () => {
     const u = run(lotProject({ lot: { front: 12, depth: 30, buildingOffset: [10, 5], rotationDeg: 90 } })).urban!;
     // (x, y) → (10 − y, 5 + x): x em [1,5; 10], y em [5; 11,5]
-    expect(u.setbacks.left).toBeCloseTo(1.5, 6);
-    expect(u.setbacks.right).toBeCloseTo(2, 6);
-    expect(u.setbacks.front).toBeCloseTo(5, 6);
-    expect(u.setbacks.back).toBeCloseTo(18.5, 6);
+    expect(u.setbacks.left).toBeCloseTo(1.5 - H, 6);
+    expect(u.setbacks.right).toBeCloseTo(2 - H, 6);
+    expect(u.setbacks.front).toBeCloseTo(5 - H, 6);
+    expect(u.setbacks.back).toBeCloseTo(18.5 - H, 6);
   });
 
   test('lote poligonal: segmentos classificados por orientação', () => {
     const u = run(lotProject({ lot: { front: 12, depth: 30, buildingOffset: [3, 5], polygon: [[0, 0], [12, 0], [12, 30], [0, 30]] } })).urban!;
-    expect(u.setbacks).toMatchObject({ front: 5, left: 3, right: 2.5, back: 16.5 });
+    expect(u.setbacks.front).toBeCloseTo(5 - H, 6);
+    expect(u.setbacks.left).toBeCloseTo(3 - H, 6);
+    expect(u.setbacks.right).toBeCloseTo(2.5 - H, 6);
+    expect(u.setbacks.back).toBeCloseTo(16.5 - H, 6);
   });
 
   test('os itens urbanísticos entram na verificação (fail com TO baixa)', () => {

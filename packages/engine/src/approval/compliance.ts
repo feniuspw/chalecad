@@ -4,9 +4,9 @@ import { roomVentilation } from '../model/rooms';
 import type { Discipline, Project } from '../schema/project';
 import type { ComplianceItem, ComplianceStatus, EngineWarning, Results, StructuralCheck, UrbanIndices } from '../schema/results';
 import { DISCLAIMER } from '../schema/results';
-import { nf, normOf, normsJoin, localNorm, STATUS_RANK, type NormInfo, isFilled } from './common';
+import { nf, normOf, normsJoin, STATUS_RANK, type NormInfo, isFilled } from './common';
 import { professionalFor } from './missing';
-import { axisFootprint, buildingInLot, lotBoundarySegments, lotPolygon, minDistance } from './urban';
+import { buildingInLot, lotBoundarySegments, lotPolygon, minDistance } from './urban';
 
 const PENDING = 'pendente de conferência profissional (edição/critério a conferir).';
 const EPS = 1e-9;
@@ -157,7 +157,7 @@ export function computeCompliance(project: Project, results: Results, catalog: C
   }
 
   // Guarda-corpo dos níveis elevados
-  const nGuard = localNorm('ABNT NBR 14718', '2019'); // LOCAL: norma citada pelos avisos; ainda não está no catálogo
+  const nGuard = normOf(catalog, 'nbr14718');
   for (const l of project.levels) {
     if (!l.polygon || l.elevation <= 0) continue;
     push({
@@ -170,7 +170,7 @@ export function computeCompliance(project: Project, results: Results, catalog: C
   }
 
   // Escadas
-  const nStair = localNorm('ABNT NBR 9077', '2001'); // LOCAL
+  const nStair = normOf(catalog, 'nbr9077');
   for (const st of model.stairs) {
     const wsStair = warnings.filter((w) => w.code.startsWith('stair.') && w.refs?.includes(st.id));
     const wr = fromWarnings(wsStair, 'warn');
@@ -201,7 +201,7 @@ export function computeCompliance(project: Project, results: Results, catalog: C
     const sg = warnBy((k) => k === 'norm.safety_glass');
     const wr = fromWarnings(sg, 'manual');
     push({
-      id: 'arch.safety_glass', discipline: 'architecture', norm: localNorm('ABNT NBR 7199', '2016'), title: 'Vidro de segurança',
+      id: 'arch.safety_glass', discipline: 'architecture', norm: normOf(catalog, 'nbr7199'), title: 'Vidro de segurança',
       criterion: `Vidro temperado ou laminado em fachada envidraçada e vãos com vidro abaixo de ${nf(nm.safetyGlassSill)} m do piso`,
       status: sg.length ? wr.status : 'na', detail: sg.length ? wr.detail : 'Sem fachada envidraçada nem vidro baixo no modelo.', refs: wr.refs, source: 'warning',
     });
@@ -487,7 +487,7 @@ export function computeCompliance(project: Project, results: Results, catalog: C
       const d = project.legal.septicPosition;
       const w = project.legal.wellPosition;
       const distBoundary = (p: [number, number]) => minDistance([p], segs);
-      const bLot = buildingInLot(axisFootprint(results.model), lot);
+      const bLot = buildingInLot(results.model.footprint, lot);
       if (d) {
         const inside = pointInPolygon(d, poly);
         push({ id: 'plumb.septic_boundary', discipline: 'plumbing', norm: nSep, title: 'Distância da fossa à divisa', criterion: 'Afastamento mínimo da fossa até as divisas', status: 'manual', value: `${nf(distBoundary(d))} m`, detail: inside ? 'Conferir o afastamento mínimo da norma e do município.' : 'A fossa está fora do lote; confira a posição.', refs: [], source: 'input' });

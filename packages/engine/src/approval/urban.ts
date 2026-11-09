@@ -158,9 +158,8 @@ export function computeUrban(project: Project, model: BuildingModel, results: Pi
   const builtArea = counted.reduce((a, l) => a + l.built, 0);
   const permeableArea = Math.max(0, lotArea - footprintArea - lot.pavedArea);
 
-  // Recuos (sem beiral)
-  // `model.footprint` é a face externa das paredes; os recuos do projeto são medidos do eixo (dimensões da tipologia).
-  const bLot = buildingInLot(axisFootprint(model), lot);
+  // Recuos (sem beiral), medidos da face externa das paredes (`model.footprint`): o lado conservador da regra municipal.
+  const bLot = buildingInLot(model.footprint, lot);
   const sides = classifySegments(lotPoly);
   const setbacks = {
     front: minDistance(bLot, sides.front),
@@ -203,7 +202,7 @@ export function computeUrban(project: Project, model: BuildingModel, results: Pi
 
   const notes = [
     `Beirais incluídos na projeção; alguns municípios descontam até ${nf(EAVE_DISCOUNT_COMMON_M, 1)} m: confira a lei local.`,
-    'Recuos medidos do eixo das paredes externas até a divisa, sem beiral; a face da parede fica cerca de 6 cm mais perto. Confira se o município mede da face da parede ou do beiral.',
+    'Recuos medidos da face externa das paredes até a divisa, sem beiral. Confira se o município mede do beiral (alguns exigem).',
     z.mezzanineCounts ? 'O mezanino entra na área computável e conta como pavimento.' : 'O mezanino não entra na área computável nem conta como pavimento (conforme informado no zoneamento).',
   ];
   if (site.type === 'sloped') notes.push('Terreno inclinado: altura medida da cota do platô até o ponto mais alto, a partir do terreno natural mais baixo sob a projeção.');
