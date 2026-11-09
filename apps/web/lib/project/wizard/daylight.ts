@@ -30,6 +30,8 @@ function shapesFor(use: RoomModel['use'], baseZ: number): WindowShape[] {
   const small = use === 'bathroom' || use === 'laundry';
   if (small) return [{ w: 1.0, h: 0.6, sill: baseZ + 1.5 }, { w: 0.6, h: 0.6, sill: baseZ + 1.5 }];
   if (use === 'kitchen') return [{ w: 1.5, h: 2.1, sill: 0, type: 'sliding_door' as const }, { w: 1.5, h: 1.0, sill: baseZ + 1.1 }, { w: 1.2, h: 1.0, sill: baseZ + 1.1 }, { w: 1.0, h: 0.8, sill: baseZ + 1.1 }];
+  // quarto do mezanino: peitoril de 1,0 m para cima, para a cabeceira da cama caber sob a janela (a cama fica na parede dos fundos)
+  if (use === 'bedroom' && baseZ > 0) return [{ w: 1.5, h: 1.3, sill: baseZ + 1.0 }, { w: 1.2, h: 1.3, sill: baseZ + 1.0 }, { w: 1.0, h: 1.2, sill: baseZ + 1.05 }, { w: 0.8, h: 1.0, sill: baseZ + 1.1 }];
   return [
     ...(use === 'living' && baseZ === 0 ? [{ w: 1.5, h: 2.1, sill: 0, type: 'sliding_door' as const }] : []),
     { w: 1.5, h: 1.5, sill: baseZ + 0.7 },
@@ -140,6 +142,7 @@ function validOpening(p: Project, o: Opening, catalog: Catalog, before: [number,
 function growOne(p: Project, room: RoomModel, model: BuildingModel, catalog: Catalog): boolean {
   if (room.use === 'bathroom' || room.use === 'laundry') return false;
   const baseZ = p.levels.find((l) => l.id === room.level)?.elevation ?? 0;
+  if (room.use === 'bedroom' && baseZ > 0) return false;
   const before = bracingRatios(model);
   for (const id of room.openingIds) {
     const i = p.openings.findIndex((x) => x.id === id);

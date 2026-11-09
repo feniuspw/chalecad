@@ -3,6 +3,7 @@ import { computeAll, Project, roofBelowAt, type Vec2 } from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
 import type { WizardAnswers } from './answers';
 import { effectiveMezzanine } from './style';
+import { layoutProblems } from '../layoutQuality';
 import { generateProject } from './generate';
 
 /** Avisos de especificação (informação para o engenheiro): não contam como pendência do desenho. */
@@ -40,6 +41,8 @@ export function checkCombo(a: WizardAnswers, strict = false): string[] {
     problems.push(...wallHeadroomProblems(r, parsed.data));
   }
   if (a.furnish) problems.push(...emptyRoomProblems(r, parsed.data));
+  // planta com sentido de arquiteto: sofá e TV de frente, cama com acesso, cozinha e banheiro funcionais, paredes úteis, circulação
+  if (a.furnish) problems.push(...layoutProblems(parsed.data, r.model, catalog).map((x) => `planta: ${x}`));
   const beds = r.model.rooms.filter((x) => x.use === 'bedroom').length;
   const baths = r.model.rooms.filter((x) => x.use === 'bathroom').length;
   const mezz = effectiveMezzanine(a);

@@ -30,34 +30,14 @@ export function gambrelCabin(ids: IdGen): Project {
   b.window('ext-back', 3.9, 1.1, 0.7, 3.5); // loft
 
   // Banheiro sob o loft, no canto direito dos fundos.
-  const bathSide = b.wall([3.6, 7], [3.6, 5.3], { wet: true });
+  b.wall([3.6, 7], [3.6, 5.3], { wet: true });
   const bathFront = b.wall([3.6, 5.3], [6, 5.3], { wet: true });
   b.door(bathFront, 0.5, 0.7);
 
   b.room('kitchen', [3, 2.5], 'Sala e cozinha', { floor: 'finish_floor_porcelain' });
   b.room('bathroom', [4.8, 6.2], 'Banheiro');
 
-  // Cozinha na parede direita.
-  b.put('furn_fridge', 'ext-right', [6, 1.3], [3, 3]);
-  b.put('furn_kitchen_sink', 'ext-right', [6, 2.6], [3, 3]);
-  b.put('furn_stove', 'ext-right', [6, 3.8], [3, 3]);
-  b.at('furn_round_table', [4.0, 3.5], 0);
+  b.room('bedroom', [3, 5.8], 'Quarto do loft', { level: 'L1' });
 
-  // Sala à esquerda da escada: sofá na parede, mesa de centro e poltrona.
-  b.put('furn_sofa_2', 'ext-left', [0, 2.3], [2, 2.3]);
-  b.at('furn_coffee_table', [1.75, 2.3], 90);
-  b.at('furn_rug', [1.75, 2.3], 90);
-  b.at('furn_plant', [0.5, 0.6], 0);
-
-  // Banheiro.
-  b.put('furn_shower', 'ext-back', [5.48, 7], [4.8, 6]);
-  b.put('furn_toilet', 'ext-back', [4.4, 7], [4.8, 6]);
-  b.put('furn_bath_sink', bathSide, [3.6, 5.9], [4.8, 6]);
-
-  // Loft: cama junto à empena dos fundos.
-  b.put('furn_bed_double', 'ext-back', [1.6, 7], [3, 5.5], 'L1');
-  b.put('furn_nightstand', 'ext-back', [0.55, 7], [3, 5.5], 'L1');
-  b.put('furn_nightstand', 'ext-back', [2.7, 7], [3, 5.5], 'L1');
-  b.put('furn_wardrobe_small', 'ext-back', [3.7, 7], [3, 5.5], 'L1');
   return b.build();
 }
