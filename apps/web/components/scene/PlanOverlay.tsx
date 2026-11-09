@@ -13,15 +13,20 @@ import { SceneLabel } from './labels';
 import { MotorGroup } from './MotorGroup';
 import { useFurnitureAlertLevels, useFurnitureModels } from './furnitureData';
 import { PlanInstallations } from './InstallationsView';
+import { useElecMode } from '@/lib/elec/mode';
+import { useElecUi } from '@/lib/elec/ui';
+import { ElecPlanLayer } from './tools/elec/ElecPlanLayer';
 import { PlanFurniture } from './PlanFurniture';
 import type { WallLike } from './tools/furnitureDrag';
 
 const POCHE = '#3f3b37';
+const ELEC_KINDS = new Set(['outlet', 'outlet_high', 'tue', 'switch', 'light', 'panel']);
 
 /** Cômodo na planta: preenchimento suave por uso e rótulo "Nome · área" no ponto mais interno. */
 function PlanRoom({ room, z }: { room: RoomModel; z: number }) {
   const selected = useEditor((s) => s.selection?.kind === 'room' && s.selection.id === room.id);
-  const selectable = useEditor((s) => s.tool === 'select');
+  const elecEditing = useElecMode();
+  const selectable = useEditor((s) => s.tool === 'select') && !elecEditing;
   const select = useEditor((s) => s.select);
   const polygon = room.polygon as [number, number][];
   const geometry = useMemo(() => new THREE.ShapeGeometry(makeShape(polygon, [])), [polygon]);
@@ -99,8 +104,15 @@ export function PlanOverlay({ model, level, elevation }: { model: BuildingModel;
   const furnitureModels = useFurnitureModels();
   const alerts = useFurnitureAlertLevels();
   const selectedFurniture = useEditor((s) => (s.selection?.kind === 'furniture' ? s.selection.id : null));
-  const select = useEditor((s) => s.tool === 'select');
-  const installations = useEditor((s) => (s.project.installations.enabled ? s.results?.installations?.points : undefined));
+  const elecEditing = useElecMode();
+  const layerOn = useElecUi((s) => s.layerOn);
+  const instOn = useEditor((s) => s.project.installations.enabled);
+  const elecLayer = layerOn && instOn;
+  const select = useEditor((s) => s.tool === 'select') && !elecEditing;
+  const legacyPoints = useEditor((s) => (s.project.installations.enabled ? s.results?.installations?.points : undefined));
+  const hasElec = useEditor((s) => !!s.results?.installations?.electrical);
+  // com a camada Elétrica ligada, ela desenha a parte elétrica (símbolos da NBR 5444, circuitos e eletrodutos)
+  const installations = useMemo(() => (elecLayer && hasElec && legacyPoints ? legacyPoints.filter((p) => !ELEC_KINDS.has(p.kind)) : legacyPoints), [legacyPoints, elecLayer, hasElec]);
   const levelWalls = useMemo(() => model.walls.filter((w) => w.level === level) as unknown as WallLike[], [model.walls, level]);
   return (
     <MotorGroup>
@@ -111,6 +123,7 @@ export function PlanOverlay({ model, level, elevation }: { model: BuildingModel;
         <PlanFurniture models={furnitureModels} furniture={furniture} walls={levelWalls} level={level} selectedId={selectedFurniture} alerts={alerts} interactive={select} />
       ) : null}
       {installations ? <PlanInstallations points={installations} level={level} elevation={elevation} /> : null}
+      {elecLayer && hasElec ? <ElecPlanLayer model={model} level={level} elevation={elevation} /> : null}
       {walls.map((w) => (
         <WallPoche key={w.id} wall={w} openings={model.openings} />
       ))}

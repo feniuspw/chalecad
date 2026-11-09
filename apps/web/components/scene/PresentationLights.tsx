@@ -43,6 +43,8 @@ export function PresentationLights({ model, bounds, terrain = null }: Presentati
   const scenario = usePresentationUi((s) => s.scenario);
   const vegetation = usePresentationUi((s) => s.vegetation);
   const projectName = useEditor((s) => s.project.meta.name);
+  // com luminárias do projeto elétrico (ElecLuminaires) a lâmpada por cômodo não é necessária
+  const hasElecLights = useEditor((s) => s.project.installations.enabled && !!s.results?.installations?.electrical?.layout.points.some((p) => p.kind === 'light'));
   const light = useMemo(() => sunLight(sun.elevationDeg), [sun.elevationDeg]);
   const night = nightAmount(sun.elevationDeg);
 
@@ -145,7 +147,7 @@ export function PresentationLights({ model, bounds, terrain = null }: Presentati
         <Landscape model={model} bounds={bounds} scenario={scenario} vegetation={vegetation} quality={quality} daylight={light.daylight} projectName={projectName} terrain={terrain} />
       )}
       {quality === 'high' && !hasTerrain ? <HouseContactShadows model={model} bounds={bounds} /> : null}
-      {lamps ? <RoomLamps model={model} /> : null}
+      {lamps && !hasElecLights ? <RoomLamps model={model} /> : null}
     </>
   );
 }

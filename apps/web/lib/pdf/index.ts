@@ -5,10 +5,13 @@
 import type { Project, Results } from '@chalecad/engine';
 import { ELEVATION_LABELS, deriveLevels, elevationSvg, planSvg, type ElevationSide } from '../plan2d';
 import type { PdfImage } from '../../components/pdf/ChaleDocument';
+import { elecPlanFromResults } from '../elec/symbols';
 import { buildPdfData, type PdfData } from './data';
 import { svgToPng } from './images';
 
 export { buildInstallationsPdf, buildPdfData, buildRoomRows, type InstallationsPdf, type PdfData, type RoomRow } from './data';
+
+const ELEC_KINDS = new Set(['outlet', 'outlet_high', 'tue', 'switch', 'light', 'panel']);
 
 export const PDF_ELEVATIONS: ElevationSide[] = ['front', 'right'];
 
@@ -20,7 +23,10 @@ export async function buildPdfImages(project: Project, results: Results, raster:
   const levels = deriveLevels(model, project).filter((l) => model.walls.some((w) => w.level === l.id) || model.slabs.some((s) => s.level === l.id && s.kind !== 'radier'));
   const plans: PdfImage[] = [];
   for (const level of levels) {
-    const doc = planSvg(model, { project, levelId: level.id, ...(results.installations ? { installations: results.installations.points } : {}) });
+    // com o projeto elétrico calculado, a planta traz a camada Elétrica (NBR 5444) no lugar dos símbolos estimados
+    const electrical = elecPlanFromResults(results, level.id);
+    const legacy = results.installations ? (electrical ? results.installations.points.filter((p) => !ELEC_KINDS.has(p.kind)) : results.installations.points) : null;
+    const doc = planSvg(model, { project, levelId: level.id, ...(legacy ? { installations: legacy } : {}), ...(electrical ? { electrical } : {}) });
     plans.push({ title: `Planta — ${level.name}`, caption: `Planta baixa do nível ${level.name} (cota ${level.elevation.toFixed(2).replace('.', ',')} m)`, src: await raster(doc.svg, doc.width, doc.height), aspect: doc.width / doc.height });
   }
   const elevations: PdfImage[] = [];

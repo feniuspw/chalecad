@@ -198,6 +198,18 @@ const INST_COLS = [
   { key: 'breaker', label: 'Disjuntor', flex: 1.3, right: true },
 ] as const;
 
+const LOAD_COLS = [
+  { key: 'n', label: 'Nº', flex: 0.5 },
+  { key: 'name', label: 'Circuito', flex: 3.2 },
+  { key: 'va', label: 'VA', flex: 1, right: true },
+  { key: 'amp', label: 'A', flex: 0.8, right: true },
+  { key: 'section', label: 'Seção', flex: 1.2, right: true },
+  { key: 'breaker', label: 'Disjuntor', flex: 1.4, right: true },
+  { key: 'dr', label: 'DR', flex: 0.7, right: true },
+  { key: 'drop', label: 'Queda', flex: 1, right: true },
+  { key: 'length', label: 'Comp.', flex: 1, right: true },
+] as const;
+
 const PERF_COLS = [
   { key: 'element', label: 'Elemento', flex: 2.2 },
   { key: 'u', label: 'U', flex: 1.6, right: true },
@@ -443,24 +455,58 @@ export function ChaleDocument({ data, plans, elevations }: ChaleDocumentProps) {
       {/* Instalações */}
       {data.installations ? (
         <Section title="Instalações (estimativa)" sub="Quadro de circuitos e totais pelos mínimos da NBR 5410/5626." data={data}>
-          <View style={s.table}>
-            <View style={s.thead}>
-              {INST_COLS.map((c) => (
-                <Text key={c.key} style={[s.th, { flex: c.flex }, 'right' in c ? s.right : {}]}>
-                  {c.label}
-                </Text>
-              ))}
-            </View>
-            {data.installations.circuits.map((r, i) => (
-              <View key={i} style={[s.tr, i % 2 ? s.trAlt : {}]} wrap={false}>
+          {data.installations.electrical ? (
+            <>
+              <Text style={s.h2}>Quadro de cargas (NBR 5410)</Text>
+              <View style={s.table}>
+                <View style={s.thead}>
+                  {LOAD_COLS.map((c) => (
+                    <Text key={c.key} style={[s.th, { flex: c.flex }, 'right' in c ? s.right : {}]}>
+                      {c.label}
+                    </Text>
+                  ))}
+                </View>
+                {data.installations.electrical.loads.map((r, i) => (
+                  <View key={i} style={[s.tr, i % 2 ? s.trAlt : {}]} wrap={false}>
+                    {LOAD_COLS.map((c) => (
+                      <Text key={c.key} style={[s.td, { flex: c.flex }, 'right' in c ? s.right : {}, r.fail ? { color: C.fail } : {}]}>
+                        {r[c.key]}
+                      </Text>
+                    ))}
+                  </View>
+                ))}
+              </View>
+              <View style={s.twoCol} wrap={false}>
+                <View style={s.col}>
+                  <Text style={s.h2}>Quadro e demanda</Text>
+                  <KeyValues rows={data.installations.electrical.panel} />
+                </View>
+                <View style={s.col}>
+                  <Text style={s.h2}>Iluminação por cômodo</Text>
+                  <KeyValues rows={data.installations.electrical.lighting.map((l) => ({ label: l.room, value: `${l.lux} (alvo ${l.target}) · ${l.status}` }))} />
+                </View>
+              </View>
+            </>
+          ) : (
+            <View style={s.table}>
+              <View style={s.thead}>
                 {INST_COLS.map((c) => (
-                  <Text key={c.key} style={[s.td, { flex: c.flex }, 'right' in c ? s.right : {}]}>
-                    {r[c.key]}
+                  <Text key={c.key} style={[s.th, { flex: c.flex }, 'right' in c ? s.right : {}]}>
+                    {c.label}
                   </Text>
                 ))}
               </View>
-            ))}
-          </View>
+              {data.installations.circuits.map((r, i) => (
+                <View key={i} style={[s.tr, i % 2 ? s.trAlt : {}]} wrap={false}>
+                  {INST_COLS.map((c) => (
+                    <Text key={c.key} style={[s.td, { flex: c.flex }, 'right' in c ? s.right : {}]}>
+                      {r[c.key]}
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          )}
           <View style={s.twoCol} wrap={false}>
             <View style={s.col}>
               <Text style={s.h2}>Totais</Text>

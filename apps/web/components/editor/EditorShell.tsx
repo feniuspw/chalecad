@@ -24,6 +24,7 @@ import { selectionFromHost } from '@/lib/project/selection';
 import { selectionHostId, useEditor } from '@/lib/store/editor';
 import type { CameraView, Tool, ViewMode } from '@/lib/store/types';
 import { FurnitureLibrary } from './furniture/FurnitureLibrary';
+import { ElecDock } from './elec/ElecDock';
 import { NewProjectDialog } from './NewProjectDialog';
 import { PropertiesPanel } from './properties/PropertiesPanel';
 // Painel de resultados (F1-W2).
@@ -323,6 +324,7 @@ export function EditorShell() {
 
             {model && viewMode === 'presentation' ? <SunPanel /> : null}
             {model && tool === 'furniture' && viewMode !== 'presentation' ? <FurnitureLibrary /> : null}
+            {model ? <ElecDock /> : null}
 
             <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
               <div className="flex items-start gap-1.5">

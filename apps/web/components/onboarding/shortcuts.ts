@@ -38,6 +38,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'tool-furniture', group: 'Ferramentas', context: 'editor', keys: ['F'], label: 'Móveis', tool: 'furniture' },
   { id: 'tool-dimension', group: 'Ferramentas', context: 'editor', keys: ['C'], label: 'Cota', tool: 'dimension' },
   { id: 'tool-measure', group: 'Ferramentas', context: 'editor', keys: ['T'], label: 'Medir (trena)', tool: 'measure' },
+  // "E" já é a Escada: a camada Elétrica da planta usa Shift+E (não conflita: os atalhos de ferramenta ignoram o Shift)
+  { id: 'elec-layer', group: 'Ferramentas', context: 'editor', keys: ['Shift+E'], label: 'Camada Elétrica na planta (tomadas, luz, interruptores, eletrodutos)' },
 
   // Edição
   { id: 'undo', group: 'Edição', context: 'editor', keys: ['Mod+Z'], label: 'Desfazer' },
@@ -50,6 +52,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'typed', group: 'Edição', context: 'editor', keys: ['3,5', '3,5;90', '3x4'], together: true, label: 'Desenhando parede ou retângulo: digite comprimento, comprimento;ângulo ou LxA e Enter', mouse: true },
   { id: 'draw-close', group: 'Edição', context: 'editor', keys: ['Clique no ponto inicial'], label: 'Fecha o contorno de paredes e pergunta o uso do cômodo', mouse: true },
   { id: 'draw-drag', group: 'Edição', context: 'editor', keys: ['Arrastar alça'], label: 'Selecionar + parede: arrasta a ponta (ligadas acompanham) ou o meio (desloca em paralelo)', mouse: true },
+  { id: 'elec-light-grid', group: 'Edição', context: 'editor', keys: ['Shift + clique'], label: 'Elétrica, ferramenta Luz: grade automática de luminárias no cômodo, até o lux alvo', mouse: true },
+  { id: 'elec-control', group: 'Edição', context: 'editor', keys: ['Interruptor + clique na luz'], label: 'Elétrica: com um interruptor selecionado, clicar nas luzes liga e desliga o comando', mouse: true },
   { id: 'help', group: 'Edição', context: 'editor', keys: ['?'], label: 'Mostrar esta lista de atalhos' },
 
   // Vista
