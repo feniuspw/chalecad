@@ -114,8 +114,8 @@ describe('conteúdos de engenharia', () => {
     for (const dr of e.panel.drs) expect(groups.find((gr) => gr.dr!.id === dr.id)!.items.map((i) => i.c.id).sort()).toEqual([...dr.circuitIds].sort());
     expect(r.body).toContain(`Aterramento ${project.legal.earthing}`);
     expect(r.body).toMatch(/DPS/);
-    expect(r.body).toMatch(/BARRAMENTO N/);
-    expect(r.body).toMatch(/BARRAMENTO PE/);
+    expect(r.body).toMatch(/>N</);
+    expect(r.body).toMatch(/>PE</);
   });
 
   it('quadro de cargas soma igual ao relatório', () => {

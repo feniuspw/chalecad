@@ -445,7 +445,7 @@ export const renderWallPanels: ContentRenderer = (ctx, _content, scale) => {
 
   const notes = [
     `Painéis em light steel framing conforme ${normList(catalog, ['nbr16970', 'nbr15253'])}; verificações por ${normRef(catalog, 'nbr14762')}.`,
-    'Elevação vista do lado do eixo from→to de cada parede; cotas em metros; códigos iguais aos da planta de painéis.',
+    'Elevação vista do lado do eixo de cada parede, do início para o fim; cotas em metros; códigos iguais aos da planta de painéis.',
     'Vergas, ombreiras (king/jack) e peitoris conforme verificação de vergas; fitas e bloqueadores nos locais indicados.',
     ...profileLines(results.pieces.filter((p) => walls.some((w) => w.id === p.hostId))).map((s) => `Perfil — ${s}`),
   ];

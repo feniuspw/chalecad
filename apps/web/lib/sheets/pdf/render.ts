@@ -4,6 +4,7 @@
  * transformações, tracejado, opacidade e padrões de hachura (linhas paralelas recortadas pela forma).
  */
 import type { jsPDF } from 'jspdf';
+import { winAnsi } from './winansi';
 import { IDENTITY, apply, mul, parseColor, parsePath, parseTransform, parseSvg, type Matrix, type PathOp, type SvgNode } from './svg';
 
 interface Style {
@@ -239,7 +240,7 @@ export function renderSvgToPdf(doc: jsPDF, svgSource: string, o: RenderOptions):
   const textOf = (n: SvgNode): string => n.text + n.children.filter((c) => c.name === 'tspan').map(textOf).join('');
 
   const drawText = (n: SvgNode, a: Record<string, string>, s: Style, m: Matrix) => {
-    const str = textOf(n).replace(/\s+/g, ' ').trim();
+    const str = winAnsi(textOf(n).replace(/\s+/g, ' ').trim());
     if (!str) return;
     const [x, y] = [num(a.x), num(a.y)];
     const [px, py] = apply(m, x, y);

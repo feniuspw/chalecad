@@ -70,7 +70,7 @@ export const areasRenderer: ContentRenderer = (ctx, content) => {
   const rows: string[][] = [];
   const bold = new Set<number>();
   for (const lv of at.levels) {
-    for (const r of at.rooms.filter((x) => x.level === lv.level)) rows.push([lv.levelName, r.name, fmt(r.area, 2)]);
+    for (const r of at.rooms.filter((x) => x.level === lv.level && x.name !== 'Área construída do pavimento')) rows.push([lv.levelName, r.name, fmt(r.area, 2)]);
     if (lv.useful > 0) {
       bold.add(rows.length);
       rows.push([lv.levelName, 'Área útil do pavimento', fmt(lv.useful, 2)]);

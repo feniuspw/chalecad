@@ -160,15 +160,24 @@ describe('corte', () => {
 });
 
 describe('implantação', () => {
-  it('recuos: lote 12 × 30 com a casa em [3, 5] dá frente 5,00 e esquerda 3,00', () => {
+  it('recuos da face externa, iguais aos do motor: lote 12 × 30 com a casa em [3, 5]', () => {
     const ctx = ctxOf(legalProject());
     const sb = setbacksOf(ctx)!;
-    expect(sb.front).toBeCloseTo(5, 6);
-    expect(sb.left).toBeCloseTo(3, 6);
-    expect(sb.right).toBeCloseTo(12 - 3 - 6.5, 6);
-    expect(sb.back).toBeCloseTo(30 - 5 - 8.5, 6);
+    // meia espessura da parede externa: a face fica além do eixo
+    const H = -Math.min(...ctx.results.model.footprint.map((p) => p[1]));
+    expect(H).toBeGreaterThan(0.03);
+    expect(sb.front).toBeCloseTo(5 - H, 6);
+    expect(sb.left).toBeCloseTo(3 - H, 6);
+    expect(sb.right).toBeCloseTo(12 - 3 - 6.5 - H, 6);
+    expect(sb.back).toBeCloseTo(30 - 5 - 8.5 - H, 6);
+    const urban = ctx.results.approval?.urban;
+    if (urban) {
+      expect(sb.front).toBeCloseTo(urban.setbacks.front, 6);
+      expect(sb.left).toBeCloseTo(urban.setbacks.left, 6);
+    }
     const svg = registry.implantation!(ctx, { kind: 'implantation', title: 'IMPLANTAÇÃO', scale: 200 }, 200)!.body;
-    for (const t of ['5,00', '3,00', '2,50', '16,50']) expect(svg).toContain(`>${t}<`);
+    const f = (v: number) => v.toFixed(2).replace('.', ',');
+    for (const v of [sb.front, sb.left, sb.right, sb.back]) expect(svg).toContain(`>${f(v)}<`);
     expect(svg).toContain('data-role="setbacks"');
     expect(svg).toContain('data-role="eave"');
     expect(svg).toContain('data-role="permeable-label"');

@@ -236,8 +236,8 @@ export const renderSingleLine: ContentRenderer = (ctx) => {
     col += gr.items.length;
   }
   // barramentos N e PE
-  out.push(ln(x0 + 2, N_Y, xEnd - 2, N_Y, 1.2, { stroke: GREY }), tx(x0 - 3, N_Y + 0.9, 'BARRAMENTO N', { anchor: 'end' }));
-  out.push(ln(x0 + 2, PE_Y, xEnd - 2, PE_Y, 1.2, { stroke: '#15803d' }), tx(x0 - 3, PE_Y + 0.9, 'BARRAMENTO PE (terra)', { anchor: 'end' }));
+  out.push(ln(x0 + 2, N_Y, xEnd - 2, N_Y, 1.2, { stroke: GREY }), tx(xEnd, N_Y + 0.9, 'N', { bold: true }));
+  out.push(ln(x0 + 2, PE_Y, xEnd - 2, PE_Y, 1.2, { stroke: '#15803d' }), tx(xEnd, PE_Y + 0.9, 'PE', { bold: true }));
   // aterramento
   const gx = x0 - 36;
   out.push(ln(x0 - 3, PE_Y, gx, PE_Y, W.sec, { stroke: '#15803d' }), ln(gx, PE_Y, gx, PE_Y + 8, W.sec, { stroke: '#15803d' }));

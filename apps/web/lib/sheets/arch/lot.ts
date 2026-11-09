@@ -31,13 +31,13 @@ export interface Setbacks {
   right: number;
 }
 
-/** Caixa (em coordenadas do lote) do eixo das paredes externas da edificação. */
+/** Caixa (em coordenadas do lote) da face externa das paredes da edificação (de onde se medem os recuos, como no motor). */
 export function houseBox(ctx: SheetContext): { x0: number; x1: number; y0: number; y1: number; poly: Vec2[] } {
-  const poly2 = axisBox(ctx).map((p) => toLot(ctx, p));
+  const poly2 = ctx.results.model.footprint.map((p) => toLot(ctx, p));
   return { ...bounds(poly2), poly: poly2 };
 }
 
-/** Recuos da edificação (eixo das paredes) a cada divisa, medidos perpendicularmente a partir do meio de cada lado. */
+/** Recuos da edificação (face externa das paredes) a cada divisa, medidos perpendicularmente a partir do meio de cada lado. */
 export function setbacksOf(ctx: SheetContext): (Setbacks & { box: ReturnType<typeof houseBox> }) | null {
   const lp = lotPolygon(ctx);
   if (!lp) return null;
@@ -294,7 +294,8 @@ export const implantationRenderer: ContentRenderer = (ctx, content, scale) => {
     legend: [LEGEND.cutWall(), LEGEND.dashed('Projeção do beiral'), { symbol: rect(0, 0, 8, 4, { fill: `url(#${grassId})`, stroke: INK, 'stroke-width': 0.2 }), label: 'Área permeável' }],
     notes: [
       `Terreno ${fmt(area, 2)} m²; projeção da cobertura ${fmt(proj, 2)} m².`,
-      'Recuos medidos do eixo das paredes externas à divisa, perpendicularmente. Cotas em metros.',
+      // com o motor, a nota dos recuos vem do quadro urbanístico (evita repetir na coluna de notas)
+      ...(ctx.results.approval?.urban ? ['Cotas em metros.'] : ['Recuos medidos da face externa das paredes à divisa, perpendicularmente, sem beiral. Cotas em metros.']),
       ...(site.type === 'sloped' ? ['NT = cota do terreno natural nos cantos da edificação, em relação ao platô (±0,00).'] : []),
     ],
   };

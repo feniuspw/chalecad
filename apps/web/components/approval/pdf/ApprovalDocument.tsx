@@ -1,6 +1,11 @@
 /** Documento PDF genérico da aprovação (@react-pdf/renderer): cabeçalho da obra, blocos e rodapé com página x/y e o aviso. */
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import type { DocBlock, DocSpec } from '../../../lib/approval/docs';
+import { clean } from '../../../lib/pdf/data';
+
+/** Helvetica (WinAnsi): troca símbolos que a fonte não tem (≤, ≥, →…) em todos os textos do documento. */
+const cleanDeep = <T,>(v: T): T =>
+  (typeof v === 'string' ? clean(v) : Array.isArray(v) ? v.map(cleanDeep) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, cleanDeep(x)])) : v) as T;
 
 const C = { ink: '#1c1917', text: '#44403c', muted: '#78716c', line: '#d6d3d1', soft: '#f5f5f4', accent: '#92400e' };
 
@@ -73,7 +78,8 @@ function Block({ b }: { b: DocBlock }) {
   }
 }
 
-export function ApprovalDocument({ spec }: { spec: DocSpec }) {
+export function ApprovalDocument({ spec: raw }: { spec: DocSpec }) {
+  const spec = cleanDeep(raw);
   return (
     <Document title={spec.title} author="ChaléCAD">
       <Page size="A4" style={s.page}>
