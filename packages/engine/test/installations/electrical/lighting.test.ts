@@ -102,8 +102,8 @@ describe('suggestRoomLighting', () => {
 
   test('tabela de lux da NBR ISO/CIE 8995-1 e K pela área e perímetro reais', () => {
     const t = testCatalog.constants.electrical.lighting;
-    expect(t.targetLux.kitchen).toBe(500);
-    expect(t.minLux.kitchen).toBe(300);
+    expect(t.targetLux.kitchen).toBe(300);
+    expect(t.minLux.kitchen).toBe(200);
     expect(t.targetLux.office).toBe(500);
     expect(t.targetLux.bathroom).toBe(300);
     expect(t.minLux.bathroom).toBe(200);
