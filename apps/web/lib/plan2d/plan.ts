@@ -2,6 +2,7 @@
 import { getCatalog } from '@chalecad/catalog';
 import type { BuildingModel, Furniture, HostWall, InstallationPoint, Project, ResolvedOpening, ResolvedStair, Vec2 } from '@chalecad/engine';
 import { fmt } from '../project/format';
+import { deckBoardLayout, deckStairLayout } from '../project/extras';
 import { specOf } from '../project/furniture';
 import { furnitureSymbol, placeStrokes } from './furnitureSymbols';
 import { elecLegendSvg, elecPlanSvg } from '../elec/svg';
@@ -107,6 +108,83 @@ export function towerOutlines(model: BuildingModel, level: PlanLevel, isGround: 
   return out;
 }
 
+/**
+ * Deck em planta (térreo): contorno, tábuas em hachura leve no sentido das tábuas, pilares (com a sapata/broca tracejada),
+ * ledger, guarda-corpo, escada com o sentido de descida e o contorno tracejado da cobertura.
+ */
+export function deckOutlines(model: BuildingModel, P: (p: Vec2) => [number, number], S: number): string[] {
+  const out: string[] = [];
+  for (const x of model.extras ?? []) {
+    if (x.kind !== 'deck' || !x.polygon || x.polygon.length < 3) continue;
+    const parts: string[] = [];
+    parts.push(poly(x.polygon.map(P), { fill: 'rgba(167,124,80,0.12)', stroke: INK, 'stroke-width': 1, 'data-role': 'deck-outline' }));
+    const d = x.deck;
+    if (d) {
+      const boards = deckBoardLayout(x, { width: 0.1, gap: 0.005 });
+      parts.push(
+        group(
+          boards
+            .map((b) => {
+              const hl = b.size[0] / 2;
+              const c = [Math.cos(b.yaw) * hl, Math.sin(b.yaw) * hl];
+              const [x1, y1] = P([b.center[0] - c[0]!, b.center[1] - c[1]!]);
+              const [x2, y2] = P([b.center[0] + c[0]!, b.center[1] + c[1]!]);
+              return line(x1, y1, x2, y2, { stroke: GUIDE, 'stroke-width': 0.35, opacity: 0.7 });
+            })
+            .join(''),
+          { 'data-role': 'deck-boards' },
+        ),
+      );
+      if (d.ledger) {
+        const [x1, y1] = P(d.ledger.from);
+        const [x2, y2] = P(d.ledger.to);
+        parts.push(line(x1, y1, x2, y2, { stroke: INK, 'stroke-width': 1.6, 'data-role': 'deck-ledger' }));
+      }
+      for (const sg of x.segments.filter((m) => m.material === 'rail')) {
+        const [x1, y1] = P(sg.from);
+        const [x2, y2] = P(sg.to);
+        parts.push(line(x1, y1, x2, y2, { stroke: INK, 'stroke-width': 1.8, 'data-role': 'deck-rail' }));
+      }
+      for (const sp of d.supports) {
+        const [cx, cy] = P(sp.position);
+        const f = sp.footing.width * S;
+        parts.push(
+          group(
+            (sp.footing.kind === 'pad'
+              ? rect(cx - f / 2, cy - f / 2, f, f, { fill: 'none', stroke: MUTED, 'stroke-width': 0.5, 'stroke-dasharray': '3 2' })
+              : tag('circle', { cx, cy, r: f / 2, fill: 'none', stroke: MUTED, 'stroke-width': 0.5, 'stroke-dasharray': '3 2' })) +
+              rect(cx - (sp.size * S) / 2, cy - (sp.size * S) / 2, sp.size * S, sp.size * S, { fill: INK, stroke: INK, 'stroke-width': 0.5 }),
+            { 'data-role': 'deck-pillar' },
+          ),
+        );
+      }
+      for (const st of d.stairs) {
+        const lay = deckStairLayout(st);
+        const treads = lay.treads
+          .map((b) => {
+            const hl = b.size[0] / 2;
+            const hw = b.size[1] / 2;
+            const cs = Math.cos(b.yaw);
+            const sn = Math.sin(b.yaw);
+            const pts = ([[-hl, -hw], [hl, -hw], [hl, hw], [-hl, hw]] as Vec2[]).map(([u, v]) => P([b.center[0] + u * cs - v * sn, b.center[1] + u * sn + v * cs]));
+            return poly(pts, { fill: '#fff', stroke: INK, 'stroke-width': 0.7 });
+          })
+          .join('');
+        const run = Math.max(0.3, (st.risers - 1) * st.tread);
+        const [ax, ay] = P(st.top);
+        const [bx, by] = P([st.top[0] + st.dir[0] * run, st.top[1] + st.dir[1] * run]);
+        parts.push(group(treads + line(ax, ay, bx, by, { stroke: INK, 'stroke-width': 0.8 }) + text(bx, by + 3, 'desce', { 'font-size': 6.5, fill: MUTED }), { 'data-role': 'deck-stair', 'data-id': x.id }));
+      }
+    }
+    if (x.roof) parts.push(poly(x.roof.vertices.map((v) => P([v[0], v[1]])), { fill: 'none', stroke: GUIDE, 'stroke-width': 0.8, 'stroke-dasharray': '6 3', 'data-role': 'deck-roof' }));
+    const c = centroid(x.polygon);
+    const [lx, ly] = P(c);
+    parts.push(text(lx, ly + 3, `DECK ${(x.topZ ?? 0) >= 0 ? '+' : ''}${fmt(x.topZ ?? 0, 2)}`, { 'font-size': 7.5, fill: INK, stroke: '#fff', 'stroke-width': 2.5, 'paint-order': 'stroke', 'font-weight': 700 }));
+    out.push(group(parts.join(''), { 'data-role': 'deck', 'data-id': x.id }));
+  }
+  return out;
+}
+
 function pointIn(p: Vec2, poly2: Vec2[]): boolean {
   let inside = false;
   for (let i = 0, j = poly2.length - 1; i < poly2.length; j = i++) {
@@ -141,6 +219,12 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
   const maxX = Math.max(...allPts.map((p) => p[0]));
   const minY = Math.min(...allPts.map((p) => p[1]));
   const maxY = Math.max(...allPts.map((p) => p[1]));
+  // O deck (térreo) amplia a folha; as cotas externas continuam sendo as da casa, desenhadas além do deck.
+  const deckPts = isGround ? (model.extras ?? []).flatMap((x) => (x.kind === 'deck' ? (x.polygon ?? []) : [])) : [];
+  const extMinX = Math.min(minX, ...deckPts.map((p) => p[0]));
+  const extMaxX = Math.max(maxX, ...deckPts.map((p) => p[0]));
+  const extMinY = Math.min(minY, ...deckPts.map((p) => p[1]));
+  const extMaxY = Math.max(maxY, ...deckPts.map((p) => p[1]));
 
   const ML = 118;
   const MR = 80;
@@ -152,12 +236,12 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
   const elecRows = elec ? Math.ceil(elec.legend.length / legendCols) : 0;
   const instRows = legendItems.length > 0 ? 24 + Math.ceil(legendItems.length / legendCols) * 16 : 0;
   const MB = 150 + instRows + (elec ? 56 + elecRows * 16 : 0);
-  const planW = (maxX - minX) * S;
-  const planH = (maxY - minY) * S;
+  const planW = (extMaxX - extMinX) * S;
+  const planH = (extMaxY - extMinY) * S;
   const width = Math.max(ML + planW + MR, 330, legendItems.length > 0 ? ML + legendCols * 104 + 10 : 0, elec ? ML + 470 : 0);
   const height = MT + planH + MB;
-  const X = (x: number) => ML + (x - minX) * S;
-  const Y = (y: number) => MT + (maxY - y) * S;
+  const X = (x: number) => ML + (x - extMinX) * S;
+  const Y = (y: number) => MT + (extMaxY - y) * S;
   const P = (p: Vec2): [number, number] => [X(p[0]), Y(p[1])];
 
   const defs = tag(
@@ -200,6 +284,7 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
 
   // Torre da caixa d'água: contorno tracejado no nível em que ela se apoia (laje do mezanino sob o centro, ou o térreo).
   layers.push(...towerOutlines(model, level, isGround, P));
+  if (isGround) layers.push(...deckOutlines(model, P, S));
 
   // Cômodos: preenchimento suave por uso (sob as paredes) e rótulo "Nome · área" no ponto mais interno.
   const roomLayers: string[] = [];
@@ -282,7 +367,7 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
   if (front && Math.abs(front.from[1] - model.footprint.reduce((m, p) => Math.min(m, p[1]), Infinity)) < 0.3) {
     const stops = chain(minX, maxX, openingSpans(ownOpenings, front, 0));
     if (stops.length > 1) {
-      stops.forEach(([a, b]) => dims.push(hDim(X(a), X(b), Y(minY) + 26, meters(b - a), Y(minY))));
+      stops.forEach(([a, b]) => dims.push(hDim(X(a), X(b), Y(extMinY) + 26, meters(b - a), Y(minY))));
       rowH = 52;
     }
   }
@@ -290,12 +375,12 @@ export function planSvg(model: BuildingModel, opts: PlanOptions = {}): SvgDoc {
   if (left && Math.abs(left.from[0] - model.footprint.reduce((m, p) => Math.min(m, p[0]), Infinity)) < 0.3) {
     const stops = chain(minY, maxY, openingSpans(ownOpenings, left, 1));
     if (stops.length > 1) {
-      stops.forEach(([a, b]) => dims.push(vDim(Y(a), Y(b), X(minX) - 26, meters(b - a), X(minX))));
+      stops.forEach(([a, b]) => dims.push(vDim(Y(a), Y(b), X(extMinX) - 26, meters(b - a), X(minX))));
       rowV = 52;
     }
   }
-  dims.push(hDim(X(minX), X(maxX), Y(minY) + rowH, meters(maxX - minX), Y(minY) + (rowH > 26 ? 26 : 0)));
-  dims.push(vDim(Y(maxY), Y(minY), X(minX) - rowV, meters(maxY - minY), X(minX) - (rowV > 26 ? 26 : 0)));
+  dims.push(hDim(X(minX), X(maxX), Y(extMinY) + rowH, meters(maxX - minX), rowH > 26 ? Y(extMinY) + 26 : Y(minY)));
+  dims.push(vDim(Y(maxY), Y(minY), X(extMinX) - rowV, meters(maxY - minY), rowV > 26 ? X(extMinX) - 26 : X(minX)));
   layers.push(group(dims.join(''), { 'data-role': 'dim-outer' }));
 
   // Decoração: título do nível, norte, escala.

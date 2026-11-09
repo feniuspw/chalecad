@@ -16,7 +16,7 @@ export function aframeWings(ids: IdGen): Project {
   Object.assign(right, { length: 5, offset: 1.5, width: 3, height: 2.7, pitchDeg: 3 });
   b.finishes({ facade: 'finish_facade_wood', interiorRoof: 'finish_ceiling_wood', roofColor: 'graphite' });
   b.mezzanine({ depth: 3.2, elevation: 2.6, stairX: 2.6 });
-  b.deck({ length: 4, depth: 2.2 });
+  b.deck({ length: 4, depth: 2.2, offset: 0.5 }); // cobre a porta da frente
   b.p.openings = b.p.openings.filter((o) => !o.host.startsWith('annex-'));
 
   // Quarto (anexo esquerdo, y de 2 a 6), separado da sala pela parede em x = 0.

@@ -196,6 +196,17 @@ export function computeCompliance(project: Project, results: Results, catalog: C
     });
   }
 
+  // Deck: um item por verificação do deck (guarda-corpo, vãos, pilares, escada, fundação)
+  for (const em of model.extras) {
+    if (em.kind !== 'deck' || !em.deck) continue;
+    for (const k of em.deck.checks) {
+      push({
+        id: `arch.deck.${em.id}.${k.id}`, discipline: 'architecture', norm: normOf(catalog, k.norm ?? 'nbr7190'), title: `Deck ${em.id}: ${k.label}`,
+        criterion: k.label, status: k.status, value: k.value, limit: k.limit, refs: [em.id], source: 'rule',
+      });
+    }
+  }
+
   // Vidro de segurança
   {
     const sg = warnBy((k) => k === 'norm.safety_glass');

@@ -1,10 +1,7 @@
 import type { TechnicalConstants } from '@chalecad/catalog';
-import { add3, cross3, dot3, scale3, signedArea, sub3, type Vec2, type Vec3 } from '../geometry';
+import { pointInPolygon, signedArea, type Vec2 } from '../geometry';
 import type { Extra, Project } from '../schema/project';
-import type { ExtraModel, RoofPlane } from '../schema/results';
-import { waterTowerModel, type ExtraBuildContext } from './water_tower';
-
-const DEG = Math.PI / 180;
+import type { ExtraModel } from '../schema/results';
 
 /** Premissas geométricas e de consumo dos extras: `catalog.constants.extras`. */
 export type ExtrasConstants = TechnicalConstants['extras'];
@@ -44,8 +41,83 @@ export function fencePosts(e: FenceE): Vec2[] {
   return posts;
 }
 
-/** Fachada da edificação (no sentido das paredes: from → to), com direção para fora. */
-export function facade(project: Project, side: DeckE['side']): { origin: Vec2; t: Vec2; n: Vec2; len: number } {
+// ---------------------------------------------------------------------------
+// Deck: fachada (face externa do contorno), cota e polígono
+// ---------------------------------------------------------------------------
+
+/** Face externa do contorno: início (quina), direção ao longo (anti-horário), normal para fora e comprimento. */
+export interface DeckFace {
+  origin: Vec2;
+  t: Vec2;
+  n: Vec2;
+  len: number;
+}
+
+const SIDE_NORMAL: Record<DeckE['side'], Vec2> = { front: [0, -1], right: [1, 0], back: [0, 1], left: [-1, 0] };
+
+/** LOCAL: degrau padrão quando o catálogo não é passado (igual a `catalog.constants.extras.deck.stepBelowFloor`). */
+const STEP_BELOW_FLOOR_FALLBACK = 0.03;
+
+/** Retângulo no eixo das paredes: contorno de reserva quando o modelo ainda não tem `footprint`. */
+export const axisFootprint = (project: Project): Vec2[] => {
+  const W = project.typology.width;
+  const D = project.typology.depth;
+  return [[0, 0], [W, 0], [W, D], [0, D]];
+};
+
+/** Anti-horário e sem vértices repetidos ou colineares (faces colineares viram uma só). */
+export function cleanFootprint(poly: Vec2[]): Vec2[] {
+  let p = poly.filter((v, i) => {
+    const w = poly[(i + 1) % poly.length]!;
+    return Math.hypot(v[0] - w[0], v[1] - w[1]) > 1e-6;
+  });
+  if (signedArea(p) < 0) p = [...p].reverse();
+  let changed = true;
+  while (changed && p.length > 3) {
+    changed = false;
+    for (let i = 0; i < p.length; i++) {
+      const a = p[(i + p.length - 1) % p.length]!;
+      const b = p[i]!;
+      const c = p[(i + 1) % p.length]!;
+      const cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+      const dt = (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]);
+      if (Math.abs(cr) < 1e-6 && dt > 0) {
+        p = p.filter((_, k) => k !== i);
+        changed = true;
+        break;
+      }
+    }
+  }
+  return p;
+}
+
+/**
+ * Faces externas do contorno cuja normal aponta para `side`, da mais externa para a mais interna
+ * (desempate pelo comprimento, a maior primeiro). A origem de cada face é a quina em que ela começa.
+ */
+export function deckFaces(footprint: Vec2[], side: DeckE['side']): DeckFace[] {
+  const poly = cleanFootprint(footprint);
+  const sn = SIDE_NORMAL[side];
+  const faces: DeckFace[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i]!;
+    const b = poly[(i + 1) % poly.length]!;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < 1e-6) continue;
+    const t: Vec2 = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+    const n: Vec2 = [t[1], -t[0]];
+    if (n[0] * sn[0] + n[1] * sn[1] > 0.99) faces.push({ origin: a, t, n, len });
+  }
+  const depthOf = (f: DeckFace) => f.origin[0] * sn[0] + f.origin[1] * sn[1];
+  return faces.sort((f, g) => (Math.abs(depthOf(g) - depthOf(f)) > 1e-4 ? depthOf(g) - depthOf(f) : g.len - f.len));
+}
+
+/** Fachada escolhida (`index` inexistente cai na 0). Sem `footprint`, usa o retângulo dos eixos. */
+export function facade(project: Project, side: DeckE['side'], footprint?: Vec2[], index = 0): DeckFace {
+  const faces = deckFaces(footprint ?? axisFootprint(project), side);
+  const f = faces[index] ?? faces[0];
+  if (f) return f;
+  // Contorno degenerado: cai no retângulo dos eixos.
   const W = project.typology.width;
   const D = project.typology.depth;
   switch (side) {
@@ -60,110 +132,104 @@ export function facade(project: Project, side: DeckE['side']): { origin: Vec2; t
   }
 }
 
+/** Comprimento da face escolhida (para "fachada inteira" na interface). */
+export const deckFaceLength = (project: Project, side: DeckE['side'], footprint?: Vec2[], index = 0): number =>
+  facade(project, side, footprint, index).len;
+
+/** Quantas faces externas voltadas para `side` existem (para o seletor de `facadeIndex`). */
+export const deckFaceCount = (project: Project, side: DeckE['side'], footprint?: Vec2[]): number =>
+  deckFaces(footprint ?? axisFootprint(project), side).length;
+
 /** Topo do piso do deck em coordenadas da casa (piso acabado = 0): `level` ou o degrau padrão abaixo da soleira. */
-export const deckTopZ = (e: DeckE, x: ExtrasConstants): number => e.level ?? -x.deck.stepBelowFloor;
+export const deckTopZ = (e: DeckE, x?: ExtrasConstants): number => e.level ?? -(x?.deck.stepBelowFloor ?? STEP_BELOW_FLOOR_FALLBACK);
 
 export interface DeckGeometry {
   /** Polígono anti-horário (vazio se o deck não cabe na fachada). */
   polygon: Vec2[];
+  /** Comprimento ao longo da face. */
   length: number;
-  /** Segmentos livres do guarda-corpo (lado da casa não conta). */
+  /** Bordas livres do guarda-corpo, em ordem início → externa → fim (o lado da casa não conta). */
   rails: [Vec2, Vec2][];
-  /** Ponto da fachada a + deslocamento q para fora. */
+  /** Ponto da face a + deslocamento q para fora. */
   at: (a: number, q: number) => Vec2;
   a0: number;
   a1: number;
+  /** Onde o piso começa (distância da face da parede): 0 ou a face do radier. */
+  q0: number;
+  /** Onde o piso termina (profundidade medida da face da parede, reduzida se esbarrasse no contorno). */
+  q1: number;
   n: Vec2;
+  t: Vec2;
+  face: DeckFace;
 }
 
-export function deckGeometry(project: Project, e: DeckE): DeckGeometry {
-  const f = facade(project, e.side);
-  const a0 = Math.min(e.offset, f.len);
-  const length = Math.max(0, Math.min(e.length ?? f.len - a0, f.len - a0));
-  const a1 = a0 + length;
+export interface DeckGeometryOpts {
+  x?: ExtrasConstants;
+  /** Contorno externo das paredes (`model.footprint`). */
+  footprint?: Vec2[];
+}
+
+/** Geometria em planta do deck preso à face externa do contorno, com `align`/`offset`, radier e contorno respeitados. */
+export function deckGeometry(project: Project, e: DeckE, opts: DeckGeometryOpts = {}): DeckGeometry {
+  const footprint = cleanFootprint(opts.footprint ?? axisFootprint(project));
+  const f = facade(project, e.side, footprint, e.facadeIndex);
+  const topZ = deckTopZ(e, opts.x);
+  const found = project.system.foundation;
+  // O piso não pode ocupar o radier: se o topo cair dentro da espessura dele, começa na face do radier.
+  const q0 = topZ > -found.thickness - 1e-9 ? found.border : 0;
   const at = (a: number, q: number): Vec2 => [f.origin[0] + f.t[0] * a + f.n[0] * q, f.origin[1] + f.t[1] * a + f.n[1] * q];
-  if (length <= 0) return { polygon: [], length: 0, rails: [], at, a0, a1, n: f.n };
-  let polygon: Vec2[] = [at(a0, 0), at(a1, 0), at(a1, e.depth), at(a0, e.depth)];
+  const empty = (): DeckGeometry => ({ polygon: [], length: 0, rails: [], at, a0: 0, a1: 0, q0, q1: q0, n: f.n, t: f.t, face: f });
+
+  // Alinhamento ao longo da face; sempre preso a [0, len] (quina a quina).
+  let a0: number;
+  let a1: number;
+  if (e.align === 'end') {
+    a1 = f.len + e.offset;
+    a0 = e.length === undefined ? 0 : a1 - e.length;
+  } else if (e.align === 'center') {
+    const c = f.len / 2 + e.offset;
+    const half = (e.length ?? f.len) / 2;
+    a0 = c - half;
+    a1 = c + half;
+  } else {
+    a0 = e.offset;
+    a1 = e.length === undefined ? f.len : a0 + e.length;
+  }
+  a0 = Math.max(0, a0);
+  a1 = Math.min(f.len, a1);
+  const length = a1 - a0;
+  if (length <= 1e-6) return empty();
+
+  // Não entra no contorno (planta em L, anexos): a profundidade para onde a primeira amostra cai dentro dele.
+  let q1 = e.depth;
+  const step = 0.05;
+  const samplesA: number[] = [];
+  for (let a = a0 + 0.02; a < a1 - 0.02; a += 0.1) samplesA.push(a);
+  samplesA.push(Math.max(a0, a1 - 0.02));
+  scan: for (let q = q0 + 0.02; q <= e.depth + 1e-9; q += step) {
+    for (const a of samplesA) {
+      if (pointInPolygon(at(a, q), footprint, 1e-6)) {
+        q1 = q - step;
+        break scan;
+      }
+    }
+  }
+  if (q1 - q0 < 0.5) return empty();
+
+  let polygon: Vec2[] = [at(a0, q0), at(a1, q0), at(a1, q1), at(a0, q1)];
   if (signedArea(polygon) < 0) polygon = polygon.reverse();
   const rails: [Vec2, Vec2][] = [
-    [at(a0, 0), at(a0, e.depth)],
-    [at(a0, e.depth), at(a1, e.depth)],
-    [at(a1, e.depth), at(a1, 0)],
+    [at(a0, q0), at(a0, q1)],
+    [at(a0, q1), at(a1, q1)],
+    [at(a1, q1), at(a1, q0)],
   ];
-  return { polygon, length, rails, at, a0, a1, n: f.n };
+  return { polygon, length, rails, at, a0, a1, q0, q1, n: f.n, t: f.t, face: f };
 }
 
-/**
- * Onde a cobertura do deck pode encostar na fachada sem atravessar o telhado principal:
- * `zMax` = cota máxima no encontro e `q0` = distância da fachada onde a água do deck começa
- * (nas fachadas de beiral, a água começa logo após o beiral principal, um pouco abaixo dele).
- */
-function deckRoofStart(project: Project, side: DeckE['side']): { zMax: number; q0: number } {
-  const t = project.typology;
-  const margin = 0.1;
-  switch (t.kind) {
-    case 'gable_mezzanine':
-    case 'gambrel':
-    case 'combined': {
-      const pitch = (t.kind === 'gambrel' ? t.lowerPitchDeg : t.roofPitchDeg) * DEG;
-      const ridgeAlongY = t.kind === 'combined' ? false : project.roof.ridgeAxis === 'depth';
-      const gableSide = ridgeAlongY ? side === 'front' || side === 'back' : side === 'left' || side === 'right';
-      if (gableSide) return { zMax: t.wallHeight - margin, q0: 0 };
-      return { zMax: t.wallHeight - t.eave * Math.tan(pitch) - 0.05, q0: t.eave };
-    }
-    case 'shed':
-      return { zMax: t.lowHeight - margin, q0: 0 };
-    case 'flat_roof':
-      return { zMax: t.wallHeight - margin, q0: 0 };
-    case 'a_frame':
-      return { zMax: Math.max(2.4, Math.min(t.ridgeHeight * 0.45, 3)), q0: 0 };
-  }
-}
+/** Comprimento total de uma lista de segmentos. */
+export const railsLength = (rails: [Vec2, Vec2][]): number => rails.reduce((s, [a, b]) => s + segLen(a, b), 0);
 
-/** Água de cobertura do deck: meia-água encostada na fachada, caindo para fora, sem invadir o telhado principal. */
-function deckRoof(id: string, e: DeckE, g: DeckGeometry, project: Project, x: ExtrasConstants): RoofPlane {
-  const proj = e.depth + x.deckCoverBeiral;
-  const start = deckRoofStart(project, e.side);
-  const q0 = Math.min(start.q0, proj - 0.2);
-  const run = proj - q0;
-  // Inclinação padrão; se a fachada for baixa, suaviza (até o mínimo da telha) para manter o pé-direito livre.
-  const desiredHigh = deckTopZ(e, x) + x.deckCoverClearance + run * Math.tan(x.deckCoverPitchDeg * DEG);
-  const zHigh = Math.min(desiredHigh, start.zMax);
-  const fitSlope = Math.atan(Math.max(0, zHigh - (deckTopZ(e, x) + x.deckCoverMinClearance)) / run) / DEG;
-  const pitchDeg = Math.max(x.deckCoverMinPitchDeg, Math.min(x.deckCoverPitchDeg, fitSlope));
-  const slope = pitchDeg * DEG;
-  const cos = Math.cos(slope);
-  const sin = Math.sin(slope);
-  const tan = Math.tan(slope);
-  const pt = (a: number, q: number): Vec3 => {
-    const p = g.at(a, q);
-    return [p[0], p[1], zHigh - (q - q0) * tan];
-  };
-  const vDir: Vec3 = [-g.n[0] * cos, -g.n[1] * cos, sin];
-  const nDir: Vec3 = [g.n[0] * sin, g.n[1] * sin, cos];
-  const uDir = cross3(vDir, nDir);
-  const p0 = pt(g.a0, proj);
-  const p1 = pt(g.a1, proj);
-  const origin = dot3(uDir, sub3(p1, p0)) > 0 ? p0 : p1;
-  const uLength = g.length;
-  const vLength = (proj - q0) / cos;
-  const du = scale3(uDir, uLength);
-  const dv = scale3(vDir, vLength);
-  return {
-    id,
-    vertices: [origin, add3(origin, du), add3(add3(origin, du), dv), add3(origin, dv)],
-    slopeDeg: pitchDeg,
-    area: uLength * vLength,
-    origin,
-    uAxis: uDir,
-    vAxis: vDir,
-    uLength,
-    vLength,
-    isWall: false,
-  };
-}
-
-function fenceModel(e: FenceE, x: ExtrasConstants): ExtraModel {
+export function fenceModel(e: FenceE, x: ExtrasConstants): ExtraModel {
   const segments: ExtraModel['segments'] = [];
   for (const [from, to] of pathSegments(e.path, e.closed)) {
     if (e.baseWallHeight > 0) {
@@ -180,7 +246,7 @@ function fenceModel(e: FenceE, x: ExtrasConstants): ExtraModel {
   };
 }
 
-function wallModel(e: WallE, x: ExtrasConstants): ExtraModel {
+export function wallModel(e: WallE, x: ExtrasConstants): ExtraModel {
   const lsf = e.system === 'lsf_board';
   return {
     id: e.id,
@@ -197,7 +263,7 @@ function wallModel(e: WallE, x: ExtrasConstants): ExtraModel {
   };
 }
 
-function retainingModel(e: RetE, x: ExtrasConstants): ExtraModel {
+export function retainingModel(e: RetE, x: ExtrasConstants): ExtraModel {
   const material = e.type === 'gabion' ? 'gabion' : e.type === 'concrete' ? 'concrete' : 'block';
   return {
     id: e.id,
@@ -214,50 +280,3 @@ function retainingModel(e: RetE, x: ExtrasConstants): ExtraModel {
   };
 }
 
-function deckModel(project: Project, e: DeckE, x: ExtrasConstants): ExtraModel {
-  const g = deckGeometry(project, e);
-  const m: ExtraModel = { id: e.id, kind: 'deck', segments: [], posts: [], polygon: g.polygon, topZ: deckTopZ(e, x) };
-  if (g.polygon.length === 0) return m;
-  if (e.guardrail !== false) {
-    for (const [from, to] of g.rails) {
-      m.segments.push({
-        from,
-        to,
-        height: x.guardrailHeight,
-        thickness: x.guardrailThickness,
-        baseZ: deckTopZ(e, x),
-        material: 'rail',
-      });
-    }
-  }
-  if (e.covered) {
-    // `roof` presente = deck coberto (ExtraModel não tem flag `covered`).
-    m.roof = deckRoof(e.id, e, g, project, x);
-    const lowEdgeZ = Math.min(...m.roof.vertices.map((v) => v[2]));
-    const postHeight = lowEdgeZ + x.deckCoverBeiral * Math.tan(m.roof.slopeDeg * DEG) - deckTopZ(e, x);
-    const n = Math.max(1, Math.ceil(g.length / x.deckPostSpacing - 1e-9));
-    for (let i = 0; i <= n; i++) {
-      const a = g.a0 + (g.length * i) / n;
-      m.posts.push({ position: g.at(a, e.depth), height: postHeight, size: x.deckPostSize });
-    }
-  }
-  return m;
-}
-
-/** Geometria 3D dos extras (muro, cerca, deck, arrimo, torre da caixa d'água) na ordem de `project.extras`. */
-export function buildExtraModels(project: Project, x: ExtrasConstants, ctx?: ExtraBuildContext): ExtraModel[] {
-  return project.extras.map((e) => {
-    switch (e.kind) {
-      case 'fence':
-        return fenceModel(e, x);
-      case 'wall':
-        return wallModel(e, x);
-      case 'deck':
-        return deckModel(project, e, x);
-      case 'retaining':
-        return retainingModel(e, x);
-      case 'water_tower':
-        return waterTowerModel(project, e, x, ctx);
-    }
-  });
-}

@@ -12,7 +12,7 @@ export function gambrelCabin(ids: IdGen): Project {
   const b = new Builder('gambrel', { name: 'Cabana gambrel 6 × 7', region: 'SC', width: 6, depth: 7, wallHeight: 2.6, lowerPitchDeg: 60, upperPitchDeg: 25, breakRatio: 0.4 }, ids);
   b.p.openings = [];
   b.finishes({ facade: 'finish_facade_texture', roofColor: 'green' });
-  b.deck({ length: 4, depth: 2, covered: false });
+  b.deck({ length: 4, depth: 2, covered: false, offset: 0.8 }); // cobre a porta da frente
 
   // Loft nos fundos (y de 4,4 a 7), com escada reta sob a cumeeira (é o único trecho com 2,10 m livres sobre os degraus).
   const elevation = 2.6;

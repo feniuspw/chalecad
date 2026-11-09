@@ -10,7 +10,7 @@ export function aframeCompact(ids: IdGen): Project {
   const b = new Builder('a_frame', { name: 'A-frame compacto 6 × 8', region: 'SP', width: 6, depth: 8, ridgeHeight: 6, kneeWallHeight: 0.9, mezzanine: true }, ids);
   b.finishes({ facade: 'finish_facade_wood', interiorRoof: 'finish_ceiling_wood', roofColor: 'black' });
   b.mezzanine({ depth: 3.2, elevation: 2.6, stairX: 2.6 });
-  b.deck({ length: 4, depth: 2.2 });
+  b.deck({ length: 4, depth: 2.2, offset: 1 }); // centrado na porta de correr (offset a partir do centro da fachada)
 
   // Banheiro no canto do fundo, à direita (sob o mezanino); a porta abre para a cozinha.
   b.wall([3.4, 8], [3.4, 5.6], { wet: true });

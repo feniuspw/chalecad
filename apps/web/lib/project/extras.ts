@@ -2,7 +2,22 @@
  * Extras do projeto (varanda/deck, muro, cerca, muro de arrimo): criação com padrões coerentes, edição de
  * caminhos, duplicação e resumo. Funções puras que mutam um rascunho Immer.
  */
-import { buildModel, Project as ProjectSchema, type Extra, type Project, type Vec2 } from '@chalecad/engine';
+import {
+  axisFootprint,
+  buildModel,
+  deckDoorCenters,
+  deckFaceCount,
+  deckFaceLength,
+  deckGeometry,
+  Project as ProjectSchema,
+  type BuildingModel,
+  type DeckStairModel,
+  type Extra,
+  type ExtraModel,
+  type Project,
+  type Vec2,
+  type Vec3,
+} from '@chalecad/engine';
 import { getCatalog } from '@chalecad/catalog';
 import { clamp, planBounds, round } from './geometry';
 import { newId, type IdGen } from './ids';
@@ -69,9 +84,55 @@ export function retainingPath(p: Project, side: Side = uphillSide(p)): Vec2[] {
   }
 }
 
-/** Comprimento (m) da fachada principal de cada lado. */
-export function sideLength(p: Project, side: Side): number {
-  return side === 'front' || side === 'back' ? p.typology.width : p.typology.depth;
+const modelCache = new WeakMap<object, BuildingModel | null>();
+
+/** Modelo da casa (contorno, portas, paredes) para o deck; memorizado por objeto de projeto (o Immer congela e troca a cada edição). */
+export function houseModel(p: Project): BuildingModel | null {
+  if (modelCache.has(p)) return modelCache.get(p) ?? null;
+  let m: BuildingModel | null = null;
+  try {
+    m = buildModel(ProjectSchema.parse(JSON.parse(JSON.stringify(p))), getCatalog());
+  } catch {
+    m = null;
+  }
+  modelCache.set(p, m);
+  return m;
+}
+
+/** Contorno externo das paredes (cai no retângulo dos eixos se o modelo não existe). */
+export const deckFootprint = (p: Project): Vec2[] => houseModel(p)?.footprint ?? axisFootprint(p);
+
+/** Comprimento (m) da face externa escolhida de cada lado (planta em L e anexos têm mais de uma face por lado). */
+export function sideLength(p: Project, side: Side, facadeIndex = 0): number {
+  return deckFaceLength(p, side, deckFootprint(p), facadeIndex);
+}
+
+/** Quantas faces externas voltam para o lado (para o seletor de fachada). */
+export const sideFaceCount = (p: Project, side: Side): number => deckFaceCount(p, side, deckFootprint(p));
+
+export type DeckAlignMode = 'start' | 'center' | 'end' | 'door';
+
+/**
+ * Patch de alinhamento do deck: Início/Centro/Fim voltam o deslocamento a zero; "porta" centraliza o deck na primeira
+ * porta da face (o deslocamento é limitado para o deck continuar de quina a quina). `null` se não há porta.
+ */
+export function deckAlignPatch(p: Project, e: Of<'deck'>, mode: DeckAlignMode): { align: 'start' | 'center' | 'end'; offset: number } | null {
+  if (mode !== 'door') return { align: mode, offset: 0 };
+  const model = houseModel(p);
+  if (!model) return null;
+  const doors = deckDoorCenters(p, e, model, getCatalog());
+  const door = doors[0];
+  if (door === undefined) return null;
+  const faceLen = sideLength(p, e.side, e.facadeIndex);
+  const len = Math.min(e.length ?? faceLen, faceLen);
+  const c = clamp(door, len / 2, faceLen - len / 2);
+  return { align: 'center', offset: round(c - faceLen / 2, 2) };
+}
+
+/** Faixa [início, fim] do deck ao longo da face (a mesma do motor). */
+export function deckSpan(p: Project, e: Of<'deck'>): { a0: number; a1: number; faceLength: number } {
+  const g = deckGeometry(p, e, { footprint: deckFootprint(p) });
+  return { a0: g.a0, a1: g.a1, faceLength: g.face.len };
 }
 
 /** Altura do chuveiro mais alto + folga da caixa acima dele (m): a caixa precisa ficar ~1 m acima. */
@@ -107,7 +168,8 @@ export function addExtra(draft: Project, kind: ExtraKind, ids: IdGen = newId): s
     case 'deck': {
       const side: Side = 'front';
       const len = sideLength(draft, side);
-      draft.extras.push({ id, kind, side, length: round(Math.min(len, 4), 2), offset: round(Math.max(0, (len - Math.min(len, 4)) / 2), 2), depth: 2, facadeIndex: 0, align: 'start', covered: false, guardrail: 'auto', stairs: 'auto', support: 'auto', footing: 'auto', boards: 'parallel' });
+      // Fachada inteira por padrão: o deck vai de quina a quina da face externa, na cota do degrau (-3 cm); o guarda-corpo e a escada são automáticos.
+      draft.extras.push({ id, kind, side, length: round(Math.min(len, 4), 2), offset: 0, depth: 2, facadeIndex: 0, align: 'center', covered: false, guardrail: 'auto', stairs: 'auto', support: 'auto', footing: 'auto', boards: 'parallel' });
       break;
     }
     case 'wall':
@@ -143,7 +205,8 @@ export function duplicateExtra(draft: Project, id: string, ids: IdGen = newId): 
   const copy = JSON.parse(JSON.stringify(src)) as Extra;
   copy.id = ids('x');
   if (copy.kind === 'deck') {
-    const len = sideLength(draft, copy.side);
+    const len = sideLength(draft, copy.side, copy.facadeIndex);
+    copy.align = 'start';
     copy.offset = round(clamp(copy.offset + (copy.length ?? len) + 0.2, 0, Math.max(0, len - 1)), 2);
   } else if (copy.kind === 'water_tower') {
     copy.position = [round(copy.position[0] + 1, 2), round(copy.position[1] + 1, 2)];
@@ -221,4 +284,231 @@ export function extraLabel(p: Project, id: string): string {
   if (!e) return id;
   const same = p.extras.filter((x) => x.kind === e.kind);
   return same.length > 1 ? `${EXTRA_LABELS[e.kind]} ${same.findIndex((x) => x.id === id) + 1}` : EXTRA_LABELS[e.kind];
+}
+
+// ---------------------------------------------------------------------------
+// Layout 3D do deck (dados puros para a cena: caixas orientadas, em coordenadas do motor, z para cima)
+// ---------------------------------------------------------------------------
+
+/** Caixa orientada: `size` = [comprimento (x local), largura (y local), altura (z local)]; yaw em z, pitch em torno de y. */
+export interface DeckBox {
+  center: Vec3;
+  yaw: number;
+  pitch: number;
+  size: [number, number, number];
+}
+
+/** Barra entre dois pontos 3D com seção `w` × `h` (comprimento no x local). */
+export function rodBox(a: Vec3, b: Vec3, w: number, h: number): DeckBox {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const dz = b[2] - a[2];
+  const horiz = Math.hypot(dx, dy);
+  return {
+    center: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2],
+    yaw: Math.atan2(dy, dx),
+    pitch: -Math.atan2(dz, horiz),
+    size: [Math.max(1e-3, Math.hypot(horiz, dz)), w, h],
+  };
+}
+
+/** Faixa [a, q] (ao longo e para fora da face) coberta pelo polígono do deck. */
+function deckRange(em: ExtraModel): { a0: number; a1: number; q0: number; q1: number } | null {
+  const d = em.deck;
+  if (!d || !em.polygon || em.polygon.length < 3) return null;
+  const o = d.facade.origin;
+  const a: number[] = [];
+  const q: number[] = [];
+  for (const p of em.polygon) {
+    a.push((p[0] - o[0]) * d.facade.t[0] + (p[1] - o[1]) * d.facade.t[1]);
+    q.push((p[0] - o[0]) * d.facade.n[0] + (p[1] - o[1]) * d.facade.n[1]);
+  }
+  return { a0: Math.min(...a), a1: Math.max(...a), q0: Math.min(...q), q1: Math.max(...q) };
+}
+
+/** Tábuas do piso no `boardDir`, preenchendo o deck com juntas de `gap`. Vazio sem estrutura do motor. */
+export function deckBoardLayout(em: ExtraModel, board: { width: number; gap: number }): DeckBox[] {
+  const d = em.deck;
+  const r = deckRange(em);
+  if (!d || !r || em.topZ === undefined) return [];
+  const o = d.facade.origin;
+  const { t, n } = d.facade;
+  const along = d.boardDir; // direção das tábuas
+  const parallel = Math.abs(along[0] * t[0] + along[1] * t[1]) > 0.5;
+  const lenSpan = parallel ? r.a1 - r.a0 : r.q1 - r.q0;
+  const acrossSpan = parallel ? r.q1 - r.q0 : r.a1 - r.a0;
+  const count = Math.max(1, Math.round((acrossSpan + board.gap) / (board.width + board.gap)));
+  const pitch = (acrossSpan + board.gap) / count;
+  const width = pitch - board.gap;
+  const yaw = Math.atan2(along[1], along[0]);
+  const out: DeckBox[] = [];
+  for (let i = 0; i < count; i++) {
+    const across = (parallel ? r.q0 : r.a0) + pitch * i + width / 2;
+    const mid = (parallel ? r.a0 : r.q0) + lenSpan / 2;
+    const a = parallel ? mid : across;
+    const q = parallel ? across : mid;
+    out.push({
+      center: [o[0] + t[0] * a + n[0] * q, o[1] + t[1] * a + n[1] * q, em.topZ - d.boardThickness / 2],
+      yaw,
+      pitch: 0,
+      size: [lenSpan, width, d.boardThickness],
+    });
+  }
+  return out;
+}
+
+/** Testeira (borda de acabamento) nas três bordas livres; o lado da casa não leva. */
+export function deckFasciaLayout(em: ExtraModel, depth: number, thickness = 0.02): DeckBox[] {
+  const d = em.deck;
+  const r = deckRange(em);
+  if (!d || !r || em.topZ === undefined) return [];
+  const o = d.facade.origin;
+  const { t, n } = d.facade;
+  const P = (a: number, q: number, z: number): Vec3 => [o[0] + t[0] * a + n[0] * q, o[1] + t[1] * a + n[1] * q, z];
+  const zc = em.topZ - depth / 2;
+  const off = thickness / 2;
+  return [
+    rodBox(P(r.a0 - off, r.q0, zc), P(r.a0 - off, r.q1 + thickness, zc), thickness, depth),
+    rodBox(P(r.a0 - thickness, r.q1 + off, zc), P(r.a1 + thickness, r.q1 + off, zc), thickness, depth),
+    rodBox(P(r.a1 + off, r.q1 + thickness, zc), P(r.a1 + off, r.q0, zc), thickness, depth),
+  ];
+}
+
+/** Barrotes, vigas e ledger como caixas (o topo do membro é `topZ`). */
+export function deckMemberBoxes(members: { from: Vec2; to: Vec2; topZ: number; width: number; depth: number }[]): DeckBox[] {
+  return members.map((m) => rodBox([m.from[0], m.from[1], m.topZ - m.depth / 2], [m.to[0], m.to[1], m.topZ - m.depth / 2], m.width, m.depth));
+}
+
+export interface DeckRailLayout {
+  /** Montantes, balaústres, corrimão e travessa baixa (mesmo material). */
+  boxes: DeckBox[];
+}
+
+/** LOCAL: afastamento dos montantes e dos balaústres do guarda-corpo (vão máx. 11 cm, NBR 14718). */
+const RAIL_POST_STEP = 1.2;
+const RAIL_BALUSTER_STEP = 0.13;
+
+/** Guarda-corpo de cada segmento `rail`: montantes, balaústres verticais e corrimão. */
+export function deckRailLayout(segments: ExtraModel['segments']): DeckRailLayout {
+  const boxes: DeckBox[] = [];
+  for (const s of segments) {
+    if (s.material !== 'rail') continue;
+    const len = Math.hypot(s.to[0] - s.from[0], s.to[1] - s.from[1]);
+    if (len < 0.05) continue;
+    const dir: Vec2 = [(s.to[0] - s.from[0]) / len, (s.to[1] - s.from[1]) / len];
+    const yaw = Math.atan2(dir[1], dir[0]);
+    const at = (u: number): Vec2 => [s.from[0] + dir[0] * u, s.from[1] + dir[1] * u];
+    const nPost = Math.max(1, Math.ceil(len / RAIL_POST_STEP));
+    for (let i = 0; i <= nPost; i++) {
+      const p = at((len * i) / nPost);
+      boxes.push({ center: [p[0], p[1], s.baseZ + s.height / 2], yaw, pitch: 0, size: [0.05, 0.05, s.height] });
+    }
+    const nBal = Math.max(1, Math.floor(len / RAIL_BALUSTER_STEP));
+    for (let i = 0; i < nBal; i++) {
+      const p = at(((i + 0.5) * len) / nBal);
+      boxes.push({ center: [p[0], p[1], s.baseZ + 0.06 + (s.height - 0.12) / 2], yaw, pitch: 0, size: [0.02, 0.02, s.height - 0.12] });
+    }
+    const mid = at(len / 2);
+    boxes.push({ center: [mid[0], mid[1], s.baseZ + s.height - 0.02], yaw, pitch: 0, size: [len, 0.07, 0.04] });
+    boxes.push({ center: [mid[0], mid[1], s.baseZ + 0.06], yaw, pitch: 0, size: [len, 0.04, 0.04] });
+  }
+  return { boxes };
+}
+
+export interface DeckStairLayout {
+  treads: DeckBox[];
+  stringers: DeckBox[];
+  /** Montantes e corrimãos inclinados dos dois lados. */
+  rails: DeckBox[];
+}
+
+/** LOCAL: espessura do degrau, seção da longarina e altura do corrimão da escada (m). */
+const STAIR_TREAD_THICKNESS = 0.04;
+const STAIR_STRINGER = { width: 0.05, depth: 0.25 };
+const STAIR_HANDRAIL_HEIGHT = 0.92;
+
+/** Degraus, longarinas e corrimão de uma escada do deck. */
+export function deckStairLayout(s: DeckStairModel): DeckStairLayout {
+  const { top, dir, width, risers, riserHeight, tread, topZ } = s;
+  const side: Vec2 = [-dir[1], dir[0]];
+  const at = (u: number, lat: number): Vec2 => [top[0] + dir[0] * u + side[0] * lat, top[1] + dir[1] * u + side[1] * lat];
+  const treads: DeckBox[] = [];
+  for (let i = 1; i <= Math.max(1, risers - 1); i++) {
+    const c = at((i - 0.5) * tread, 0);
+    const z = topZ - i * riserHeight - STAIR_TREAD_THICKNESS / 2;
+    treads.push({ center: [c[0], c[1], z], yaw: Math.atan2(dir[1], dir[0]), pitch: 0, size: [tread, width, STAIR_TREAD_THICKNESS] });
+  }
+  const run = (risers - 1) * tread;
+  const zTopNose = topZ - riserHeight; // topo do primeiro degrau
+  const zBottom = topZ - risers * riserHeight;
+  const stringers: DeckBox[] = [];
+  const rails: DeckBox[] = [];
+  for (const lat of [-(width / 2 - STAIR_STRINGER.width / 2), width / 2 - STAIR_STRINGER.width / 2]) {
+    const a = at(0, lat);
+    const b = at(run, lat);
+    const drop = STAIR_STRINGER.depth / 2 + STAIR_TREAD_THICKNESS;
+    stringers.push(rodBox([a[0], a[1], zTopNose - drop], [b[0], b[1], zBottom - drop + riserHeight], STAIR_STRINGER.width, STAIR_STRINGER.depth));
+    // corrimão acima do bico dos degraus: de h acima do primeiro degrau até h acima do último
+    const h = STAIR_HANDRAIL_HEIGHT;
+    const last = topZ - Math.max(1, risers - 1) * riserHeight;
+    rails.push(rodBox([a[0], a[1], zTopNose + h], [b[0], b[1], last + h], 0.05, 0.04));
+    const nPost = Math.max(2, Math.min(risers, 4));
+    for (let k = 0; k < nPost; k++) {
+      const u = (run * k) / Math.max(1, nPost - 1);
+      const p = at(u, lat);
+      const zt = zTopNose + h - (run > 0 ? ((zTopNose - last) * u) / run : 0);
+      const zb = zt - h;
+      rails.push({ center: [p[0], p[1], (zt + zb) / 2], yaw: 0, pitch: 0, size: [0.04, 0.04, h] });
+    }
+  }
+  return { treads, stringers, rails };
+}
+
+export interface DeckPillarLayout {
+  pillars: { box: DeckBox; material: 'wood' | 'steel' | 'concrete' }[];
+  /** Sapatas (caixas) e brocas (cilindros) aparentes acima do chão. */
+  pads: DeckBox[];
+  bored: { center: Vec3; radius: number; height: number }[];
+  braces: DeckBox[];
+}
+
+/** LOCAL: quanto a sapata/broca aparece acima do chão (m) e a seção da mão-francesa. */
+const FOOTING_REVEAL = 0.1;
+const BRACE = { size: 0.05, reach: 0.6 };
+
+/** Pilares do chão até a viga, com a sapata/broca aparente e a mão-francesa dos pilares altos. */
+export function deckPillarLayout(em: ExtraModel): DeckPillarLayout {
+  const d = em.deck;
+  const out: DeckPillarLayout = { pillars: [], pads: [], bored: [], braces: [] };
+  const r = deckRange(em);
+  if (!d || !r) return out;
+  const o = d.facade.origin;
+  const { t, n } = d.facade;
+  for (const s of d.supports) {
+    const h = Math.max(0, s.topZ - s.groundZ);
+    if (h > 1e-6) {
+      out.pillars.push({ box: { center: [s.position[0], s.position[1], s.groundZ + h / 2], yaw: 0, pitch: 0, size: [s.size, s.size, h] }, material: s.material });
+    }
+    if (s.footing.kind === 'pad') {
+      const w = s.footing.width;
+      out.pads.push({ center: [s.position[0], s.position[1], s.groundZ + FOOTING_REVEAL / 2 - 0.02], yaw: 0, pitch: 0, size: [w, w, FOOTING_REVEAL + 0.04] });
+    } else {
+      out.bored.push({ center: [s.position[0], s.position[1], s.groundZ + FOOTING_REVEAL / 2 - 0.02], radius: s.footing.width / 2, height: FOOTING_REVEAL + 0.04 });
+    }
+    if (s.braced && h > BRACE.reach) {
+      const a = (s.position[0] - o[0]) * t[0] + (s.position[1] - o[1]) * t[1];
+      const toCenter = a < (r.a0 + r.a1) / 2 ? 1 : -1;
+      const zTop = s.topZ;
+      const zLow = zTop - BRACE.reach;
+      // uma mão-francesa para o meio da viga e outra para a casa
+      const dirs: Vec2[] = [
+        [t[0] * toCenter, t[1] * toCenter],
+        [-n[0], -n[1]],
+      ];
+      for (const dv of dirs) {
+        out.braces.push(rodBox([s.position[0], s.position[1], zLow], [s.position[0] + dv[0] * BRACE.reach, s.position[1] + dv[1] * BRACE.reach, zTop], BRACE.size, BRACE.size));
+      }
+    }
+  }
+  return out;
 }

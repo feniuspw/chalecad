@@ -1084,7 +1084,7 @@ function generateOnce(a: WizardAnswers): GenerateResult {
   }
   if (a.laundry === 'outside') {
     const id = addExtra(b.p, 'deck', g.ids);
-    patchExtra(b.p, id, { side: 'back', length: 2.5, offset: round(Math.max(0, (b.p.typology.width - 2.5) / 2), 2), depth: 1.5, covered: true, guardrail: false });
+    patchExtra(b.p, id, { side: 'back', length: 2.5, align: 'center', offset: 0, depth: 1.5, covered: true });
     g.note('A lavanderia ficou numa área coberta nos fundos, sem parede: leve o tanque e a máquina para lá.');
   }
 
