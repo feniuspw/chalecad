@@ -192,8 +192,8 @@ describe('implantação', () => {
 
 describe('buildSheets', () => {
   it('com o fallback da etapa legal gera 5 folhas numeradas x/y', () => {
-    const ctx = ctxOf(legalProject());
-    expect(ctx.results.approval).toBeUndefined();
+    const base = ctxOf(legalProject());
+    const ctx = { ...base, results: { ...base.results, approval: undefined } };
     const sheets = buildSheets(ctx);
     expect(sheets.map((s) => s.spec.code)).toEqual(['ARQ-01', 'ARQ-02', 'ARQ-03', 'ARQ-04', 'ARQ-05']);
     sheets.forEach((s, i) => {
@@ -215,7 +215,15 @@ describe('buildSheets', () => {
       { code: 'ARQ-01', discipline: 'architecture', title: 'Mista', format: 'A3', contents: [{ kind: 'roof', title: 'COBERTURA', scale: 100 }, { kind: 'tank_detail', title: 'DETALHE', scale: 20 }] },
       { code: 'EST-01', discipline: 'structure', title: 'Vazia', format: 'A3', contents: [{ kind: 'foundation', title: 'FUNDAÇÃO', scale: 50 }] },
     ];
-    const sheets = buildSheets(withApproval(ctx, specs));
+    const saved = { foundation: registry.foundation, tank_detail: registry.tank_detail };
+    delete registry.foundation;
+    delete registry.tank_detail;
+    let sheets;
+    try {
+      sheets = buildSheets(withApproval(ctx, specs));
+    } finally {
+      Object.assign(registry, saved);
+    }
     expect(sheets).toHaveLength(1);
     expect(sheets[0]!.skipped).toEqual(['tank_detail']);
     expect(sheets[0]!.total).toBe(1);
