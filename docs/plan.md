@@ -84,4 +84,4 @@ Parallel streams: engine (E) and editor (W).
 - [x] F18-D deck aligned to the outer face, structure (joists, beams, piers (pilotis) down to the finished ground, foundations), stairs and guardrail per the standard
 - [x] F18-T leveled areas drawn on the terrain (pads) and retaining walls suggested at the edges
 - [x] F18-L lighting: real ceiling height, automatic switch, single engine grid, live lux
-- [ ] F18-L2 post-integration electrical fixes (conduit fill in the wizard, manual-move test)
+- [x] F18-L2 post-integration electrical fixes (conduit fill in the wizard, manual-move test)
